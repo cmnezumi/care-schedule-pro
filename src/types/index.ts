@@ -8,11 +8,18 @@ export interface ScheduleType {
     defaultEndTime?: string;   // HH:mm
 }
 
+export interface CareManager {
+    id: string;
+    name: string;
+    avatar?: string;
+}
+
 export interface Client {
     id: string;
     name: string;
     address: string;
     careLevel: string; // e.g., "要介護1"
+    careManagerId: string; // Assigned caretaker
     notes?: string;
 }
 
