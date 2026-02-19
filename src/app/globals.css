@@ -1,0 +1,65 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 248, 250, 252;
+  --background-end-rgb: 255, 255, 255;
+  
+  /* Premium Care Colors */
+  --primary-color: #0ea5e9; /* Sky 500 */
+  --secondary-color: #64748b; /* Slate 500 */
+  --accent-color: #f43f5e; /* Rose 500 */
+  --background-soft: #f1f5f9; /* Slate 100 */
+}
+
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: 'Inter', sans-serif; /* Assuming Inter or system font */
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+/* FullCalendar and Tailwind CSS compatibility fixes */
+/* Re-apply button styles that might be reset by Tailwind's preflight */
+.fc .fc-button-primary {
+  background-color: #3b82f6; /* blue-500 */
+  color: white;
+  border-color: #3b82f6;
+}
+
+.fc .fc-button-primary:hover {
+  background-color: #2563eb; /* blue-600 */
+  border-color: #2563eb;
+}
+
+.fc .fc-button-primary:disabled {
+  background-color: #9ca3af; /* gray-400 */
+  border-color: #9ca3af;
+}
+
+/* Ensure day grid links are clickable */
+.fc .fc-daygrid-day-number {
+  color: #1f2937; /* gray-800 */
+  text-decoration: none;
+}
+
+.fc .fc-daygrid-day-number:hover {
+  text-decoration: underline;
+}
+
+/* General link styles within the calendar */
+.fc a {
+  color: inherit;
+  text-decoration: none;
+}
