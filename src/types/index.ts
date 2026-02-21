@@ -19,7 +19,7 @@ export interface Client {
     name: string;
     address: string;
     careLevel: string; // e.g., "要介護1"
-    careManagerId: string; // Assigned caretaker
+    careManagerId?: string; // Assigned caretaker (optional for backward compatibility)
     notes?: string;
 }
 
