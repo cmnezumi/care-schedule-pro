@@ -11,9 +11,10 @@ interface VisitModalProps {
     initialDate?: Date;
     clients?: Client[];
     scheduleTypes?: ScheduleType[];
+    defaultClientId?: string | null;
 }
 
-const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], scheduleTypes = [] }: VisitModalProps) => {
+const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('monitoring'); // Changed to string
     const [startTime, setStartTime] = useState('10:00');
@@ -23,7 +24,9 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     useEffect(() => {
         if (isOpen && initialDate) {
             // Reset fields when opening
-            if (clients.length > 0) {
+            if (defaultClientId) {
+                setClientId(defaultClientId);
+            } else if (clients.length > 0) {
                 setClientId(clients[0].id);
             } else {
                 setClientId('');

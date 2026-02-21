@@ -27,7 +27,15 @@ const UserManagement = ({ clients, onAddClient, selectedClientId, onSelectClient
                 {clients.map((client) => (
                     <div
                         key={client.id}
-                        onClick={() => onSelectClient && onSelectClient(client.id)}
+                        onClick={() => {
+                            if (onSelectClient) {
+                                if (selectedClientId === client.id) {
+                                    onSelectClient(''); // Deselect (or null if preferred, but usually empty string or null works)
+                                } else {
+                                    onSelectClient(client.id);
+                                }
+                            }
+                        }}
                         className={`p-3 rounded-xl border transition-all cursor-pointer group
                             ${selectedClientId === client.id
                                 ? 'border-[var(--primary-color)] bg-sky-50 ring-1 ring-[var(--primary-color)] shadow-sm'

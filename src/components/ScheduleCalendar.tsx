@@ -161,6 +161,7 @@ const ScheduleCalendar = ({ clients = [], events: propEvents, setEvents, selecte
         initialDate={selectedDate}
         clients={clients}
         scheduleTypes={scheduleTypes}
+        defaultClientId={selectedClientId}
       />
     </div>
   );
