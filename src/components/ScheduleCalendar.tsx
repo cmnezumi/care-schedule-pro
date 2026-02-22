@@ -30,6 +30,7 @@ const ScheduleCalendar = ({ clients = [], events: propEvents, setEvents, selecte
   }, []);
 
   const handleDateClick = (arg: DateClickArg) => {
+    console.log("Date clicked:", arg.dateStr);
     setSelectedDate(arg.date);
     setIsModalOpen(true);
   };
