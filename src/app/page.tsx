@@ -84,7 +84,18 @@ export default function Home() {
     setEvents([...events, newEvent]);
   };
 
-  const handleSaveVisit = (data: { clientId: string; type: VisitType; start: string; end: string; notes: string }) => {
+  const handleSaveVisit = (data: {
+    clientId: string;
+    type: VisitType;
+    start: string;
+    end: string;
+    notes: string;
+    recurring?: {
+      daysOfWeek: number[];
+      startTime: string;
+      endTime: string;
+    }
+  }) => {
     const client = clients.find(c => c.id === data.clientId);
     if (!client) return;
 
@@ -98,10 +109,8 @@ export default function Home() {
       color = typeDef.color;
     }
 
-    const newEvent = {
+    const eventBase = {
       title: `${client.name}: ${typeLabel}`,
-      start: data.start,
-      end: data.end,
       backgroundColor: color,
       extendedProps: {
         clientId: data.clientId,
@@ -109,6 +118,22 @@ export default function Home() {
         notes: data.notes
       }
     };
+
+    let newEvent;
+    if (data.recurring) {
+      newEvent = {
+        ...eventBase,
+        daysOfWeek: data.recurring.daysOfWeek,
+        startTime: data.recurring.startTime,
+        endTime: data.recurring.endTime
+      };
+    } else {
+      newEvent = {
+        ...eventBase,
+        start: data.start,
+        end: data.end
+      };
+    }
 
     setEvents([...events, newEvent]);
   };

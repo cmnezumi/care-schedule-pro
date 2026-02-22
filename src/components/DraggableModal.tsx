@@ -89,11 +89,11 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                 If we remove the background overlay, we need to handle "clicking outside" logic differently if we want auto-close.
                 For "window" feel, usually you have to click "Close" or "Cancel".
             */}
-            <div className="fixed inset-0 bg-black/20 pointer-events-auto" onClick={onClose} />
+            <div className="fixed inset-0 bg-black/5 pointer-events-auto" onClick={onClose} />
 
             <div
                 ref={modalRef}
-                className={`pointer-events-auto absolute bg-white rounded-xl shadow-2xl border border-slate-200 flex flex-col ${width} overflow-hidden`}
+                className={`pointer-events-auto absolute bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-300 flex flex-col ${width} overflow-hidden`}
                 style={{
                     left: position ? position.x : '50%',
                     top: position ? position.y : '50%',

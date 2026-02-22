@@ -8,6 +8,7 @@ interface VisitModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: { clientId: string; type: VisitType; start: string; end: string; notes: string }) => void;
+    onSave: (data: { clientId: string; type: VisitType; start: string; end: string; notes: string; recurring?: { daysOfWeek: number[]; startTime: string; endTime: string; } }) => void;
     initialDate?: Date;
     clients?: Client[];
     scheduleTypes?: ScheduleType[];
@@ -20,6 +21,8 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     const [startTime, setStartTime] = useState('10:00');
     const [endTime, setEndTime] = useState('11:00');
     const [notes, setNotes] = useState('');
+    const [isRecurring, setIsRecurring] = useState(false);
+    const [recurringDays, setRecurringDays] = useState<number[]>([]);
 
     useEffect(() => {
         if (isOpen && initialDate) {
@@ -40,8 +43,12 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             setStartTime('10:00');
             setEndTime('11:00');
             setNotes('');
+
+            // Set default recurring day to the clicked date's day of week
+            setIsRecurring(false);
+            setRecurringDays([initialDate.getDay()]);
         }
-    }, [isOpen, initialDate, clients, scheduleTypes]);
+    }, [isOpen, initialDate, clients, scheduleTypes, defaultClientId]);
 
     console.log("VisitModal: isOpen =", isOpen, "initialDate =", initialDate);
     if (!isOpen) return null;
@@ -49,18 +56,49 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     const handleSave = () => {
         if (!initialDate) return;
 
-        // Use local date parts to avoid "11th" bug caused by UTC conversion
-        const year = initialDate.getFullYear();
-        const month = String(initialDate.getMonth() + 1).padStart(2, '0');
-        const day = String(initialDate.getDate()).padStart(2, '0');
-        const dateStr = `${year}-${month}-${day}`;
+        if (isRecurring) {
+            onSave({
+                clientId,
+                type: type as VisitType,
+                start: '', // Not used for recurring
+                end: '',   // Not used for recurring
+                notes,
+                recurring: {
+                    daysOfWeek: recurringDays,
+                    startTime,
+                    endTime
+                }
+            });
+        } else {
+            // Use local date parts to avoid "11th" bug caused by UTC conversion
+            const year = initialDate.getFullYear();
+            const month = String(initialDate.getMonth() + 1).padStart(2, '0');
+            const day = String(initialDate.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
 
-        const start = `${dateStr}T${startTime}:00`;
-        const end = `${dateStr}T${endTime}:00`;
+            const start = `${dateStr}T${startTime}:00`;
+            const end = `${dateStr}T${endTime}:00`;
 
-        onSave({ clientId, type: type as VisitType, start, end, notes }); // Cast type to VisitType
+            onSave({ clientId, type: type as VisitType, start, end, notes });
+        }
         onClose();
     };
+
+    const toggleDay = (day: number) => {
+        setRecurringDays(prev =>
+            prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
+        );
+    };
+
+    const weekDays = [
+        { label: '日', value: 0 },
+        { label: '月', value: 1 },
+        { label: '火', value: 2 },
+        { label: '水', value: 3 },
+        { label: '木', value: 4 },
+        { label: '金', value: 5 },
+        { label: '土', value: 6 }
+    ];
 
     // If no scheduleTypes provided, fallback to default (though we expect them to be provided)
     const effectiveScheduleTypes: ScheduleType[] = scheduleTypes.length > 0 ? scheduleTypes : [
