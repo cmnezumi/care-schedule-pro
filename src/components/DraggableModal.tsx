@@ -98,7 +98,9 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                     left: position ? position.x : '50%',
                     top: position ? position.y : '50%',
                     transform: position ? 'none' : 'translate(-50%, -50%)',
-                    width: 'auto' // Allow width to be determined by content or prop
+                    width: 'auto',
+                    backgroundColor: 'white',
+                    opacity: 1
                 }}
             >
                 {/* Header / Drag Handle */}

@@ -208,6 +208,40 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                         onChange={(e) => setNotes(e.target.value)}
                     />
                 </div>
+
+                <div className="pt-2 border-t border-slate-100">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <input
+                            type="checkbox"
+                            className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
+                            checked={isRecurring}
+                            onChange={(e) => setIsRecurring(e.target.checked)}
+                        />
+                        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">毎週繰り返す (デイサービス・往診など)</span>
+                    </label>
+
+                    {isRecurring && (
+                        <div className="mt-3 bg-slate-50 p-3 rounded-lg border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
+                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">繰り返す曜日</label>
+                            <div className="flex gap-1.5">
+                                {weekDays.map(day => (
+                                    <button
+                                        key={day.value}
+                                        type="button"
+                                        onClick={() => toggleDay(day.value)}
+                                        className={`w-9 h-9 rounded-full text-sm font-medium transition-all flex items-center justify-center ${recurringDays.includes(day.value)
+                                                ? 'bg-sky-500 text-white shadow-sm ring-2 ring-sky-200 ring-offset-1'
+                                                : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                                            }`}
+                                    >
+                                        {day.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-2">※ 選択した曜日の同じ時間に毎週登録されます</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <div className="flex justify-end gap-3 mt-6">
