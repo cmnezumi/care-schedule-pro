@@ -43,6 +43,7 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
         }
     }, [isOpen, initialDate, clients, scheduleTypes]);
 
+    console.log("VisitModal: isOpen =", isOpen, "initialDate =", initialDate);
     if (!isOpen) return null;
 
     const handleSave = () => {

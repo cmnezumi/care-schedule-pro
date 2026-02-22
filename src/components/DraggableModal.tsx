@@ -68,6 +68,7 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
         };
     }, [isDragging]);
 
+    console.log("DraggableModal: isOpen =", isOpen, "title =", title);
     if (!isOpen) return null;
 
     return (
