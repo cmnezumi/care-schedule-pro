@@ -72,7 +72,7 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center">
+        <div className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center">
             {/* Overlay - Optional: make it transparent/clickable through or completely removed? 
                 User wants "separate window", so maybe no blocking overlay, or a light one.
                 If we want a true "window" feel, we might remove the background blocking overlay 

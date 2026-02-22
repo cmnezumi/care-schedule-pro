@@ -14,12 +14,18 @@ interface ScheduleCalendarProps {
   setEvents?: (events: any[]) => void;
   selectedClientId?: string | null;
   scheduleTypes?: ScheduleType[];
+  onDateClick?: (date: Date) => void;
 }
 
-const ScheduleCalendar = ({ clients = [], events: propEvents, setEvents, selectedClientId, scheduleTypes = [] }: ScheduleCalendarProps) => {
+const ScheduleCalendar = ({
+  clients = [],
+  events: propEvents,
+  setEvents,
+  selectedClientId,
+  scheduleTypes = [],
+  onDateClick
+}: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   // Allow local state fallback if props aren't provided (though they will be)
   const [localEvents, setLocalEvents] = useState<any[]>([]);
 
@@ -31,8 +37,9 @@ const ScheduleCalendar = ({ clients = [], events: propEvents, setEvents, selecte
 
   const handleDateClick = (arg: DateClickArg) => {
     console.log("Date clicked:", arg.dateStr);
-    setSelectedDate(arg.date);
-    setIsModalOpen(true);
+    if (onDateClick) {
+      onDateClick(arg.date);
+    }
   };
 
   const handleEventClick = (info: any) => {

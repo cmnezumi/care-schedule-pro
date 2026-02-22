@@ -133,7 +133,7 @@ export default function Home() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               バックアップ
             </button>
-            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.13</span>
+            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.14</span>
           </div>
         </div>
 
@@ -197,6 +197,10 @@ export default function Home() {
                   setEvents={setEvents}
                   selectedClientId={selectedClientId}
                   scheduleTypes={scheduleTypes}
+                  onDateClick={(date) => {
+                    setSelectedVisitDate(date);
+                    setIsVisitModalOpen(true);
+                  }}
                 />
               </div>
             </div>
@@ -219,6 +223,16 @@ export default function Home() {
               isOpen={isUserModalOpen}
               onClose={() => setIsUserModalOpen(false)}
               onSave={handleAddClient}
+            />
+
+            <VisitModal
+              isOpen={isVisitModalOpen}
+              onClose={() => setIsVisitModalOpen(false)}
+              onSave={handleSaveVisit}
+              initialDate={selectedVisitDate}
+              clients={filteredClients}
+              scheduleTypes={scheduleTypes}
+              defaultClientId={selectedClientId}
             />
           </>
         )}
