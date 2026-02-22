@@ -7,8 +7,18 @@ import DraggableModal from './DraggableModal';
 interface VisitModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: { clientId: string; type: VisitType; start: string; end: string; notes: string }) => void;
-    onSave: (data: { clientId: string; type: VisitType; start: string; end: string; notes: string; recurring?: { daysOfWeek: number[]; startTime: string; endTime: string; } }) => void;
+    onSave: (data: {
+        clientId: string;
+        type: VisitType;
+        start: string;
+        end: string;
+        notes: string;
+        recurring?: {
+            daysOfWeek: number[];
+            startTime: string;
+            endTime: string;
+        }
+    }) => void;
     initialDate?: Date;
     clients?: Client[];
     scheduleTypes?: ScheduleType[];
