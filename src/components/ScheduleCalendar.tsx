@@ -34,6 +34,22 @@ const ScheduleCalendar = ({ clients = [], events: propEvents, setEvents, selecte
     setIsModalOpen(true);
   };
 
+  const handleEventClick = (info: any) => {
+    const eventTitle = info.event.title;
+    if (confirm(`「${eventTitle}」を削除してもよろしいですか？`)) {
+      const allEvents = propEvents || localEvents;
+      const updatedEvents = allEvents.filter(e =>
+        !(e.title === info.event.title && e.start === info.event.startStr)
+      );
+
+      if (setEvents) {
+        setEvents(updatedEvents);
+      } else {
+        setLocalEvents(updatedEvents);
+      }
+    }
+  };
+
   const handleSaveVisit = (data: { clientId: string; type: VisitType; start: string; end: string; notes: string }) => {
     const client = clients.find(c => c.id === data.clientId);
     if (!client) return;
@@ -153,6 +169,7 @@ const ScheduleCalendar = ({ clients = [], events: propEvents, setEvents, selecte
           week: '週',
           day: '日'
         }}
+        eventClick={handleEventClick}
       />
       <VisitModal
         isOpen={isModalOpen}

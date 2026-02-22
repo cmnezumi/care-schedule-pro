@@ -48,8 +48,12 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     const handleSave = () => {
         if (!initialDate) return;
 
-        // Combine initialDate with time strings
-        const dateStr = initialDate.toISOString().split('T')[0];
+        // Use local date parts to avoid "11th" bug caused by UTC conversion
+        const year = initialDate.getFullYear();
+        const month = String(initialDate.getMonth() + 1).padStart(2, '0');
+        const day = String(initialDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
         const start = `${dateStr}T${startTime}:00`;
         const end = `${dateStr}T${endTime}:00`;
 
@@ -75,11 +79,19 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
         }
     };
 
+    // Format date for display
+    const displayDate = initialDate ? initialDate.toLocaleDateString('ja-JP', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        weekday: 'short'
+    }) : '';
+
     return (
         <DraggableModal
             isOpen={isOpen}
             onClose={onClose}
-            title="訪問予定の登録"
+            title={`${displayDate} の予定登録`}
         >
             <div className="space-y-4">
                 <div>
