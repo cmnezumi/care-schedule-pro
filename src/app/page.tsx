@@ -8,7 +8,8 @@ import UserModal from "@/components/UserModal";
 import ShiftAutomation from "@/components/ShiftAutomation";
 import ConferenceAdjustment from "@/components/ConferenceAdjustment";
 import Settings from "@/components/Settings";
-import { Client, ScheduleType, CareManager } from "@/types";
+import VisitModal from "@/components/VisitModal";
+import { Client, ScheduleType, CareManager, VisitType } from "@/types";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
@@ -37,6 +38,8 @@ export default function Home() {
   ]);
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
+  const [selectedVisitDate, setSelectedVisitDate] = useState<Date | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   // Lifted event state
@@ -78,6 +81,35 @@ export default function Home() {
   };
 
   const handleAddEvent = (newEvent: any) => {
+    setEvents([...events, newEvent]);
+  };
+
+  const handleSaveVisit = (data: { clientId: string; type: VisitType; start: string; end: string; notes: string }) => {
+    const client = clients.find(c => c.id === data.clientId);
+    if (!client) return;
+
+    // Determine label and color
+    let typeLabel = data.type;
+    let color = '#64748b'; // default
+
+    const typeDef = scheduleTypes.find(t => t.id === data.type || t.name === data.type);
+    if (typeDef) {
+      typeLabel = typeDef.name;
+      color = typeDef.color;
+    }
+
+    const newEvent = {
+      title: `${client.name}: ${typeLabel}`,
+      start: data.start,
+      end: data.end,
+      backgroundColor: color,
+      extendedProps: {
+        clientId: data.clientId,
+        type: data.type,
+        notes: data.notes
+      }
+    };
+
     setEvents([...events, newEvent]);
   };
 
@@ -133,7 +165,7 @@ export default function Home() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               バックアップ
             </button>
-            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.14</span>
+            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.15</span>
           </div>
         </div>
 

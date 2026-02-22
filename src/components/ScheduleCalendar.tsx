@@ -58,74 +58,6 @@ const ScheduleCalendar = ({
     }
   };
 
-  const handleSaveVisit = (data: { clientId: string; type: VisitType; start: string; end: string; notes: string }) => {
-    const client = clients.find(c => c.id === data.clientId);
-    if (!client) return;
-
-    // Determine label and color
-    let typeLabel = data.type;
-    let color = '#64748b'; // default
-
-    // Check if it's a known schedule type
-    if (scheduleTypes.length > 0) {
-      const typeDef = scheduleTypes.find(t => t.id === data.type || t.name === data.type);
-      if (typeDef) {
-        typeLabel = typeDef.name;
-        color = typeDef.color;
-      } else {
-        // Fallback for default hardcoded types if not in scheduleTypes (though we initialized scheduleTypes with defaults)
-        const defaultTypeLabel: Record<string, string> = {
-          monitoring: 'モニタリング',
-          assessment: 'アセスメント',
-          conference: '担当者会議',
-          other: 'その他'
-        };
-        const defaultColor: Record<string, string> = {
-          monitoring: '#0ea5e9',
-          assessment: '#f43f5e',
-          conference: '#8b5cf6',
-          other: '#64748b'
-        };
-        typeLabel = defaultTypeLabel[data.type as string] || data.type;
-        color = defaultColor[data.type as string] || '#64748b';
-      }
-    } else {
-      // Original hardcoded logic if scheduleTypes are not provided
-      const defaultTypeLabel: Record<string, string> = {
-        monitoring: 'モニタリング',
-        assessment: 'アセスメント',
-        conference: '担当者会議',
-        other: 'その他'
-      };
-      const defaultColor: Record<string, string> = {
-        monitoring: '#0ea5e9', // Sky
-        assessment: '#f43f5e', // Rose
-        conference: '#8b5cf6', // Violet
-        other: '#64748b'       // Slate
-      };
-      typeLabel = defaultTypeLabel[data.type as string] || data.type;
-      color = defaultColor[data.type as string] || '#64748b';
-    }
-
-    const newEvent = {
-      title: `${client.name}: ${typeLabel}`,
-      start: data.start,
-      end: data.end,
-      backgroundColor: color,
-      extendedProps: {
-        clientId: data.clientId,
-        type: data.type,
-        notes: data.notes
-      }
-    };
-
-    if (setEvents) {
-      setEvents([...displayEvents, newEvent]);
-    } else {
-      setLocalEvents([...localEvents, newEvent]);
-    }
-  };
-
   // Filter events if a client is selected
   const filteredEvents = selectedClientId
     ? displayEvents.filter(e => e.extendedProps?.clientId === selectedClientId)
@@ -178,15 +110,6 @@ const ScheduleCalendar = ({
           day: '日'
         }}
         eventClick={handleEventClick}
-      />
-      <VisitModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSave={handleSaveVisit}
-        initialDate={selectedDate}
-        clients={clients}
-        scheduleTypes={scheduleTypes}
-        defaultClientId={selectedClientId}
       />
     </div>
   );
