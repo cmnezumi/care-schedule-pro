@@ -9,6 +9,7 @@ import ShiftAutomation from "@/components/ShiftAutomation";
 import ConferenceAdjustment from "@/components/ConferenceAdjustment";
 import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
+import DeletionChoiceModal from "@/components/DeletionChoiceModal";
 import { Client, ScheduleType, CareManager, VisitType } from "@/types";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
@@ -41,6 +42,9 @@ export default function Home() {
   const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [selectedVisitDate, setSelectedVisitDate] = useState<Date | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+
+  const [isDeletionModalOpen, setIsDeletionModalOpen] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<any>(null);
 
   // Lifted event state
   const [events, setEvents] = useState<any[]>([
@@ -140,6 +144,15 @@ export default function Home() {
   };
 
   const handleDeleteEvent = (eventInfo: any) => {
+    // If it's a recurring event, show the choice modal
+    // Note: FullCalendar recurring events have set properties
+    if (eventInfo.extendedProps?.isRecurring || eventInfo.allDay !== undefined || eventInfo._def?.recurringDef) {
+      setEventToDelete(eventInfo);
+      setIsDeletionModalOpen(true);
+      return;
+    }
+
+    // Otherwise standard deletion
     const id = eventInfo.id;
     const title = eventInfo.title;
 
@@ -147,6 +160,59 @@ export default function Home() {
       if (id && e.id) return e.id !== id;
       return !(e.title === title);
     }));
+  };
+
+  const handleConfirmDelete = (choice: 'all' | 'following' | 'this') => {
+    if (!eventToDelete) return;
+
+    const eventId = eventToDelete.id;
+    const eventTitle = eventToDelete.title;
+    const eventDate = eventToDelete.startStr.split('T')[0];
+
+    setEvents(prev => {
+      if (choice === 'all') {
+        return prev.filter(e => {
+          if (eventId && e.id) return e.id !== eventId;
+          return e.title !== eventTitle;
+        });
+      }
+
+      if (choice === 'following') {
+        // Set end date to the day before
+        const targetDate = new Date(eventDate);
+        targetDate.setDate(targetDate.getDate() - 1);
+        const endDateStr = targetDate.toISOString().split('T')[0];
+
+        return prev.map(e => {
+          if ((eventId && e.id === eventId) || (!eventId && e.title === eventTitle)) {
+            return { ...e, endRecur: endDateStr, end: endDateStr };
+          }
+          return e;
+        });
+      }
+
+      if (choice === 'this') {
+        // Add to excluded dates
+        return prev.map(e => {
+          if ((eventId && e.id === eventId) || (!eventId && e.title === eventTitle)) {
+            const excluded = e.extendedProps?.excludedDates || [];
+            return {
+              ...e,
+              extendedProps: {
+                ...e.extendedProps,
+                excludedDates: [...excluded, eventDate]
+              }
+            };
+          }
+          return e;
+        });
+      }
+
+      return prev;
+    });
+
+    setIsDeletionModalOpen(false);
+    setEventToDelete(null);
   };
 
   const navigateToConference = (clientId: string) => {
