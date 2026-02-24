@@ -15,6 +15,7 @@ interface ScheduleCalendarProps {
   selectedClientId?: string | null;
   scheduleTypes?: ScheduleType[];
   onDateClick?: (date: Date) => void;
+  onDeleteEvent?: (eventInfo: any) => void;
 }
 
 const ScheduleCalendar = ({
@@ -23,7 +24,8 @@ const ScheduleCalendar = ({
   setEvents,
   selectedClientId,
   scheduleTypes = [],
-  onDateClick
+  onDateClick,
+  onDeleteEvent
 }: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
   // Allow local state fallback if props aren't provided (though they will be)
@@ -45,6 +47,12 @@ const ScheduleCalendar = ({
   const handleEventClick = (info: any) => {
     const eventTitle = info.event.title;
     if (confirm(`「${eventTitle}」を削除してもよろしいですか？`)) {
+      if (onDeleteEvent) {
+        // Pass the event object or identifying info
+        onDeleteEvent(info.event);
+        return;
+      }
+
       const allEvents = propEvents || localEvents;
       const updatedEvents = allEvents.filter(e =>
         !(e.title === info.event.title && e.start === info.event.startStr)

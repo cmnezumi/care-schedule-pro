@@ -119,7 +119,7 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     ];
 
     const handleTypeSelect = (sType: ScheduleType) => {
-        setType(sType.id);
+        setType(sType.name);
         if (sType.defaultStartTime) {
             setStartTime(sType.defaultStartTime);
         }
@@ -162,19 +162,29 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                         {effectiveScheduleTypes.map((sType) => (
                             <button
                                 key={sType.id}
+                                type="button"
                                 onClick={() => handleTypeSelect(sType)}
-                                className={`p-2 rounded-lg border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 ${type === sType.id
+                                className={`p-2 rounded-lg border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 ${type === sType.name || type === sType.id
                                     ? `border-transparent text-white shadow-md transform scale-105`
                                     : 'border-slate-200 text-slate-600 hover:bg-slate-50'
                                     }`}
                                 style={{
-                                    backgroundColor: type === sType.id ? sType.color : undefined,
-                                    borderColor: type === sType.id ? sType.color : 'transparent',
+                                    backgroundColor: (type === sType.name || type === sType.id) ? sType.color : undefined,
+                                    borderColor: (type === sType.name || type === sType.id) ? sType.color : 'transparent',
                                 }}
                             >
                                 {sType.name}
                             </button>
                         ))}
+                    </div>
+                    <div className="mt-2">
+                        <input
+                            type="text"
+                            className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm"
+                            placeholder="または自由に入力..."
+                            value={type}
+                            onChange={(e) => setType(e.target.value)}
+                        />
                     </div>
                 </div>
 
@@ -230,8 +240,8 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                                         type="button"
                                         onClick={() => toggleDay(day.value)}
                                         className={`w-9 h-9 rounded-full text-sm font-medium transition-all flex items-center justify-center ${recurringDays.includes(day.value)
-                                                ? 'bg-sky-500 text-white shadow-sm ring-2 ring-sky-200 ring-offset-1'
-                                                : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                                            ? 'bg-sky-500 text-white shadow-sm ring-2 ring-sky-200 ring-offset-1'
+                                            : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
                                             }`}
                                     >
                                         {day.label}

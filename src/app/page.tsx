@@ -110,6 +110,7 @@ export default function Home() {
     }
 
     const eventBase = {
+      id: Math.random().toString(36).substr(2, 9),
       title: `${client.name}: ${typeLabel}`,
       backgroundColor: color,
       extendedProps: {
@@ -136,6 +137,19 @@ export default function Home() {
     }
 
     setEvents([...events, newEvent]);
+  };
+
+  const handleDeleteEvent = (eventInfo: any) => {
+    // Determine which event to remove using ID if available, otherwise fallback to title/start
+    const id = eventInfo.id;
+    const title = eventInfo.title;
+    const start = eventInfo.startStr;
+
+    setEvents(events.filter(e => {
+      if (id && e.id) return e.id !== id;
+      // Fallback
+      return !(e.title === title && (e.start === start || e.startStr === start));
+    }));
   };
 
   const navigateToConference = (clientId: string) => {
@@ -258,6 +272,7 @@ export default function Home() {
                     setSelectedVisitDate(date);
                     setIsVisitModalOpen(true);
                   }}
+                  onDeleteEvent={handleDeleteEvent}
                 />
               </div>
             </div>
