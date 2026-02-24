@@ -130,7 +130,11 @@ export default function Home() {
         ...eventBase,
         daysOfWeek: data.recurring.daysOfWeek,
         startTime: data.recurring.startTime,
-        endTime: data.recurring.endTime
+        endTime: data.recurring.endTime,
+        extendedProps: {
+          ...eventBase.extendedProps,
+          isRecurring: true
+        }
       };
     } else {
       newEvent = {
@@ -267,7 +271,7 @@ export default function Home() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               バックアップ
             </button>
-            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.19</span>
+            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.20</span>
           </div>
         </div>
 
@@ -368,6 +372,13 @@ export default function Home() {
               clients={filteredClients}
               scheduleTypes={scheduleTypes}
               defaultClientId={selectedClientId}
+            />
+
+            <DeletionChoiceModal
+              isOpen={isDeletionModalOpen}
+              onClose={() => setIsDeletionModalOpen(false)}
+              onConfirm={handleConfirmDelete}
+              eventTitle={eventToDelete?.title || ''}
             />
           </>
         )}

@@ -46,9 +46,17 @@ const ScheduleCalendar = ({
 
   const handleEventClick = (info: any) => {
     const eventTitle = info.event.title;
+    const isRecurring = info.event.extendedProps?.isRecurring || info.event._def?.recurringDef;
+
+    if (isRecurring) {
+      if (onDeleteEvent) {
+        onDeleteEvent(info.event);
+      }
+      return;
+    }
+
     if (confirm(`「${eventTitle}」を削除してもよろしいですか？`)) {
       if (onDeleteEvent) {
-        // Pass the event object or identifying info
         onDeleteEvent(info.event);
         return;
       }
@@ -116,6 +124,20 @@ const ScheduleCalendar = ({
           month: '月',
           week: '週',
           day: '日'
+        }}
+        eventContent={(arg) => {
+          const excludedDates = arg.event.extendedProps?.excludedDates || [];
+          const currentDate = arg.event.startStr.split('T')[0];
+          if (excludedDates.includes(currentDate)) {
+            return null; // Don't render
+          }
+          return (
+            <div className="fc-event-main-frame flex items-center px-1 overflow-hidden">
+              <div className="fc-event-title-container overflow-hidden">
+                <div className="fc-event-title fc-sticky text-[10px] leading-tight truncate">{arg.event.title}</div>
+              </div>
+            </div>
+          );
         }}
         eventClick={handleEventClick}
       />
