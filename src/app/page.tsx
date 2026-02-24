@@ -44,8 +44,8 @@ export default function Home() {
 
   // Lifted event state
   const [events, setEvents] = useState<any[]>([
-    { title: '田中 太郎: モニタリング', start: new Date().toISOString().split('T')[0] + 'T10:00:00', end: new Date().toISOString().split('T')[0] + 'T11:00:00', backgroundColor: '#0ea5e9', extendedProps: { clientId: '1', type: 'monitoring' } },
-    { title: '佐藤 花子: アセスメント', start: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0] + 'T14:00:00', backgroundColor: '#f43f5e', extendedProps: { clientId: '2', type: 'assessment' } }
+    { id: 'initial1', title: '田中 太郎: モニタリング', start: new Date().toISOString().split('T')[0] + 'T10:00:00', end: new Date().toISOString().split('T')[0] + 'T11:00:00', backgroundColor: '#0ea5e9', extendedProps: { clientId: '1', type: 'monitoring' } },
+    { id: 'initial2', title: '佐藤 花子: アセスメント', start: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0] + 'T14:00:00', backgroundColor: '#f43f5e', extendedProps: { clientId: '2', type: 'assessment' } }
   ]);
 
   const handleAddClient = (clientData: Omit<Client, 'id' | 'careManagerId'>) => {
@@ -140,15 +140,12 @@ export default function Home() {
   };
 
   const handleDeleteEvent = (eventInfo: any) => {
-    // Determine which event to remove using ID if available, otherwise fallback to title/start
     const id = eventInfo.id;
     const title = eventInfo.title;
-    const start = eventInfo.startStr;
 
-    setEvents(events.filter(e => {
+    setEvents(prev => prev.filter(e => {
       if (id && e.id) return e.id !== id;
-      // Fallback
-      return !(e.title === title && (e.start === start || e.startStr === start));
+      return !(e.title === title);
     }));
   };
 
@@ -204,7 +201,7 @@ export default function Home() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               バックアップ
             </button>
-            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.18</span>
+            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.19</span>
           </div>
         </div>
 
