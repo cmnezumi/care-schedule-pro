@@ -17,7 +17,13 @@ interface VisitModalProps {
             daysOfWeek: number[];
             startTime: string;
             endTime: string;
-        }
+        };
+        monthlyRecur?: {
+            week: number;
+            day: number;
+            startTime: string;
+            endTime: string;
+        };
     }) => void;
     initialDate?: Date;
     clients?: Client[];
@@ -27,16 +33,17 @@ interface VisitModalProps {
 
 const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
-    const [type, setType] = useState<string>('monitoring'); // Changed to string
+    const [type, setType] = useState<string>('monitoring');
     const [startTime, setStartTime] = useState('10:00');
     const [endTime, setEndTime] = useState('11:00');
     const [notes, setNotes] = useState('');
-    const [isRecurring, setIsRecurring] = useState(false);
-    const [recurringDays, setRecurringDays] = useState<number[]>([]);
+    const [recurrenceType, setRecurrenceType] = useState<'none' | 'weekly' | 'monthly'>('none');
+    const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
+    const [monthlyWeek, setMonthlyWeek] = useState(1);
+    const [monthlyDay, setMonthlyDay] = useState(1);
 
     useEffect(() => {
         if (isOpen && initialDate) {
-            // Reset fields when opening
             if (defaultClientId) {
                 setClientId(defaultClientId);
             } else if (clients.length > 0) {
@@ -44,7 +51,6 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             } else {
                 setClientId('');
             }
-            // Default to first type if available
             if (scheduleTypes.length > 0) {
                 setType(scheduleTypes[0].id);
             } else {
@@ -54,48 +60,63 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             setEndTime('11:00');
             setNotes('');
 
-            // Set default recurring day to the clicked date's day of week
-            setIsRecurring(false);
-            setRecurringDays([initialDate.getDay()]);
+            setRecurrenceType('none');
+            setWeeklyDays([initialDate.getDay()]);
+
+            // Set default monthly to "This week-number and this day-of-week"
+            const weekNumber = Math.ceil(initialDate.getDate() / 7);
+            setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber); // Caps at 4 or maybe provide "last"
+            setMonthlyDay(initialDate.getDay());
         }
     }, [isOpen, initialDate, clients, scheduleTypes, defaultClientId]);
-
-    console.log("VisitModal: isOpen =", isOpen, "initialDate =", initialDate);
-    if (!isOpen) return null;
 
     const handleSave = () => {
         if (!initialDate) return;
 
-        if (isRecurring) {
+        const baseData = {
+            clientId,
+            type: type as VisitType,
+            notes,
+        };
+
+        if (recurrenceType === 'weekly') {
             onSave({
-                clientId,
-                type: type as VisitType,
-                start: '', // Not used for recurring
-                end: '',   // Not used for recurring
-                notes,
+                ...baseData,
+                start: '',
+                end: '',
                 recurring: {
-                    daysOfWeek: recurringDays,
+                    daysOfWeek: weeklyDays,
+                    startTime,
+                    endTime
+                }
+            });
+        } else if (recurrenceType === 'monthly') {
+            onSave({
+                ...baseData,
+                start: '',
+                end: '',
+                monthlyRecur: {
+                    week: monthlyWeek,
+                    day: monthlyDay,
                     startTime,
                     endTime
                 }
             });
         } else {
-            // Use local date parts to avoid "11th" bug caused by UTC conversion
             const year = initialDate.getFullYear();
             const month = String(initialDate.getMonth() + 1).padStart(2, '0');
             const day = String(initialDate.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
-
             const start = `${dateStr}T${startTime}:00`;
             const end = `${dateStr}T${endTime}:00`;
 
-            onSave({ clientId, type: type as VisitType, start, end, notes });
+            onSave({ ...baseData, start, end });
         }
         onClose();
     };
 
-    const toggleDay = (day: number) => {
-        setRecurringDays(prev =>
+    const toggleWeeklyDay = (day: number) => {
+        setWeeklyDays(prev =>
             prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
         );
     };
@@ -220,35 +241,77 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                 </div>
 
                 <div className="pt-2 border-t border-slate-100">
-                    <label className="flex items-center gap-2 cursor-pointer group">
-                        <input
-                            type="checkbox"
-                            className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500 cursor-pointer"
-                            checked={isRecurring}
-                            onChange={(e) => setIsRecurring(e.target.checked)}
-                        />
-                        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 transition-colors">毎週繰り返す (デイサービス・往診など)</span>
-                    </label>
+                    <label className="block text-sm font-medium text-slate-600 mb-2">繰り返しの設定</label>
+                    <div className="flex bg-slate-100 p-1 rounded-xl mb-3">
+                        <button
+                            type="button"
+                            onClick={() => setRecurrenceType('none')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'none' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            なし
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRecurrenceType('weekly')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'weekly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            毎週
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setRecurrenceType('monthly')}
+                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'monthly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                        >
+                            毎月
+                        </button>
+                    </div>
 
-                    {isRecurring && (
-                        <div className="mt-3 bg-slate-50 p-3 rounded-lg border border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">繰り返す曜日</label>
+                    {recurrenceType === 'weekly' && (
+                        <div className="bg-sky-50/50 p-3 rounded-lg border border-sky-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <label className="block text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-2">繰り返す曜日</label>
                             <div className="flex gap-1.5">
                                 {weekDays.map(day => (
                                     <button
                                         key={day.value}
                                         type="button"
-                                        onClick={() => toggleDay(day.value)}
-                                        className={`w-9 h-9 rounded-full text-sm font-medium transition-all flex items-center justify-center ${recurringDays.includes(day.value)
-                                            ? 'bg-sky-500 text-white shadow-sm ring-2 ring-sky-200 ring-offset-1'
-                                            : 'bg-white text-slate-500 border border-slate-200 hover:border-slate-300'
+                                        onClick={() => toggleWeeklyDay(day.value)}
+                                        className={`w-9 h-9 rounded-full text-sm font-bold transition-all flex items-center justify-center ${weeklyDays.includes(day.value)
+                                            ? 'bg-sky-500 text-white shadow-md ring-4 ring-sky-100'
+                                            : 'bg-white text-slate-400 border border-slate-200 hover:border-sky-200'
                                             }`}
                                     >
                                         {day.label}
                                     </button>
                                 ))}
                             </div>
-                            <p className="text-[10px] text-slate-400 mt-2">※ 選択した曜日の同じ時間に毎週登録されます</p>
+                        </div>
+                    )}
+
+                    {recurrenceType === 'monthly' && (
+                        <div className="bg-sky-50/50 p-4 rounded-lg border border-sky-100 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm text-slate-600">毎月</span>
+                                <select
+                                    value={monthlyWeek}
+                                    onChange={(e) => setMonthlyWeek(Number(e.target.value))}
+                                    className="bg-white border border-sky-200 rounded-lg px-2 py-1 text-sm font-bold text-sky-700 outline-none focus:ring-2 focus:ring-sky-500"
+                                >
+                                    <option value={1}>第1</option>
+                                    <option value={2}>第2</option>
+                                    <option value={3}>第3</option>
+                                    <option value={4}>第4</option>
+                                </select>
+                                <select
+                                    value={monthlyDay}
+                                    onChange={(e) => setMonthlyDay(Number(e.target.value))}
+                                    className="bg-white border border-sky-200 rounded-lg px-2 py-1 text-sm font-bold text-sky-700 outline-none focus:ring-2 focus:ring-sky-500"
+                                >
+                                    {weekDays.map(day => (
+                                        <option key={day.value} value={day.value}>{day.label}曜日</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <p className="text-[10px] text-slate-400 mt-3">※ 例：「毎月 第1 火曜日」に自動で予定が入ります</p>
                         </div>
                     )}
                 </div>

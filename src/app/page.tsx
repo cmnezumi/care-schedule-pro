@@ -131,7 +131,13 @@ export default function Home() {
       daysOfWeek: number[];
       startTime: string;
       endTime: string;
-    }
+    };
+    monthlyRecur?: {
+      week: number;
+      day: number;
+      startTime: string;
+      endTime: string;
+    };
   }) => {
     const client = clients.find(c => c.id === data.clientId);
     if (!client) return;
@@ -157,9 +163,8 @@ export default function Home() {
       }
     };
 
-    let newEvent;
     if (data.recurring) {
-      newEvent = {
+      const newEvent = {
         ...eventBase,
         daysOfWeek: data.recurring.daysOfWeek,
         startTime: data.recurring.startTime,
@@ -169,21 +174,63 @@ export default function Home() {
           isRecurring: true
         }
       };
+      setEvents([...events, newEvent]);
+    } else if (data.monthlyRecur) {
+      // For monthly Nth day, generate individual events for the next 12 months
+      const generatedEvents: any[] = [];
+      const { week, day, startTime, endTime } = data.monthlyRecur;
+      const seriesId = Math.random().toString(36).substr(2, 9);
+
+      const now = new Date();
+      for (let i = 0; i < 12; i++) {
+        const targetMonth = new Date(now.getFullYear(), now.getMonth() + i, 1);
+
+        // Find the Nth weekday of this month
+        let dayCount = 0;
+        let targetDate: Date | null = null;
+
+        for (let d = 1; d <= 31; d++) {
+          const checkDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), d);
+          if (checkDate.getMonth() !== targetMonth.getMonth()) break;
+
+          if (checkDate.getDay() === day) {
+            dayCount++;
+            if (dayCount === week) {
+              targetDate = checkDate;
+              break;
+            }
+          }
+        }
+
+        if (targetDate) {
+          const dateStr = targetDate.toISOString().split('T')[0];
+          generatedEvents.push({
+            ...eventBase,
+            id: `${seriesId}-${i}`,
+            start: `${dateStr}T${startTime}:00`,
+            end: `${dateStr}T${endTime}:00`,
+            extendedProps: {
+              ...eventBase.extendedProps,
+              isRecurring: true, // Treat as recurring for deletion logic
+              seriesId: seriesId
+            }
+          });
+        }
+      }
+      setEvents([...events, ...generatedEvents]);
     } else {
-      newEvent = {
+      const newEvent = {
         ...eventBase,
         start: data.start,
         end: data.end
       };
+      setEvents([...events, newEvent]);
     }
-
-    setEvents([...events, newEvent]);
   };
 
   const handleDeleteEvent = (eventInfo: any) => {
     // If it's a recurring event, show the choice modal
-    // Note: FullCalendar recurring events have set properties
-    if (eventInfo.extendedProps?.isRecurring || eventInfo.allDay !== undefined || eventInfo._def?.recurringDef) {
+    if (eventInfo.extendedProps?.isRecurring) {
       setEventToDelete(eventInfo);
       setIsDeletionModalOpen(true);
       return;
@@ -203,23 +250,37 @@ export default function Home() {
     if (!eventToDelete) return;
 
     const eventId = eventToDelete.id;
+    const eventSeriesId = eventToDelete.extendedProps?.seriesId;
     const eventTitle = eventToDelete.title;
-    const eventDate = eventToDelete.startStr.split('T')[0];
+    const eventDate = eventToDelete.startStr?.split('T')[0] || eventToDelete.start.toISOString().split('T')[0];
 
     setEvents(prev => {
       if (choice === 'all') {
         return prev.filter(e => {
-          if (eventId && e.id) return e.id !== eventId;
-          return e.title !== eventTitle;
+          if (eventSeriesId && e.extendedProps?.seriesId === eventSeriesId) return false;
+          if (eventId && e.id === eventId) return false;
+          if (!eventId && !eventSeriesId && e.title === eventTitle) return false;
+          return true;
         });
       }
 
       if (choice === 'following') {
-        // Set end date to the day before
         const targetDate = new Date(eventDate);
         targetDate.setDate(targetDate.getDate() - 1);
         const endDateStr = targetDate.toISOString().split('T')[0];
 
+        // For monthly series (generated individual events)
+        if (eventSeriesId) {
+          return prev.filter(e => {
+            if (e.extendedProps?.seriesId === eventSeriesId) {
+              const eDate = e.start?.split('T')[0];
+              return eDate <= endDateStr;
+            }
+            return true;
+          });
+        }
+
+        // For weekly (recurring property)
         return prev.map(e => {
           if ((eventId && e.id === eventId) || (!eventId && e.title === eventTitle)) {
             return { ...e, endRecur: endDateStr, end: endDateStr };
@@ -309,7 +370,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.21</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.22</span>
             </div>
 
           </div>
