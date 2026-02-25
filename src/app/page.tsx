@@ -15,42 +15,63 @@ import { Client, ScheduleType, CareManager, VisitType } from "@/types";
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<TabType>('schedule');
-
-  // Care Managers State
-  const [careManagers] = useState<CareManager[]>([
-    { id: 'cm1', name: 'ねずみ' },
-    { id: 'cm2', name: 'ケアマネ A' },
-    { id: 'cm3', name: 'ケアマネ B' },
-  ]);
-  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
-
-  const [clients, setClients] = useState<Client[]>([
-    { id: '1', name: '田中 太郎', address: '東京都渋谷区...', careLevel: '要介護1', careManagerId: 'cm1' },
-    { id: '2', name: '佐藤 花子', address: '東京都新宿区...', careLevel: '要支援2', careManagerId: 'cm1' },
-    { id: '3', name: '鈴木 一郎', address: '東京都港区...', careLevel: '要介護3', careManagerId: 'cm2' },
-  ]);
-
-  const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([
-    { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' }, // sky-500
-    { id: 'assessment', name: 'アセスメント', color: '#f43f5e' }, // rose-500
-    { id: 'conference', name: '担当者会議', color: '#8b5cf6' },   // violet-500
-    { id: 'other', name: 'その他', color: '#64748b' },           // slate-500
-  ]);
-
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [selectedVisitDate, setSelectedVisitDate] = useState<Date | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   const [isDeletionModalOpen, setIsDeletionModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<any>(null);
 
-  // Lifted event state
-  const [events, setEvents] = useState<any[]>([
-    { id: 'initial1', title: '田中 太郎: モニタリング', start: new Date().toISOString().split('T')[0] + 'T10:00:00', end: new Date().toISOString().split('T')[0] + 'T11:00:00', backgroundColor: '#0ea5e9', extendedProps: { clientId: '1', type: 'monitoring' } },
-    { id: 'initial2', title: '佐藤 花子: アセスメント', start: new Date(new Date().setDate(new Date().getDate() + 1)).toISOString().split('T')[0] + 'T14:00:00', backgroundColor: '#f43f5e', extendedProps: { clientId: '2', type: 'assessment' } }
+  const [dataLoaded, setDataLoaded] = useState(false);
+
+  // Lifted state
+  const [clients, setClients] = useState<Client[]>([]);
+  const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([
+    { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
+    { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
+    { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
+    { id: 'other', name: 'その他', color: '#64748b' },
   ]);
+  const [events, setEvents] = useState<any[]>([]);
+
+  // Load from localStorage on mount
+  React.useEffect(() => {
+    const savedClients = localStorage.getItem('cp_clients');
+    const savedTypes = localStorage.getItem('cp_scheduleTypes');
+    const savedEvents = localStorage.getItem('cp_events');
+
+    if (savedClients) setClients(JSON.parse(savedClients));
+    else {
+      // Default initial data if none exists
+      setClients([
+        { id: '1', name: '田中 太郎', address: '東京都渋谷区...', careLevel: '要介護1', careManagerId: 'cm1' },
+        { id: '2', name: '佐藤 花子', address: '東京都新宿区...', careLevel: '要支援2', careManagerId: 'cm1' },
+        { id: '3', name: '鈴木 一郎', address: '東京都港区...', careLevel: '要介護3', careManagerId: 'cm2' },
+      ]);
+    }
+
+    if (savedTypes) setScheduleTypes(JSON.parse(savedTypes));
+    if (savedEvents) setEvents(JSON.parse(savedEvents));
+
+    setDataLoaded(true);
+  }, []);
+
+  // Save to localStorage on changes
+  React.useEffect(() => {
+    if (dataLoaded) {
+      localStorage.setItem('cp_clients', JSON.stringify(clients));
+      localStorage.setItem('cp_scheduleTypes', JSON.stringify(scheduleTypes));
+      localStorage.setItem('cp_events', JSON.stringify(events));
+    }
+  }, [clients, scheduleTypes, events, dataLoaded]);
+
+  const [isSaving, setIsSaving] = useState(false);
+  React.useEffect(() => {
+    if (dataLoaded) {
+      setIsSaving(true);
+      const timer = setTimeout(() => setIsSaving(false), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [clients, scheduleTypes, events]);
 
   const handleAddClient = (clientData: Omit<Client, 'id' | 'careManagerId'>) => {
     const newClient: Client = {
@@ -271,7 +292,14 @@ export default function Home() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
               バックアップ
             </button>
-            <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.20</span>
+            <div className="flex items-center gap-2">
+              <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${isSaving ? 'text-sky-500 animate-pulse' : 'text-slate-300'}`}>
+                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
+                {isSaving ? '保存中...' : '自動保存済み'}
+              </div>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.21</span>
+            </div>
+
           </div>
         </div>
 
