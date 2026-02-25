@@ -15,6 +15,18 @@ import { Client, ScheduleType, CareManager, VisitType } from "@/types";
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
 export default function Home() {
+  const [activeTab, setActiveTab] = useState<TabType>('schedule');
+
+  // Care Managers State
+  const [careManagers] = useState<CareManager[]>([
+    { id: 'cm1', name: 'ねずみ' },
+    { id: 'cm2', name: 'ケアマネ A' },
+    { id: 'cm3', name: 'ケアマネ B' },
+  ]);
+  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
+
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
   const [selectedVisitDate, setSelectedVisitDate] = useState<Date | undefined>(undefined);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
