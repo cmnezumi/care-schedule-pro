@@ -162,174 +162,197 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             isOpen={isOpen}
             onClose={onClose}
             title={`${displayDate} の予定登録`}
+            width="max-w-3xl"
         >
-            <div className="space-y-4">
-                <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">利用者</label>
-                    <select
-                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
-                        value={clientId}
-                        onChange={(e) => setClientId(e.target.value)}
-                    >
-                        {clients.map(client => (
-                            <option key={client.id} value={client.id}>{client.name} 様</option>
-                        ))}
-                    </select>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">予定の種類</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {effectiveScheduleTypes.map((sType) => (
-                            <button
-                                key={sType.id}
-                                type="button"
-                                onClick={() => handleTypeSelect(sType)}
-                                className={`p-2 rounded-lg border text-sm transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 ${type === sType.name || type === sType.id
-                                    ? `border-transparent text-white shadow-md transform scale-105`
-                                    : 'border-slate-200 text-slate-600 hover:bg-slate-50'
-                                    }`}
-                                style={{
-                                    backgroundColor: (type === sType.name || type === sType.id) ? sType.color : undefined,
-                                    borderColor: (type === sType.name || type === sType.id) ? sType.color : 'transparent',
-                                }}
+            <div className="flex flex-col gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Left Column: Basic Info */}
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
+                                利用者
+                            </label>
+                            <select
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all font-medium text-slate-700"
+                                value={clientId}
+                                onChange={(e) => setClientId(e.target.value)}
                             >
-                                {sType.name}
-                            </button>
-                        ))}
-                    </div>
-                    <div className="mt-2">
-                        <input
-                            type="text"
-                            className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none text-sm"
-                            placeholder="または自由に入力..."
-                            value={type}
-                            onChange={(e) => setType(e.target.value)}
-                        />
-                    </div>
-                </div>
+                                {clients.map(client => (
+                                    <option key={client.id} value={client.id}>{client.name} 様</option>
+                                ))}
+                            </select>
+                        </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">開始時間</label>
-                        <input
-                            type="time"
-                            className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
-                            value={startTime}
-                            onChange={(e) => setStartTime(e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-600 mb-1">終了時間</label>
-                        <input
-                            type="time"
-                            className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
-                            value={endTime}
-                            onChange={(e) => setEndTime(e.target.value)}
-                        />
-                    </div>
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-slate-600 mb-1">メモ</label>
-                    <textarea
-                        className="w-full p-2 border border-slate-300 rounded-lg h-24 resize-none focus:ring-2 focus:ring-sky-500 outline-none"
-                        placeholder="訪問の目的や特記事項..."
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                    />
-                </div>
-
-                <div className="pt-2 border-t border-slate-100">
-                    <label className="block text-sm font-medium text-slate-600 mb-2">繰り返しの設定</label>
-                    <div className="flex bg-slate-100 p-1 rounded-xl mb-3">
-                        <button
-                            type="button"
-                            onClick={() => setRecurrenceType('none')}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'none' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            なし
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setRecurrenceType('weekly')}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'weekly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            毎週
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setRecurrenceType('monthly')}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'monthly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
-                        >
-                            毎月
-                        </button>
-                    </div>
-
-                    {recurrenceType === 'weekly' && (
-                        <div className="bg-sky-50/50 p-3 rounded-lg border border-sky-100 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <label className="block text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-2">繰り返す曜日</label>
-                            <div className="flex gap-1.5">
-                                {weekDays.map(day => (
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
+                                予定の種類
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {effectiveScheduleTypes.map((sType) => (
                                     <button
-                                        key={day.value}
+                                        key={sType.id}
                                         type="button"
-                                        onClick={() => toggleWeeklyDay(day.value)}
-                                        className={`w-9 h-9 rounded-full text-sm font-bold transition-all flex items-center justify-center ${weeklyDays.includes(day.value)
-                                            ? 'bg-sky-500 text-white shadow-md ring-4 ring-sky-100'
-                                            : 'bg-white text-slate-400 border border-slate-200 hover:border-sky-200'
+                                        onClick={() => handleTypeSelect(sType)}
+                                        className={`px-3 py-2 rounded-xl border text-[13px] font-bold transition-all focus:outline-none ${type === sType.name || type === sType.id
+                                            ? `border-transparent text-white shadow-lg shadow-${sType.id}/20 scale-[1.02]`
+                                            : 'border-slate-100 bg-slate-50 text-slate-500 hover:bg-white hover:border-slate-200'
                                             }`}
+                                        style={{
+                                            backgroundColor: (type === sType.name || type === sType.id) ? sType.color : undefined,
+                                        }}
                                     >
-                                        {day.label}
+                                        {sType.name}
                                     </button>
                                 ))}
                             </div>
-                        </div>
-                    )}
-
-                    {recurrenceType === 'monthly' && (
-                        <div className="bg-sky-50/50 p-4 rounded-lg border border-sky-100 animate-in fade-in slide-in-from-top-1 duration-200">
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-slate-600">毎月</span>
-                                <select
-                                    value={monthlyWeek}
-                                    onChange={(e) => setMonthlyWeek(Number(e.target.value))}
-                                    className="bg-white border border-sky-200 rounded-lg px-2 py-1 text-sm font-bold text-sky-700 outline-none focus:ring-2 focus:ring-sky-500"
-                                >
-                                    <option value={1}>第1</option>
-                                    <option value={2}>第2</option>
-                                    <option value={3}>第3</option>
-                                    <option value={4}>第4</option>
-                                </select>
-                                <select
-                                    value={monthlyDay}
-                                    onChange={(e) => setMonthlyDay(Number(e.target.value))}
-                                    className="bg-white border border-sky-200 rounded-lg px-2 py-1 text-sm font-bold text-sky-700 outline-none focus:ring-2 focus:ring-sky-500"
-                                >
-                                    {weekDays.map(day => (
-                                        <option key={day.value} value={day.value}>{day.label}曜日</option>
-                                    ))}
-                                </select>
+                            <div className="mt-2.5">
+                                <input
+                                    type="text"
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-medium"
+                                    placeholder="または自由に入力..."
+                                    value={type}
+                                    onChange={(e) => setType(e.target.value)}
+                                />
                             </div>
-                            <p className="text-[10px] text-slate-400 mt-3">※ 例：「毎月 第1 火曜日」に自動で予定が入ります</p>
                         </div>
-                    )}
-                </div>
-            </div>
+                    </div>
 
-            <div className="flex justify-end gap-3 mt-6">
-                <button
-                    onClick={onClose}
-                    className="px-4 py-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
-                >
-                    キャンセル
-                </button>
-                <button
-                    onClick={handleSave}
-                    className="px-4 py-2 bg-sky-500 text-white rounded-lg hover:bg-sky-600 shadow-sm transition-colors"
-                >
-                    登録
-                </button>
+                    {/* Right Column: Time & Notes */}
+                    <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">開始時間</label>
+                                <input
+                                    type="time"
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
+                                    value={startTime}
+                                    onChange={(e) => setStartTime(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5">終了時間</label>
+                                <input
+                                    type="time"
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
+                                    value={endTime}
+                                    onChange={(e) => setEndTime(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-slate-700 mb-1.5">メモ</label>
+                            <textarea
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-[108px] resize-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm"
+                                placeholder="訪問の目的や特記事項..."
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                {/* Recurrence Settings: Full Width */}
+                <div className="pt-6 border-t border-slate-100">
+                    <div className="flex flex-col md:flex-row md:items-center gap-4">
+                        <label className="text-sm font-bold text-slate-700 whitespace-nowrap">繰り返しの設定</label>
+                        <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-64">
+                            <button
+                                type="button"
+                                onClick={() => setRecurrenceType('none')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'none' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                なし
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRecurrenceType('weekly')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'weekly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                毎週
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setRecurrenceType('monthly')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'monthly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                毎月
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="mt-4">
+                        {recurrenceType === 'weekly' && (
+                            <div className="bg-sky-50/30 p-4 rounded-2xl border border-sky-100 animate-in fade-in zoom-in-95 duration-200">
+                                <label className="block text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-2.5">繰り返す曜日</label>
+                                <div className="flex gap-2">
+                                    {weekDays.map(day => (
+                                        <button
+                                            key={day.value}
+                                            type="button"
+                                            onClick={() => toggleWeeklyDay(day.value)}
+                                            className={`w-10 h-10 rounded-xl text-sm font-bold transition-all flex items-center justify-center ${weeklyDays.includes(day.value)
+                                                ? 'bg-sky-500 text-white shadow-lg shadow-sky-200 ring-2 ring-white'
+                                                : 'bg-white text-slate-400 border border-slate-100 hover:border-sky-200'
+                                                }`}
+                                        >
+                                            {day.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {recurrenceType === 'monthly' && (
+                            <div className="bg-sky-50/30 p-4 rounded-2xl border border-sky-100 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-sm font-bold text-slate-600">毎月</span>
+                                    <select
+                                        value={monthlyWeek}
+                                        onChange={(e) => setMonthlyWeek(Number(e.target.value))}
+                                        className="bg-white border border-sky-200 rounded-xl px-4 py-2 text-sm font-bold text-sky-700 outline-none shadow-sm focus:ring-2 focus:ring-sky-500"
+                                    >
+                                        <option value={1}>第1</option>
+                                        <option value={2}>第2</option>
+                                        <option value={3}>第3</option>
+                                        <option value={4}>第4</option>
+                                    </select>
+                                    <select
+                                        value={monthlyDay}
+                                        onChange={(e) => setMonthlyDay(Number(e.target.value))}
+                                        className="bg-white border border-sky-200 rounded-xl px-4 py-2 text-sm font-bold text-sky-700 outline-none shadow-sm focus:ring-2 focus:ring-sky-500"
+                                    >
+                                        {weekDays.map(day => (
+                                            <option key={day.value} value={day.value}>{day.label}曜日</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <p className="text-[10px] font-medium text-slate-400 mt-3 flex items-center gap-1">
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    毎月 第{monthlyWeek} {weekDays.find(d => d.value === monthlyDay)?.label}曜日に自動で予定が入ります
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* Footer Buttons */}
+                <div className="flex justify-end items-center gap-4 pt-4 mt-2">
+                    <button
+                        onClick={onClose}
+                        className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                    >
+                        キャンセル
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        className="px-10 py-3 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-lg shadow-sky-200 hover:shadow-sky-300 hover:scale-[1.02] active:scale-98 transition-all"
+                    >
+                        予定を登録する
+                    </button>
+                </div>
             </div>
         </DraggableModal>
     );

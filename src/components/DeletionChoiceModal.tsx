@@ -20,11 +20,11 @@ const DeletionChoiceModal = ({ isOpen, onClose, onConfirm, eventTitle }: Deletio
             isOpen={isOpen}
             onClose={onClose}
             title="予定の削除"
-            width="max-w-xl"
+            width="max-w-2xl"
         >
             <div className="space-y-6">
-                <p className="text-base text-slate-600 leading-relaxed">
-                    「<span className="font-bold text-slate-900 underline decoration-sky-500 underline-offset-4">{eventTitle}</span>」は繰り返し予定です。<br />
+                <p className="text-base text-slate-600 leading-relaxed font-medium">
+                    「<span className="font-bold text-slate-900 underline decoration-rose-400 underline-offset-4">{eventTitle}</span>」は繰り返し予定です。<br />
                     どのように削除しますか？
                 </p>
 
