@@ -170,10 +170,10 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             width="max-w-3xl"
         >
             <div className="flex flex-col gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     {/* Left Column: Basic Info */}
-                    <div className="space-y-4">
-                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                    <div className="space-y-3">
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
                             <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
                                 <input
                                     type="checkbox"
@@ -182,11 +182,9 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                                     onChange={(e) => {
                                         setIsPersonal(e.target.checked);
                                         if (e.target.checked) {
-                                            // When switching to personal, try to find "offday" or "telework"
                                             const personalType = scheduleTypes.find(t => t.id === 'offday' || t.name === '休み');
                                             if (personalType) setType(personalType.name);
                                         } else {
-                                            // When switching back, go to monitoring
                                             const defaultType = scheduleTypes.find(t => t.id === 'monitoring' || t.name === 'モニタリング');
                                             if (defaultType) setType(defaultType.name);
                                         }
@@ -194,17 +192,16 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                                 />
                                 自分の予定として登録
                             </label>
-                            <span className="text-[10px] text-slate-400 font-medium">※ 利用者を選ばず登録</span>
+                            <span className="text-[10px] text-slate-400 font-medium">※利用者は選ばない</span>
                         </div>
 
                         {!isPersonal && (
                             <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                                <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                                    <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1.5 ml-1">
                                     利用者
                                 </label>
                                 <select
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all font-medium text-slate-700"
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all font-medium text-slate-700 text-sm"
                                     value={clientId}
                                     onChange={(e) => setClientId(e.target.value)}
                                 >
@@ -216,18 +213,17 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                         )}
 
                         <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
+                            <label className="block text-[11px] font-bold text-slate-500 mb-1 flex items-center gap-1.5 ml-1">
                                 予定の種類
                             </label>
-                            <div className="grid grid-cols-2 gap-2">
+                            <div className="grid grid-cols-2 gap-1.5">
                                 {effectiveScheduleTypes.map((sType) => (
                                     <button
                                         key={sType.id}
                                         type="button"
                                         onClick={() => handleTypeSelect(sType)}
-                                        className={`px-3 py-2 rounded-xl border text-[13px] font-bold transition-all focus:outline-none ${type === sType.name || type === sType.id
-                                            ? `border-transparent text-white shadow-lg shadow-${sType.id}/20 scale-[1.02]`
+                                        className={`px-2 py-1.5 rounded-lg border text-[12px] font-bold transition-all focus:outline-none ${type === sType.name || type === sType.id
+                                            ? `border-transparent text-white shadow-md shadow-${sType.id}/10 scale-[1.01]`
                                             : 'border-slate-100 bg-slate-50 text-slate-500 hover:bg-white hover:border-slate-200'
                                             }`}
                                         style={{
@@ -238,10 +234,10 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                                     </button>
                                 ))}
                             </div>
-                            <div className="mt-2.5">
+                            <div className="mt-2 text-right">
                                 <input
                                     type="text"
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-medium"
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 outline-none text-xs font-medium"
                                     placeholder="または自由に入力..."
                                     value={type}
                                     onChange={(e) => setType(e.target.value)}
@@ -251,22 +247,22 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                     </div>
 
                     {/* Right Column: Time & Notes */}
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-1.5">開始時間</label>
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">開始時間</label>
                                 <input
                                     type="time"
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
                                     value={startTime}
                                     onChange={(e) => setStartTime(e.target.value)}
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-bold text-slate-700 mb-1.5">終了時間</label>
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">終了時間</label>
                                 <input
                                     type="time"
-                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
                                     value={endTime}
                                     onChange={(e) => setEndTime(e.target.value)}
                                 />
@@ -274,9 +270,9 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5">メモ</label>
+                            <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">メモ</label>
                             <textarea
-                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl h-[108px] resize-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm"
+                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl h-[92px] resize-none focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 outline-none text-sm"
                                 placeholder="訪問の目的や特記事項..."
                                 value={notes}
                                 onChange={(e) => setNotes(e.target.value)}
@@ -286,47 +282,47 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                 </div>
 
                 {/* Recurrence Settings: Full Width */}
-                <div className="pt-6 border-t border-slate-100">
-                    <div className="flex flex-col md:flex-row md:items-center gap-4">
-                        <label className="text-sm font-bold text-slate-700 whitespace-nowrap">繰り返しの設定</label>
-                        <div className="flex bg-slate-100 p-1 rounded-xl w-full md:w-64">
+                <div className="pt-4 border-t border-slate-100">
+                    <div className="flex flex-col md:flex-row md:items-center gap-3">
+                        <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap ml-1 uppercase tracking-wider">繰り返しの設定</label>
+                        <div className="flex bg-slate-100 p-1 rounded-lg w-full md:w-56">
                             <button
                                 type="button"
                                 onClick={() => setRecurrenceType('none')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'none' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`flex-1 py-1 text-[11px] font-bold rounded transition-all ${recurrenceType === 'none' ? 'bg-white text-slate-700 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 なし
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setRecurrenceType('weekly')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'weekly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`flex-1 py-1 text-[11px] font-bold rounded transition-all ${recurrenceType === 'weekly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 毎週
                             </button>
                             <button
                                 type="button"
                                 onClick={() => setRecurrenceType('monthly')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${recurrenceType === 'monthly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                                className={`flex-1 py-1 text-[11px] font-bold rounded transition-all ${recurrenceType === 'monthly' ? 'bg-sky-500 text-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                             >
                                 毎月
                             </button>
                         </div>
                     </div>
 
-                    <div className="mt-4">
+                    <div className="mt-3">
                         {recurrenceType === 'weekly' && (
-                            <div className="bg-sky-50/30 p-4 rounded-2xl border border-sky-100 animate-in fade-in zoom-in-95 duration-200">
-                                <label className="block text-[10px] font-bold text-sky-600 uppercase tracking-wider mb-2.5">繰り返す曜日</label>
-                                <div className="flex gap-2">
+                            <div className="bg-sky-50/20 p-3 rounded-xl border border-sky-100/50 animate-in fade-in zoom-in-95 duration-200">
+                                <label className="block text-[10px] font-bold text-sky-600/70 uppercase tracking-tighter mb-2 ml-1">繰り返す曜日</label>
+                                <div className="flex gap-1.5">
                                     {weekDays.map(day => (
                                         <button
                                             key={day.value}
                                             type="button"
                                             onClick={() => toggleWeeklyDay(day.value)}
-                                            className={`w-10 h-10 rounded-xl text-sm font-bold transition-all flex items-center justify-center ${weeklyDays.includes(day.value)
-                                                ? 'bg-sky-500 text-white shadow-lg shadow-sky-200 ring-2 ring-white'
-                                                : 'bg-white text-slate-400 border border-slate-100 hover:border-sky-200'
+                                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${weeklyDays.includes(day.value)
+                                                ? 'bg-sky-500 text-white shadow shadow-sky-200'
+                                                : 'bg-white text-slate-400 border border-slate-100 hover:border-sky-100'
                                                 }`}
                                         >
                                             {day.label}
@@ -337,13 +333,13 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                         )}
 
                         {recurrenceType === 'monthly' && (
-                            <div className="bg-sky-50/30 p-4 rounded-2xl border border-sky-100 animate-in fade-in zoom-in-95 duration-200">
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-bold text-slate-600">毎月</span>
+                            <div className="bg-sky-50/20 p-3 rounded-xl border border-sky-100/50 animate-in fade-in zoom-in-95 duration-200">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-slate-500">毎月</span>
                                     <select
                                         value={monthlyWeek}
                                         onChange={(e) => setMonthlyWeek(Number(e.target.value))}
-                                        className="bg-white border border-sky-200 rounded-xl px-4 py-2 text-sm font-bold text-sky-700 outline-none shadow-sm focus:ring-2 focus:ring-sky-500"
+                                        className="bg-white border border-sky-100 rounded-lg px-2 py-1 text-xs font-bold text-sky-600 outline-none shadow-sm focus:ring-1 focus:ring-sky-500"
                                     >
                                         <option value={1}>第1</option>
                                         <option value={2}>第2</option>
@@ -353,16 +349,17 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                                     <select
                                         value={monthlyDay}
                                         onChange={(e) => setMonthlyDay(Number(e.target.value))}
-                                        className="bg-white border border-sky-200 rounded-xl px-4 py-2 text-sm font-bold text-sky-700 outline-none shadow-sm focus:ring-2 focus:ring-sky-500"
+                                        className="bg-white border border-sky-100 rounded-lg px-2 py-1 text-xs font-bold text-sky-600 outline-none shadow-sm focus:ring-1 focus:ring-sky-500"
                                     >
                                         {weekDays.map(day => (
                                             <option key={day.value} value={day.value}>{day.label}曜日</option>
                                         ))}
                                     </select>
+                                    <span className="text-[11px] font-bold text-slate-400 ml-1">に自動入力</span>
                                 </div>
-                                <p className="text-[10px] font-medium text-slate-400 mt-3 flex items-center gap-1">
+                                <p className="text-[9px] font-medium text-slate-400 mt-1.5 flex items-center gap-1 opacity-70">
                                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    毎月 第{monthlyWeek} {weekDays.find(d => d.value === monthlyDay)?.label}曜日に自動で予定が入ります
+                                    毎月 第{monthlyWeek} {weekDays.find(d => d.value === monthlyDay)?.label}曜日に予定が入ります
                                 </p>
                             </div>
                         )}
@@ -370,16 +367,16 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="flex justify-end items-center gap-4 pt-4 mt-2">
+                <div className="flex justify-end items-center gap-4 pt-3 mt-1">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                        className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
                     >
                         キャンセル
                     </button>
                     <button
                         onClick={handleSave}
-                        className="px-10 py-3 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-lg shadow-sky-200 hover:shadow-sky-300 hover:scale-[1.02] active:scale-98 transition-all"
+                        className="px-8 py-2.5 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-md shadow-sky-100 hover:shadow-sky-200 hover:scale-[1.01] active:scale-98 transition-all"
                     >
                         予定を登録する
                     </button>

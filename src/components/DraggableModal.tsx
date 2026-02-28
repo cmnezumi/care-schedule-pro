@@ -86,7 +86,10 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                     backgroundColor: 'white',
                     opacity: 1
                 } : {
-                    position: 'relative',
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
                     width: 'auto',
                     backgroundColor: 'white',
                     opacity: 1
@@ -107,7 +110,7 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                 </div>
 
                 {/* Content */}
-                <div className="p-6 overflow-auto max-h-[80vh]">
+                <div className="p-6 overflow-auto max-h-[85vh]">
                     {children}
                 </div>
             </div>
