@@ -76,7 +76,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                 setRecurrenceType(initialData.recurrenceType || 'none');
                 setWeeklyDays(initialData.weeklyDays || []);
                 setMonthlyWeek(initialData.monthlyWeek || 1);
-                setMonthlyDay(initialData.monthlyDay || 0);
+                setMonthlyDay(initialData.monthlyDay ?? 1);
             } else if (initialDate) {
                 // New event mode
                 if (defaultClientId) {

@@ -229,28 +229,72 @@ export default function Home() {
         setEvents([...updatedEvents, singleEvent]);
       } else {
         // Regular update or Global Recurring update
-        const updatedEvents = events.map(e => {
-          if (e.id === editingEvent.id || (e.extendedProps?.groupId && e.extendedProps?.groupId === editingEvent.extendedProps?.groupId)) {
-            return {
-              ...e,
+        const isMonthlyGroup = editingEvent.extendedProps?.isRecurInstance && editingEvent.extendedProps?.groupId;
+
+        if (isMonthlyGroup && editTargetChoice === 'all') {
+          // Re-expand monthly series: delete old group and create new one
+          const oldGroupId = editingEvent.extendedProps.groupId;
+          const filteredEvents = events.filter(e => e.extendedProps?.groupId !== oldGroupId);
+
+          const instances = [];
+          const now = new Date(editingEvent.start); // Start from the edited event's month
+          let year = now.getFullYear();
+          let month = now.getMonth();
+          const newGroupId = `monthly-${Date.now()}`;
+
+          for (let i = 0; i < 12; i++) {
+            const targetDate = calculateNthWeekday(year, month, data.monthlyRecur.week, data.monthlyRecur.day);
+            const dayStr = formatLocalDate(targetDate);
+            instances.push({
               title: eventTitle,
               backgroundColor: color,
-              start: data.allDay ? e.start.split('T')[0] : `${e.start.split('T')[0]}T${data.startTime}`,
-              end: data.allDay ? e.end.split('T')[0] : `${e.end.split('T')[0]}T${data.endTime}`,
               allDay: data.allDay,
+              id: Math.random().toString(36).substr(2, 9),
+              start: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.startTime}`,
+              end: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.endTime}`,
               extendedProps: {
-                ...e.extendedProps,
                 clientId: data.clientId,
+                careManagerId: editingEvent.extendedProps?.careManagerId || selectedCareManagerId,
                 type: data.type,
                 notes: data.notes,
                 isPersonal: data.isPersonal,
-                allDay: data.allDay
+                allDay: data.allDay,
+                isRecurInstance: true,
+                groupId: newGroupId,
+                monthlyRecur: data.monthlyRecur
               }
-            };
+            });
+            month++; if (month > 11) { month = 0; year++; }
           }
-          return e;
-        });
-        setEvents(updatedEvents);
+          setEvents([...filteredEvents, ...instances]);
+        } else {
+          // Regular update
+          const updatedEvents = events.map(e => {
+            if (e.id === editingEvent.id || (e.extendedProps?.groupId && e.extendedProps?.groupId === editingEvent.extendedProps?.groupId)) {
+              return {
+                ...e,
+                title: eventTitle,
+                backgroundColor: color,
+                start: data.allDay ? e.start.split('T')[0] : `${e.start.split('T')[0]}T${data.startTime}`,
+                end: data.allDay ? e.end.split('T')[0] : `${e.end.split('T')[0]}T${data.endTime}`,
+                allDay: data.allDay,
+                extendedProps: {
+                  ...e.extendedProps,
+                  clientId: data.clientId,
+                  type: data.type,
+                  notes: data.notes,
+                  isPersonal: data.isPersonal,
+                  allDay: data.allDay,
+                  // Optimization: if it was a group, it stays a group but update rule if single edit? 
+                  // No, for single edit in a group, we just update this instance's props.
+                  ...(isMonthlyGroup && { monthlyRecur: data.monthlyRecur })
+                }
+              };
+            }
+            return e;
+          });
+          setEvents(updatedEvents);
+        }
       }
       setIsModalOpen(false);
       setEditingEvent(null);
@@ -306,7 +350,8 @@ export default function Home() {
           extendedProps: {
             ...eventBase.extendedProps,
             isRecurInstance: true,
-            groupId
+            groupId,
+            monthlyRecur: data.monthlyRecur
           }
         });
         month++; if (month > 11) { month = 0; year++; }
@@ -337,7 +382,7 @@ export default function Home() {
 
   const handleDeleteEvent = (eventInfo: any) => {
     // If it's a recurring event, show the choice modal
-    if (eventInfo.extendedProps?.isRecurring) {
+    if (eventInfo.extendedProps?.isRecurring || eventInfo.extendedProps?.isRecurInstance) {
       setEventToDelete(eventInfo);
       setIsDeletionModalOpen(true);
       return;
@@ -363,10 +408,12 @@ export default function Home() {
 
     setEvents(prev => {
       if (choice === 'all') {
+        const eventGroupId = eventToDelete.extendedProps?.groupId;
         return prev.filter(e => {
           if (eventSeriesId && e.extendedProps?.seriesId === eventSeriesId) return false;
+          if (eventGroupId && e.extendedProps?.groupId === eventGroupId) return false;
           if (eventId && e.id === eventId) return false;
-          if (!eventId && !eventSeriesId && e.title === eventTitle) return false;
+          if (!eventId && !eventSeriesId && !eventGroupId && e.title === eventTitle) return false;
           return true;
         });
       }
@@ -482,7 +529,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.34</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.35</span>
             </div>
 
           </div>
