@@ -16,6 +16,7 @@ interface VisitModalProps {
         notes: string;
         isPersonal?: boolean;
         allDay?: boolean;
+        isContinuous?: boolean;
         recurring?: {
             daysOfWeek: number[];
             startTime: string;
@@ -131,7 +132,8 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                     daysOfWeek: weeklyDays,
                     startTime: allDay ? '00:00' : startTime,
                     endTime: allDay ? '23:59' : endTime
-                }
+                },
+                isContinuous
             });
         } else if (recurrenceType === 'monthly') {
             onSave({
@@ -143,7 +145,8 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                     day: monthlyDay,
                     startTime: allDay ? '00:00' : startTime,
                     endTime: allDay ? '23:59' : endTime
-                }
+                },
+                isContinuous
             });
         } else {
             const year = initialDate.getFullYear();
@@ -151,14 +154,16 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
             const day = String(initialDate.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
-            onSave({ ...baseData, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime });
+            onSave({
+                ...baseData,
+                startTime: allDay ? '00:00' : startTime,
+                endTime: allDay ? '23:59' : endTime,
+                isContinuous
+            });
         }
 
         if (!isContinuous) {
             onClose();
-        } else {
-            // If continuous, don't close but maybe show a small success indicator or just stay open
-            // We keep the current type/notes for the "next" entry as requested
         }
     };
 
@@ -178,7 +183,6 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
         { label: '土', value: 6 }
     ];
 
-    // If no scheduleTypes provided, fallback to default (though we expect them to be provided)
     const effectiveScheduleTypes: ScheduleType[] = scheduleTypes.length > 0 ? scheduleTypes : [
         { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
         { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
@@ -196,7 +200,6 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
         }
     };
 
-    // Format date for display
     const displayDate = initialDate ? initialDate.toLocaleDateString('ja-JP', {
         year: 'numeric',
         month: 'long',
@@ -213,7 +216,6 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
         >
             <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
-                    {/* Left Column: Basic Info */}
                     <div className="space-y-3">
                         <div className="flex gap-2">
                             <div className="flex-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
@@ -301,7 +303,6 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                         </div>
                     </div>
 
-                    {/* Right Column: Time & Notes */}
                     <div className="space-y-3">
                         {!allDay && (
                             <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
@@ -338,7 +339,6 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                     </div>
                 </div>
 
-                {/* Recurrence Settings: Full Width */}
                 <div className="pt-4 border-t border-slate-100">
                     <div className="flex flex-col md:flex-row md:items-center gap-3">
                         <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap ml-1 uppercase tracking-wider">繰り返しの設定</label>
@@ -423,7 +423,6 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                     </div>
                 </div>
 
-                {/* Footer Buttons */}
                 <div className="flex justify-between items-center pt-3 mt-1">
                     <div>
                         {initialData && onDelete && (
@@ -437,6 +436,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                                 className="px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                削除する
                             </button>
                         )}
                     </div>

@@ -191,21 +191,21 @@ export default function Home() {
 
       if (isRecurring && editTargetChoice === 'single') {
         // Exception logic for recurring event
-        const dateStr = editingEvent.startStr ? editingEvent.startStr.split('T')[0] :
-          (editingEvent.start instanceof Date ? editingEvent.start.toISOString().split('T')[0] : '');
+        const dateStr = formatLocalDate(new Date(editingEvent.start));
 
         if (!dateStr) return; // Safety
 
         // 1. Add this date to excludedDates of the original recurring event
         const masterId = editingEvent.id || editingEvent.publicId;
+        const eventTitleToMatch = editingEvent.title;
         const updatedEvents = events.map(e => {
-          if (e.id === masterId) {
+          if ((masterId && e.id === masterId) || (!masterId && e.title === eventTitleToMatch)) {
             const excluded = e.extendedProps?.excludedDates || [];
             return {
               ...e,
               extendedProps: {
                 ...e.extendedProps,
-                excludedDates: [...excluded, dateStr]
+                excludedDates: [...new Set([...excluded, dateStr])]
               }
             };
           }
@@ -283,15 +283,31 @@ export default function Home() {
           // Regular update (Single Instance)
           const updatedEvents = events.map(e => {
             if (e.id === editingEvent.id) {
-              // If it's a monthly instance and the rule changed, recalculate its date
-              let newDateStr = e.start.split('T')[0];
-              if (e.extendedProps?.isRecurInstance && data.monthlyRecur) {
-                const currentMonth = new Date(e.start).getMonth();
-                const currentYear = new Date(e.start).getFullYear();
-                const targetDate = calculateNthWeekday(currentYear, currentMonth, data.monthlyRecur.week, data.monthlyRecur.day);
-                newDateStr = formatLocalDate(targetDate);
+              const isWeekly = !!e.daysOfWeek;
+
+              if (isWeekly && editTargetChoice === 'all' && data.recurring) {
+                // Update weekly recurrence parameters
+                return {
+                  ...e,
+                  title: eventTitle,
+                  backgroundColor: color,
+                  daysOfWeek: data.recurring.daysOfWeek,
+                  startTime: data.recurring.startTime,
+                  endTime: data.recurring.endTime,
+                  extendedProps: {
+                    ...e.extendedProps,
+                    clientId: data.clientId,
+                    type: data.type,
+                    notes: data.notes,
+                    isPersonal: data.isPersonal,
+                    allDay: data.allDay,
+                    recurring: data.recurring
+                  }
+                };
               }
 
+              // Default update for single or other types
+              const newDateStr = e.start.split('T')[0];
               return {
                 ...e,
                 title: eventTitle,
@@ -315,7 +331,7 @@ export default function Home() {
           setEvents(updatedEvents);
         }
       }
-      setIsModalOpen(false);
+      setIsModalOpen(data.isContinuous || false);
       setEditingEvent(null);
       return;
     }
@@ -385,7 +401,10 @@ export default function Home() {
       };
       setEvents([...events, newEvent]);
     }
-    setIsModalOpen(false);
+
+    if (!data.isContinuous) {
+      setIsModalOpen(false);
+    }
   };
 
   // Migration Effect: Clean up "every day" monthly events
@@ -546,7 +565,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.42</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.44</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
@@ -651,8 +670,8 @@ export default function Home() {
                 id: editingEvent.id,
                 clientId: editingEvent.extendedProps?.clientId,
                 type: editingEvent.extendedProps?.type,
-                startTime: editingEvent.allDay ? '10:00' : editingEvent.startStr.split('T')[1]?.substring(0, 5) || editingEvent.extendedProps?.recurring?.startTime || editingEvent.extendedProps?.monthlyRecur?.startTime,
-                endTime: editingEvent.allDay ? '11:00' : editingEvent.endStr.split('T')[1]?.substring(0, 5) || editingEvent.extendedProps?.recurring?.endTime || editingEvent.extendedProps?.monthlyRecur?.endTime,
+                startTime: editingEvent.allDay ? '10:00' : (editingEvent.extendedProps?.recurring?.startTime || editingEvent.extendedProps?.monthlyRecur?.startTime || (editingEvent.startStr.includes('T') ? editingEvent.startStr.split('T')[1].substring(0, 5) : '10:00')),
+                endTime: editingEvent.allDay ? '11:00' : (editingEvent.extendedProps?.recurring?.endTime || editingEvent.extendedProps?.monthlyRecur?.endTime || (editingEvent.endStr.includes('T') ? editingEvent.endStr.split('T')[1].substring(0, 5) : '11:00')),
                 notes: editingEvent.extendedProps?.notes,
                 isPersonal: editingEvent.extendedProps?.isPersonal,
                 allDay: editingEvent.allDay,
