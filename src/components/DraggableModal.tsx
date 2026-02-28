@@ -8,9 +8,10 @@ interface DraggableModalProps {
     title: string;
     children: React.ReactNode;
     width?: string;
+    isModeless?: boolean;
 }
 
-const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }: DraggableModalProps) => {
+const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md', isModeless = false }: DraggableModalProps) => {
     const [position, setPosition] = useState<{ x: number, y: number } | null>(null);
     const [isDragging, setIsDragging] = useState(false);
     const dragOffset = useRef({ x: 0, y: 0 });
@@ -74,8 +75,8 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center">
-            <div className="fixed inset-0 bg-black/5 pointer-events-auto" onClick={onClose} />
+        <div className={`fixed inset-0 z-[9999] ${isModeless ? 'pointer-events-none' : 'pointer-events-auto'} flex items-center justify-center`}>
+            {!isModeless && <div className="fixed inset-0 bg-black/5 pointer-events-auto" onClick={onClose} />}
 
             <div
                 ref={modalRef}

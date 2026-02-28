@@ -48,9 +48,10 @@ interface VisitModalProps {
     scheduleTypes?: ScheduleType[];
     defaultClientId?: string | null;
     onDelete?: (event: any) => void;
+    onDateChange?: (date: Date) => void;
 }
 
-const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialData, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
+const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDate, initialData, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('monitoring');
     const [startTime, setStartTime] = useState('10:00');
@@ -63,11 +64,18 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
     const [isPersonal, setIsPersonal] = useState(false);
     const [allDay, setAllDay] = useState(false);
     const [isContinuous, setIsContinuous] = useState(false);
+    const isFirstOpen = React.useRef(true);
+
+    useEffect(() => {
+        if (!isOpen) {
+            isFirstOpen.current = true;
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                // Editing mode
+                // Editing mode (Always reset based on the event being edited)
                 setClientId(initialData.clientId || '');
                 setType(initialData.type || 'monitoring');
                 setStartTime(initialData.startTime || '10:00');
@@ -81,32 +89,35 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                 setMonthlyDay(initialData.monthlyDay ?? 1);
             } else if (initialDate) {
                 // New event mode
-                if (defaultClientId) {
-                    setClientId(defaultClientId);
-                } else if (clients.length > 0) {
-                    setClientId(clients[0].id);
-                } else {
-                    setClientId('');
+                if (isFirstOpen.current) {
+                    // Only set initial boilerplate if this is the FIRST time the modal is opening
+                    if (defaultClientId) {
+                        setClientId(defaultClientId);
+                    } else if (clients.length > 0) {
+                        setClientId(clients[0].id);
+                    } else {
+                        setClientId('');
+                    }
+
+                    if (scheduleTypes.length > 0) {
+                        setType(scheduleTypes[0].id);
+                    } else {
+                        setType('monitoring');
+                    }
+                    setStartTime('10:00');
+                    setEndTime('11:00');
+                    setNotes('');
+                    setAllDay(false);
+                    setRecurrenceType('none');
+                    setIsPersonal(false);
+                    isFirstOpen.current = false;
                 }
 
-                if (scheduleTypes.length > 0) {
-                    setType(scheduleTypes[0].id);
-                } else {
-                    setType('monitoring');
-                }
-                setStartTime('10:00');
-                setEndTime('11:00');
-                setNotes('');
-                setAllDay(false);
-
-                setRecurrenceType('none');
+                // Always update these based on the date, but don't reset type/notes if already open
                 setWeeklyDays([initialDate.getDay()]);
-
                 const weekNumber = Math.ceil(initialDate.getDate() / 7);
                 setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber);
                 setMonthlyDay(initialDate.getDay());
-
-                setIsPersonal(false);
             }
         }
     }, [isOpen, initialDate, initialData, clients, scheduleTypes, defaultClientId]);
@@ -206,15 +217,44 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
         day: 'numeric',
         weekday: 'short'
     }) : '';
-
     return (
         <DraggableModal
             isOpen={isOpen}
             onClose={onClose}
             title={initialData ? '予定を編集' : `${displayDate} の予定登録`}
-            width="max-w-lg"
+            width="max-w-xl"
+            isModeless={isContinuous}
         >
             <div className="flex flex-col gap-6">
+                {!initialData && (
+                    <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100 flex items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div>
+                                <div className="text-[10px] font-bold text-sky-600 uppercase">日付の選択</div>
+                                <div className="text-sm font-bold text-slate-700">{displayDate}</div>
+                            </div>
+                        </div>
+                        <input
+                            type="date"
+                            className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
+                            value={initialDate ? initialDate.toISOString().split('T')[0] : ''}
+                            onChange={(e) => {
+                                const newDate = new Date(e.target.value);
+                                if (!isNaN(newDate.getTime()) && onDateChange) {
+                                    onDateChange(newDate);
+                                }
+                            }}
+                        />
+                        {isContinuous && (
+                            <div className="bg-sky-500 text-white text-[10px] font-bold px-2 py-1 rounded-full animate-pulse">
+                                連続モード有効：カレンダーをクリックして日付変更可
+                            </div>
+                        )}
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     <div className="space-y-3">
                         <div className="flex gap-2">

@@ -419,8 +419,13 @@ export default function Home() {
   }, [events]);
 
   const handleDeleteEvent = (eventInfo: any) => {
-    // If it's a recurring event, show the choice modal
-    if (eventInfo.extendedProps?.isRecurring || eventInfo.extendedProps?.isRecurInstance) {
+    // Determine if it's recurring from either FullCalendar object or VisitModal initialData
+    const isRecurring = eventInfo.extendedProps?.isRecurring ||
+      eventInfo.extendedProps?.isRecurInstance ||
+      eventInfo.recurrenceType === 'weekly' ||
+      eventInfo.recurrenceType === 'monthly';
+
+    if (isRecurring) {
       setEventToDelete(eventInfo);
       setIsDeletionModalOpen(true);
       return;
@@ -490,15 +495,20 @@ export default function Home() {
       }
 
       if (choice === 'this') {
+        const masterId = eventToDelete.id || eventToDelete.publicId;
+        const eventTitleToMatch = eventToDelete.title;
+        // Use timezone-safe formatting
+        const dateToDelete = formatLocalDate(new Date(eventToDelete.start));
+
         // Add to excluded dates
         return prev.map(e => {
-          if ((eventId && e.id === eventId) || (!eventId && e.title === eventTitle)) {
+          if ((masterId && e.id === masterId) || (!masterId && e.title === eventTitleToMatch)) {
             const excluded = e.extendedProps?.excludedDates || [];
             return {
               ...e,
               extendedProps: {
                 ...e.extendedProps,
-                excludedDates: [...excluded, eventDate]
+                excludedDates: [...new Set([...excluded, dateToDelete])]
               }
             };
           }
@@ -565,7 +575,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.44</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.46</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
