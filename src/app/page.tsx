@@ -507,9 +507,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[var(--background-soft)] flex flex-col">
-      <header className="bg-white shadow-sm border-b border-slate-200">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
+      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
+        <div className="px-4 md:px-6 py-3 md:py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 md:gap-8">
             <h1 className="text-xl font-bold text-[var(--secondary-color)] flex items-center gap-2">
               <span className="w-8 h-8 bg-[var(--primary-color)] rounded-lg flex items-center justify-center text-white font-bold">CP</span>
               CareSchedule Pro
@@ -537,8 +537,7 @@ export default function Home() {
               </div>
             </div>
           </div>
-
-          <div className="flex items-center gap-4 text-sm text-slate-500">
+          <div className="flex items-center justify-between md:justify-end gap-4 text-sm text-slate-500">
             <button className="flex items-center gap-1 hover:text-slate-700">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
               ローカル保存
@@ -552,14 +551,14 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.37</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.38</span>
             </div>
 
           </div>
         </div>
 
         {/* Tab Navigation */}
-        <div className="px-6 flex gap-6 text-sm font-medium text-slate-600">
+        <div className="px-4 md:px-6 flex gap-4 md:gap-6 text-xs md:text-sm font-medium text-slate-600 overflow-x-auto whitespace-nowrap scrollbar-hide">
           <button
             onClick={() => setActiveTab('schedule')}
             className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'schedule' ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent hover:text-slate-800'}`}
@@ -591,7 +590,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-grow p-6 flex gap-6 overflow-hidden h-[calc(100vh-125px)]">
+      <main className="flex-grow p-4 md:p-6 flex flex-col lg:flex-row gap-6 overflow-auto lg:overflow-hidden lg:h-[calc(100vh-125px)]">
         {activeTab === 'schedule' && (
           <>
             <div className="flex-grow bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
@@ -624,7 +623,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="w-80 h-full flex flex-col">
+            <div className="w-full lg:w-80 h-auto lg:h-full flex flex-col order-first lg:order-last">
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 h-full flex flex-col">
                 <h2 className="font-semibold text-slate-700 mb-4">利用者一覧 ({filteredClients.length}名)</h2>
                 <div className="flex-grow overflow-auto">

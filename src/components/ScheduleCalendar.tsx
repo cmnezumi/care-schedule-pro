@@ -77,6 +77,26 @@ const ScheduleCalendar = ({
         .fc-daygrid-day.fc-day-today {
           background-color: #f0f9ff !important;
         }
+        @media (max-width: 768px) {
+          .fc-toolbar {
+            flex-direction: column;
+            gap: 10px;
+          }
+          .fc-toolbar-chunk {
+            display: flex;
+            justify-content: center;
+            width: 100%;
+          }
+          .fc-toolbar-title {
+            font-size: 1.1rem !important;
+          }
+          .fc-button {
+            padding: 4px 8px !important;
+            font-size: 11px !important;
+          }
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .fc-event { cursor: pointer; }
         .fc-daygrid-day:hover { background-color: #f8fafc; cursor: pointer; }
       `}</style>
@@ -97,7 +117,7 @@ const ScheduleCalendar = ({
         dayMaxEvents={true}
         locale="ja"
         buttonText={{
-          today: '今日',
+          today: '今',
           month: '月',
           week: '週',
           day: '日'
