@@ -24,7 +24,7 @@ export default function Home() {
     { id: 'cm2', name: 'ケアマネ A' },
     { id: 'cm3', name: 'ケアマネ B' },
   ]);
-  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('all');
+  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -496,12 +496,24 @@ export default function Home() {
   };
 
   // Filtered lists
-  const filteredClients = clients.filter(c => c.careManagerId === selectedCareManagerId);
+  const filteredClients = clients.filter(c =>
+    selectedCareManagerId === 'all' ||
+    c.careManagerId === selectedCareManagerId ||
+    (!c.careManagerId && selectedCareManagerId === 'cm1')
+  );
   const clientIdsOfSelectedCM = new Set(filteredClients.map(c => c.id));
   const filteredEvents = events.filter(e => {
-    // If it's a personal event for this CM, show it
-    if (e.extendedProps?.isPersonal && e.extendedProps?.careManagerId === selectedCareManagerId) return true;
-    // Otherwise show if it's for a client belonging to this CM
+    // If 'all' is selected, show everything
+    if (selectedCareManagerId === 'all') return true;
+
+    // If it's a personal event, show if it belongs to this CM or is legacy and cm1 is selected
+    if (e.extendedProps?.isPersonal) {
+      if (e.extendedProps?.careManagerId === selectedCareManagerId) return true;
+      if (!e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1') return true;
+      return false;
+    }
+
+    // Otherwise show if it's for a client belonging to this filtered list
     return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
   });
 
@@ -519,6 +531,18 @@ export default function Home() {
             <div className="flex items-center gap-3 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
               <span className="text-xs font-semibold text-slate-400 px-2 uppercase tracking-wider">Manager</span>
               <div className="flex gap-1">
+                <button
+                  onClick={() => {
+                    setSelectedCareManagerId('all');
+                    setSelectedClientId(null);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${selectedCareManagerId === 'all'
+                    ? 'bg-white text-[var(--primary-color)] shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
+                    }`}
+                >
+                  すべて
+                </button>
                 {careManagers.map(cm => (
                   <button
                     key={cm.id}
@@ -551,7 +575,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.38</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.39</span>
             </div>
 
           </div>
