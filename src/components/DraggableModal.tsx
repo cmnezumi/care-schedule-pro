@@ -27,10 +27,12 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
         if (modalRef.current) {
             setIsDragging(true);
 
-            // If it's the first drag, we need to calculate the current position from the CSS center
+            // NEW: Get the exact coordinates where flexbox placed the modal
+            const rect = modalRef.current.getBoundingClientRect();
+
             const currentPos = position || {
-                x: window.innerWidth / 2 - modalRef.current.offsetWidth / 2,
-                y: window.innerHeight / 2 - modalRef.current.offsetHeight / 2
+                x: rect.left,
+                y: rect.top
             };
 
             dragOffset.current = {
@@ -79,17 +81,15 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                 ref={modalRef}
                 className={`pointer-events-auto bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-300 flex flex-col ${width} overflow-hidden`}
                 style={position ? {
-                    position: 'absolute',
+                    position: 'fixed',
                     left: `${position.x}px`,
                     top: `${position.y}px`,
+                    margin: 0,
                     width: 'auto',
                     backgroundColor: 'white',
                     opacity: 1
                 } : {
-                    position: 'absolute',
-                    left: '50%',
-                    top: '50%',
-                    transform: 'translate(-50%, -50%)',
+                    position: 'relative',
                     width: 'auto',
                     backgroundColor: 'white',
                     opacity: 1
