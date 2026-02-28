@@ -222,7 +222,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
             isOpen={isOpen}
             onClose={onClose}
             title={initialData ? '予定を編集' : `${displayDate} の予定登録`}
-            width="max-w-xl"
+            width="w-[380px]"
             isModeless={isContinuous}
         >
             <div className="flex flex-col gap-6">
@@ -255,7 +255,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                         )}
                     </div>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+                <div className="flex flex-col gap-4">
                     <div className="space-y-3">
                         <div className="flex gap-2">
                             <div className="flex-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
@@ -463,24 +463,24 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                     </div>
                 </div>
 
-                <div className="flex justify-between items-center pt-3 mt-1">
-                    <div>
-                        {initialData && onDelete && (
-                            <button
-                                onClick={() => {
-                                    if (confirm('この予定を削除してもよろしいですか？')) {
-                                        onDelete(initialData);
-                                        onClose();
-                                    }
-                                }}
-                                className="px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
-                            >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                削除する
-                            </button>
-                        )}
-                    </div>
-                    <div className="flex items-center gap-6">
+                <div className="flex flex-col gap-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            {initialData && onDelete && (
+                                <button
+                                    onClick={() => {
+                                        if (confirm('この予定を削除してもよろしいですか？')) {
+                                            onDelete(initialData);
+                                            onClose();
+                                        }
+                                    }}
+                                    className="px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    削除
+                                </button>
+                            )}
+                        </div>
                         {!initialData && (
                             <label className="flex items-center gap-2 cursor-pointer group">
                                 <input
@@ -489,20 +489,23 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                                     checked={isContinuous}
                                     onChange={(e) => setIsContinuous(e.target.checked)}
                                 />
-                                <span className="text-xs font-bold text-slate-500 group-hover:text-sky-600 transition-colors">連続登録モード</span>
+                                <span className="text-[11px] font-bold text-slate-500 group-hover:text-sky-600 transition-colors">連続登録モード</span>
                             </label>
                         )}
+                    </div>
+
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={onClose}
-                            className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                            className="flex-1 py-2.5 text-sm font-bold text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
                         >
                             キャンセル
                         </button>
                         <button
                             onClick={handleSave}
-                            className="px-8 py-2.5 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-md shadow-sky-100 hover:shadow-sky-200 hover:scale-[1.01] active:scale-98 transition-all"
+                            className="flex-[2] py-2.5 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-md shadow-sky-100 hover:shadow-sky-200 hover:scale-[1.01] active:scale-98 transition-all"
                         >
-                            {initialData ? '変更を保存' : '予定を登録する'}
+                            {initialData ? '保存' : '登録'}
                         </button>
                     </div>
                 </div>
