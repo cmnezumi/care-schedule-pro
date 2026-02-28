@@ -45,7 +45,7 @@ export default function Home() {
     { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
     { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
     { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
-    { id: 'offday', name: '休み', color: '#fca5a5' },
+    { id: 'offday', name: '休み', color: '#eab308' },
     { id: 'telework', name: 'テレワーク', color: '#6ee7b7' },
     { id: 'other', name: 'その他', color: '#64748b' },
   ]);
@@ -67,7 +67,14 @@ export default function Home() {
       ]);
     }
 
-    if (savedTypes) setScheduleTypes(JSON.parse(savedTypes));
+    if (savedTypes) {
+      const parsed = JSON.parse(savedTypes) as ScheduleType[];
+      // Migrate offday color to yellow if it's the old one
+      const migrated = parsed.map(t =>
+        (t.id === 'offday' && t.color === '#fca5a5') ? { ...t, color: '#eab308' } : t
+      );
+      setScheduleTypes(migrated);
+    }
     if (savedEvents) setEvents(JSON.parse(savedEvents));
 
     setDataLoaded(true);
@@ -575,7 +582,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.47</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.48</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>

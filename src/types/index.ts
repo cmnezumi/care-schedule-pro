@@ -21,6 +21,8 @@ export interface Client {
     careLevel: string; // e.g., "要介護1"
     careManagerId?: string; // Assigned caretaker (optional for backward compatibility)
     notes?: string;
+    locationType?: 'same_bldg' | 'home' | 'attached_bldg'; // 丸, 星, その他
+    planUpdateMonth?: number; // 1-12
 }
 
 export interface Visit {
