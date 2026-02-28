@@ -61,6 +61,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
     const [monthlyDay, setMonthlyDay] = useState(1);
     const [isPersonal, setIsPersonal] = useState(false);
     const [allDay, setAllDay] = useState(false);
+    const [isContinuous, setIsContinuous] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -124,24 +125,24 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
         if (recurrenceType === 'weekly') {
             onSave({
                 ...baseData,
-                startTime,
-                endTime,
+                startTime: allDay ? '00:00' : startTime,
+                endTime: allDay ? '23:59' : endTime,
                 recurring: {
                     daysOfWeek: weeklyDays,
-                    startTime,
-                    endTime
+                    startTime: allDay ? '00:00' : startTime,
+                    endTime: allDay ? '23:59' : endTime
                 }
             });
         } else if (recurrenceType === 'monthly') {
             onSave({
                 ...baseData,
-                startTime,
-                endTime,
+                startTime: allDay ? '00:00' : startTime,
+                endTime: allDay ? '23:59' : endTime,
                 monthlyRecur: {
                     week: monthlyWeek,
                     day: monthlyDay,
-                    startTime,
-                    endTime
+                    startTime: allDay ? '00:00' : startTime,
+                    endTime: allDay ? '23:59' : endTime
                 }
             });
         } else {
@@ -150,9 +151,15 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
             const day = String(initialDate.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
-            onSave({ ...baseData, startTime, endTime });
+            onSave({ ...baseData, startTime: allDay ? '00:00' : startTime, endTime: allDay ? '23:59' : endTime });
         }
-        onClose();
+
+        if (!isContinuous) {
+            onClose();
+        } else {
+            // If continuous, don't close but maybe show a small success indicator or just stay open
+            // We keep the current type/notes for the "next" entry as requested
+        }
     };
 
     const toggleWeeklyDay = (day: number) => {
@@ -370,9 +377,9 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                                             key={day.value}
                                             type="button"
                                             onClick={() => toggleWeeklyDay(day.value)}
-                                            className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${weeklyDays.includes(day.value)
-                                                ? 'bg-sky-500 text-white shadow shadow-sky-200'
-                                                : 'bg-white text-slate-400 border border-slate-100 hover:border-sky-100'
+                                            className={`w-10 h-10 rounded-xl text-sm font-bold transition-all flex items-center justify-center border-2 ${weeklyDays.includes(day.value)
+                                                ? 'bg-sky-500 text-white border-sky-400 shadow-lg shadow-sky-200 scale-110 z-10'
+                                                : 'bg-white text-slate-400 border-slate-100 hover:border-sky-200 hover:bg-sky-50/30'
                                                 }`}
                                         >
                                             {day.label}
@@ -430,11 +437,21 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                                 className="px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
                             >
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                削除する
                             </button>
                         )}
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
+                        {!initialData && (
+                            <label className="flex items-center gap-2 cursor-pointer group">
+                                <input
+                                    type="checkbox"
+                                    className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500 transition-all group-hover:scale-110"
+                                    checked={isContinuous}
+                                    onChange={(e) => setIsContinuous(e.target.checked)}
+                                />
+                                <span className="text-xs font-bold text-slate-500 group-hover:text-sky-600 transition-colors">連続登録モード</span>
+                            </label>
+                        )}
                         <button
                             onClick={onClose}
                             className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"

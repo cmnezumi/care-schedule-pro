@@ -122,6 +122,11 @@ const ScheduleCalendar = ({
           week: '週',
           day: '日'
         }}
+        eventClassNames={(arg) => {
+          const excludedDates = arg.event.extendedProps?.excludedDates || [];
+          const currentDate = arg.event.startStr.split('T')[0];
+          return excludedDates.includes(currentDate) ? ['fc-event-excluded', 'hidden'] : [];
+        }}
         eventContent={(arg) => {
           const excludedDates = arg.event.extendedProps?.excludedDates || [];
           const currentDate = arg.event.startStr.split('T')[0];
