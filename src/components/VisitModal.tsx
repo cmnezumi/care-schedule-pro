@@ -202,7 +202,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
             isOpen={isOpen}
             onClose={onClose}
             title={initialData ? '予定を編集' : `${displayDate} の予定登録`}
-            width="max-w-3xl"
+            width="max-w-lg"
         >
             <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">

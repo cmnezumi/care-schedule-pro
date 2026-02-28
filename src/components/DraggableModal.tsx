@@ -85,7 +85,7 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                     left: `${position.x}px`,
                     top: `${position.y}px`,
                     margin: 0,
-                    width: '100%',
+                    width: width.startsWith('max-w-') ? '90%' : width,
                     maxWidth: width.startsWith('max-w-') ? undefined : width,
                     backgroundColor: 'white',
                 } : {
@@ -93,7 +93,7 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                     left: '50%',
                     top: '50%',
                     transform: 'translate(-50%, -50%)',
-                    width: '100%',
+                    width: width.startsWith('max-w-') ? '90%' : width,
                     maxWidth: width.startsWith('max-w-') ? undefined : width,
                     backgroundColor: 'white',
                 }}
