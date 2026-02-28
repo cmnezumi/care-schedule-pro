@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ScheduleCalendar from "@/components/ScheduleCalendar";
 import UserManagement from "@/components/UserManagement";
 
@@ -151,6 +151,23 @@ export default function Home() {
     setEvents([...events, newEvent]);
   };
 
+  // Helper to calculate the Nth weekday of a month
+  const calculateNthWeekday = (year: number, month: number, week: number, day: number) => {
+    // month is 0-indexed
+    const firstDayOfMonth = new Date(year, month, 1);
+    let firstOccurrence = (day - firstDayOfMonth.getDay() + 7) % 7;
+    let date = 1 + firstOccurrence + (week - 1) * 7;
+
+    // Ensure the date is still within the same month (some months might not have 5 occurrences)
+    const resultDate = new Date(year, month, date);
+    if (resultDate.getMonth() !== month) {
+      // Fallback to the 4th occurrence if 5th doesn't exist
+      date -= 7;
+      return new Date(year, month, date);
+    }
+    return resultDate;
+  };
+
   const handleSaveVisit = (data: any) => {
     const client = data.isPersonal ? null : clients.find(c => c.id === data.clientId);
     if (!data.isPersonal && !client) return;
@@ -201,51 +218,30 @@ export default function Home() {
           }
         };
 
-        const finalEvents = [...updatedEvents, singleEvent];
-        setEvents(finalEvents);
+        setEvents([...updatedEvents, singleEvent]);
       } else {
         // Regular update or Global Recurring update
         const updatedEvents = events.map(e => {
-          if (e.id === editingEvent.id) {
-            // If it's recurring and we update 'all', we might want to preserve the recurring rules
-            const isRecur = e.extendedProps?.isRecurring;
+          if (e.id === editingEvent.id || (e.extendedProps?.groupId && e.extendedProps?.groupId === editingEvent.extendedProps?.groupId)) {
             return {
               ...e,
               title: eventTitle,
               backgroundColor: color,
-              // Update times if it's not a recurring event (recurring events have startTime/endTime in extendedProps)
-              ...(isRecur ? {} : {
-                start: data.allDay ? e.start.split('T')[0] : `${e.start.split('T')[0]}T${data.startTime}`,
-                end: data.allDay ? e.end.split('T')[0] : `${e.end.split('T')[0]}T${data.endTime}`,
-                allDay: data.allDay,
-              }),
+              start: data.allDay ? e.start.split('T')[0] : `${e.start.split('T')[0]}T${data.startTime}`,
+              end: data.allDay ? e.end.split('T')[0] : `${e.end.split('T')[0]}T${data.endTime}`,
+              allDay: data.allDay,
               extendedProps: {
                 ...e.extendedProps,
                 clientId: data.clientId,
                 type: data.type,
                 notes: data.notes,
                 isPersonal: data.isPersonal,
-                allDay: data.allDay,
-                // Update recurring info if present
-                ...(data.recurring ? { recurring: data.recurring } : {}),
-                ...(data.monthlyRecur ? { monthlyRecur: data.monthlyRecur } : {})
-              },
-              // Update root properties for recurring
-              ...(data.recurring ? { daysOfWeek: data.recurring.daysOfWeek, startTime: data.recurring.startTime, endTime: data.recurring.endTime } : {}),
-              ...(data.monthlyRecur ? {
-                rrule: {
-                  freq: 'monthly',
-                  byweekday: data.monthlyRecur.day,
-                  bysetpos: data.monthlyRecur.week
-                },
-                startTime: data.monthlyRecur.startTime,
-                endTime: data.monthlyRecur.endTime,
-              } : {})
+                allDay: data.allDay
+              }
             };
           }
           return e;
         });
-
         setEvents(updatedEvents);
       }
       setIsModalOpen(false);
@@ -255,15 +251,13 @@ export default function Home() {
 
     // NEW EVENT CREATION LOGIC
     const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
-
     const eventBase = {
-      id: Math.random().toString(36).substr(2, 9),
       title: eventTitle,
       backgroundColor: color,
       allDay: data.allDay,
       extendedProps: {
         clientId: data.clientId,
-        careManagerId: selectedCareManagerId, // Tie to current CM
+        careManagerId: selectedCareManagerId,
         type: data.type,
         notes: data.notes,
         isPersonal: data.isPersonal,
@@ -271,47 +265,67 @@ export default function Home() {
       }
     };
 
-    let newEvent: any = { ...eventBase };
-
     if (data.recurring) {
-      newEvent = {
-        ...newEvent,
+      const newEvent = {
+        ...eventBase,
+        id: Math.random().toString(36).substr(2, 9),
         daysOfWeek: data.recurring.daysOfWeek,
         startTime: data.recurring.startTime,
         endTime: data.recurring.endTime,
         extendedProps: {
-          ...newEvent.extendedProps,
+          ...eventBase.extendedProps,
           isRecurring: true,
           recurring: data.recurring
         }
       };
+      setEvents([...events, newEvent]);
     } else if (data.monthlyRecur) {
-      newEvent = {
-        ...newEvent,
-        rrule: {
-          freq: 'monthly',
-          byweekday: data.monthlyRecur.day,
-          bysetpos: data.monthlyRecur.week
-        },
-        startTime: data.monthlyRecur.startTime,
-        endTime: data.monthlyRecur.endTime,
-        extendedProps: {
-          ...newEvent.extendedProps,
-          isRecurring: true,
-          monthlyRecur: data.monthlyRecur
-        }
-      };
-    } else {
-      newEvent = {
-        ...newEvent,
-        start: data.allDay ? dateStr : `${dateStr}T${data.startTime}`,
-        end: data.allDay ? dateStr : `${dateStr}T${data.endTime}`
-      };
-    }
+      // Manual Expansion for Monthly Recurrence
+      const instances = [];
+      const now = new Date();
+      let year = now.getFullYear();
+      let month = now.getMonth();
+      const groupId = `monthly-${Date.now()}`;
 
-    setEvents([...events, newEvent]);
+      for (let i = 0; i < 12; i++) {
+        const targetDate = calculateNthWeekday(year, month, data.monthlyRecur.week, data.monthlyRecur.day);
+        const dayStr = targetDate.toISOString().split('T')[0];
+        instances.push({
+          ...eventBase,
+          id: Math.random().toString(36).substr(2, 9),
+          start: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.startTime}`,
+          end: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.endTime}`,
+          extendedProps: {
+            ...eventBase.extendedProps,
+            isRecurInstance: true,
+            groupId
+          }
+        });
+        month++; if (month > 11) { month = 0; year++; }
+      }
+      setEvents([...events, ...instances]);
+    } else {
+      const newEvent = {
+        ...eventBase,
+        id: Math.random().toString(36).substr(2, 9),
+        start: data.allDay ? dateStr : `${dateStr}T${data.startTime}`,
+        end: data.allDay ? dateStr : `${dateStr}T${data.endTime}`,
+      };
+      setEvents([...events, newEvent]);
+    }
     setIsModalOpen(false);
   };
+
+  // Migration Effect: Clean up "every day" monthly events
+  useEffect(() => {
+    if (events.length > 0) {
+      const needsCleanup = events.some(e => (e as any).rrule && (e as any).rrule.freq === 'monthly');
+      if (needsCleanup) {
+        console.log("Cleaning up invalid monthly rrule events...");
+        setEvents(prev => prev.filter(e => !(e as any).rrule));
+      }
+    }
+  }, [events]);
 
   const handleDeleteEvent = (eventInfo: any) => {
     // If it's a recurring event, show the choice modal
