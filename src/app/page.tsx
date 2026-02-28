@@ -234,10 +234,18 @@ export default function Home() {
         if (isMonthlyGroup && editTargetChoice === 'all') {
           // Re-expand monthly series: delete old group and create new one
           const oldGroupId = editingEvent.extendedProps.groupId;
-          const filteredEvents = events.filter(e => e.extendedProps?.groupId !== oldGroupId);
+          const eventTitle = editingEvent.title;
+          const eventCM = editingEvent.extendedProps.careManagerId;
+
+          // Fuzzy match for deletion if groupId is likely unique per instance (bug in older versions)
+          const filteredEvents = events.filter(e => {
+            if (e.extendedProps?.groupId === oldGroupId) return false;
+            if (oldGroupId?.startsWith('monthly-') && e.title === eventTitle && e.extendedProps?.careManagerId === eventCM && e.extendedProps?.isRecurInstance) return false;
+            return true;
+          });
 
           const instances = [];
-          const now = new Date(editingEvent.start); // Start from the edited event's month
+          const now = new Date(); // Re-expand 12 months from TODAY to ensure future is correct
           let year = now.getFullYear();
           let month = now.getMonth();
           const newGroupId = `monthly-${Date.now()}`;
@@ -268,15 +276,24 @@ export default function Home() {
           }
           setEvents([...filteredEvents, ...instances]);
         } else {
-          // Regular update
+          // Regular update (Single Instance)
           const updatedEvents = events.map(e => {
-            if (e.id === editingEvent.id || (e.extendedProps?.groupId && e.extendedProps?.groupId === editingEvent.extendedProps?.groupId)) {
+            if (e.id === editingEvent.id) {
+              // If it's a monthly instance and the rule changed, recalculate its date
+              let newDateStr = e.start.split('T')[0];
+              if (e.extendedProps?.isRecurInstance && data.monthlyRecur) {
+                const currentMonth = new Date(e.start).getMonth();
+                const currentYear = new Date(e.start).getFullYear();
+                const targetDate = calculateNthWeekday(currentYear, currentMonth, data.monthlyRecur.week, data.monthlyRecur.day);
+                newDateStr = formatLocalDate(targetDate);
+              }
+
               return {
                 ...e,
                 title: eventTitle,
                 backgroundColor: color,
-                start: data.allDay ? e.start.split('T')[0] : `${e.start.split('T')[0]}T${data.startTime}`,
-                end: data.allDay ? e.end.split('T')[0] : `${e.end.split('T')[0]}T${data.endTime}`,
+                start: data.allDay ? newDateStr : `${newDateStr}T${data.startTime}`,
+                end: data.allDay ? newDateStr : `${newDateStr}T${data.endTime}`,
                 allDay: data.allDay,
                 extendedProps: {
                   ...e.extendedProps,
@@ -285,9 +302,7 @@ export default function Home() {
                   notes: data.notes,
                   isPersonal: data.isPersonal,
                   allDay: data.allDay,
-                  // Optimization: if it was a group, it stays a group but update rule if single edit? 
-                  // No, for single edit in a group, we just update this instance's props.
-                  ...(isMonthlyGroup && { monthlyRecur: data.monthlyRecur })
+                  ...(data.monthlyRecur && { monthlyRecur: data.monthlyRecur })
                 }
               };
             }
@@ -409,9 +424,17 @@ export default function Home() {
     setEvents(prev => {
       if (choice === 'all') {
         const eventGroupId = eventToDelete.extendedProps?.groupId;
+        const isMonthly = eventToDelete.extendedProps?.isRecurInstance;
         return prev.filter(e => {
           if (eventSeriesId && e.extendedProps?.seriesId === eventSeriesId) return false;
+          // Exact group match
           if (eventGroupId && e.extendedProps?.groupId === eventGroupId) return false;
+          // Fuzzy match for orphaned monthly instances (same title, same CM, same clientId)
+          if (isMonthly && !eventSeriesId && e.extendedProps?.isRecurInstance &&
+            e.title === eventTitle &&
+            e.extendedProps?.careManagerId === eventToDelete.extendedProps?.careManagerId &&
+            e.extendedProps?.clientId === eventToDelete.extendedProps?.clientId) return false;
+
           if (eventId && e.id === eventId) return false;
           if (!eventId && !eventSeriesId && !eventGroupId && e.title === eventTitle) return false;
           return true;
@@ -529,7 +552,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.35</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.36</span>
             </div>
 
           </div>
@@ -641,8 +664,8 @@ export default function Home() {
                 allDay: editingEvent.allDay,
                 recurrenceType: editingEvent.extendedProps?.recurring ? 'weekly' : (editingEvent.extendedProps?.monthlyRecur ? 'monthly' : 'none'),
                 weeklyDays: editingEvent.extendedProps?.recurring?.daysOfWeek,
-                monthlyWeek: editingEvent.extendedProps?.monthlyRecur?.week,
-                monthlyDay: editingEvent.extendedProps?.monthlyRecur?.day
+                monthlyWeek: editingEvent.extendedProps?.monthlyRecur?.week || Math.ceil(new Date(editingEvent.start).getDate() / 7),
+                monthlyDay: editingEvent.extendedProps?.monthlyRecur?.day ?? new Date(editingEvent.start).getDay()
               } : undefined}
               clients={filteredClients}
               scheduleTypes={scheduleTypes}
