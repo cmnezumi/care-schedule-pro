@@ -408,7 +408,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                                     <span className="text-[11px] font-bold text-slate-400 ml-1">に自動入力</span>
                                 </div>
                                 <p className="text-[9px] font-medium text-slate-400 mt-1.5 flex items-center gap-1 opacity-70">
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <svg className="w-3 h-3 flex-shrink-0" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     毎月 第{monthlyWeek} {weekDays.find(d => d.value === monthlyDay)?.label}曜日に予定が入ります
                                 </p>
                             </div>

@@ -85,14 +85,17 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                     left: `${position.x}px`,
                     top: `${position.y}px`,
                     margin: 0,
-                    width: 'auto',
+                    width: '100%',
+                    maxWidth: width.startsWith('max-w-') ? undefined : width,
                     backgroundColor: 'white',
-                    opacity: 1
                 } : {
-                    position: 'relative',
-                    width: 'auto',
+                    position: 'fixed',
+                    left: '50%',
+                    top: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: '100%',
+                    maxWidth: width.startsWith('max-w-') ? undefined : width,
                     backgroundColor: 'white',
-                    opacity: 1
                 }}
             >
                 {/* Header / Drag Handle */}
@@ -105,7 +108,7 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
                         onClick={onClose}
                         className="text-white/80 hover:text-white hover:bg-white/20 rounded-full p-1 transition-colors"
                     >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        <svg className="w-3 h-3 flex-shrink-0" width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
