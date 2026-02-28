@@ -151,6 +151,14 @@ export default function Home() {
     setEvents([...events, newEvent]);
   };
 
+  // Helper to format Date object to YYYY-MM-DD string without timezone shift
+  const formatLocalDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
   // Helper to calculate the Nth weekday of a month
   const calculateNthWeekday = (year: number, month: number, week: number, day: number) => {
     // month is 0-indexed
@@ -250,7 +258,7 @@ export default function Home() {
     }
 
     // NEW EVENT CREATION LOGIC
-    const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+    const dateStr = selectedDate ? formatLocalDate(selectedDate) : '';
     const eventBase = {
       title: eventTitle,
       backgroundColor: color,
@@ -289,7 +297,7 @@ export default function Home() {
 
       for (let i = 0; i < 12; i++) {
         const targetDate = calculateNthWeekday(year, month, data.monthlyRecur.week, data.monthlyRecur.day);
-        const dayStr = targetDate.toISOString().split('T')[0];
+        const dayStr = formatLocalDate(targetDate);
         instances.push({
           ...eventBase,
           id: Math.random().toString(36).substr(2, 9),
@@ -474,7 +482,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.32</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.34</span>
             </div>
 
           </div>
