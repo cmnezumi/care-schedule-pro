@@ -8,12 +8,14 @@ interface VisitModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: {
+        id?: string;
         clientId: string | null;
         type: VisitType;
-        start: string;
-        end: string;
+        startTime: string;
+        endTime: string;
         notes: string;
         isPersonal?: boolean;
+        allDay?: boolean;
         recurring?: {
             daysOfWeek: number[];
             startTime: string;
@@ -27,12 +29,27 @@ interface VisitModalProps {
         };
     }) => void;
     initialDate?: Date;
+    initialData?: {
+        id?: string;
+        clientId?: string | null;
+        type?: string;
+        startTime?: string;
+        endTime?: string;
+        notes?: string;
+        isPersonal?: boolean;
+        allDay?: boolean;
+        recurrenceType?: 'none' | 'weekly' | 'monthly';
+        weeklyDays?: number[];
+        monthlyWeek?: number;
+        monthlyDay?: number;
+    };
     clients?: Client[];
     scheduleTypes?: ScheduleType[];
     defaultClientId?: string | null;
+    onDelete?: (id: string) => void;
 }
 
-const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
+const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialData, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('monitoring');
     const [startTime, setStartTime] = useState('10:00');
@@ -43,52 +60,72 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     const [monthlyWeek, setMonthlyWeek] = useState(1);
     const [monthlyDay, setMonthlyDay] = useState(1);
     const [isPersonal, setIsPersonal] = useState(false);
+    const [allDay, setAllDay] = useState(false);
 
     useEffect(() => {
-        if (isOpen && initialDate) {
-            if (defaultClientId) {
-                setClientId(defaultClientId);
-            } else if (clients.length > 0) {
-                setClientId(clients[0].id);
-            } else {
-                setClientId('');
+        if (isOpen) {
+            if (initialData) {
+                // Editing mode
+                setClientId(initialData.clientId || '');
+                setType(initialData.type || 'monitoring');
+                setStartTime(initialData.startTime || '10:00');
+                setEndTime(initialData.endTime || '11:00');
+                setNotes(initialData.notes || '');
+                setIsPersonal(initialData.isPersonal || false);
+                setAllDay(initialData.allDay || false);
+                setRecurrenceType(initialData.recurrenceType || 'none');
+                setWeeklyDays(initialData.weeklyDays || []);
+                setMonthlyWeek(initialData.monthlyWeek || 1);
+                setMonthlyDay(initialData.monthlyDay || 0);
+            } else if (initialDate) {
+                // New event mode
+                if (defaultClientId) {
+                    setClientId(defaultClientId);
+                } else if (clients.length > 0) {
+                    setClientId(clients[0].id);
+                } else {
+                    setClientId('');
+                }
+
+                if (scheduleTypes.length > 0) {
+                    setType(scheduleTypes[0].id);
+                } else {
+                    setType('monitoring');
+                }
+                setStartTime('10:00');
+                setEndTime('11:00');
+                setNotes('');
+                setAllDay(false);
+
+                setRecurrenceType('none');
+                setWeeklyDays([initialDate.getDay()]);
+
+                const weekNumber = Math.ceil(initialDate.getDate() / 7);
+                setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber);
+                setMonthlyDay(initialDate.getDay());
+
+                setIsPersonal(false);
             }
-            if (scheduleTypes.length > 0) {
-                setType(scheduleTypes[0].id);
-            } else {
-                setType('monitoring');
-            }
-            setStartTime('10:00');
-            setEndTime('11:00');
-            setNotes('');
-
-            setRecurrenceType('none');
-            setWeeklyDays([initialDate.getDay()]);
-
-            // Set default monthly to "This week-number and this day-of-week"
-            const weekNumber = Math.ceil(initialDate.getDate() / 7);
-            setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber); // Caps at 4 or maybe provide "last"
-            setMonthlyDay(initialDate.getDay());
-
-            setIsPersonal(false);
         }
-    }, [isOpen, initialDate, clients, scheduleTypes, defaultClientId]);
+    }, [isOpen, initialDate, initialData, clients, scheduleTypes, defaultClientId]);
 
     const handleSave = () => {
         if (!initialDate) return;
 
         const baseData = {
+            id: initialData?.id,
             clientId: isPersonal ? null : clientId,
             type: type as VisitType,
             notes,
             isPersonal,
+            allDay,
         };
 
         if (recurrenceType === 'weekly') {
             onSave({
                 ...baseData,
-                start: '',
-                end: '',
+                startTime,
+                endTime,
                 recurring: {
                     daysOfWeek: weeklyDays,
                     startTime,
@@ -98,8 +135,8 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
         } else if (recurrenceType === 'monthly') {
             onSave({
                 ...baseData,
-                start: '',
-                end: '',
+                startTime,
+                endTime,
                 monthlyRecur: {
                     week: monthlyWeek,
                     day: monthlyDay,
@@ -112,10 +149,8 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             const month = String(initialDate.getMonth() + 1).padStart(2, '0');
             const day = String(initialDate.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
-            const start = `${dateStr}T${startTime}:00`;
-            const end = `${dateStr}T${endTime}:00`;
 
-            onSave({ ...baseData, start, end });
+            onSave({ ...baseData, startTime, endTime });
         }
         onClose();
     };
@@ -166,33 +201,46 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
         <DraggableModal
             isOpen={isOpen}
             onClose={onClose}
-            title={`${displayDate} の予定登録`}
+            title={initialData ? '予定を編集' : `${displayDate} の予定登録`}
             width="max-w-3xl"
         >
             <div className="flex flex-col gap-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
                     {/* Left Column: Basic Info */}
                     <div className="space-y-3">
-                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
-                            <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
-                                <input
-                                    type="checkbox"
-                                    className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500"
-                                    checked={isPersonal}
-                                    onChange={(e) => {
-                                        setIsPersonal(e.target.checked);
-                                        if (e.target.checked) {
-                                            const personalType = scheduleTypes.find(t => t.id === 'offday' || t.name === '休み');
-                                            if (personalType) setType(personalType.name);
-                                        } else {
-                                            const defaultType = scheduleTypes.find(t => t.id === 'monitoring' || t.name === 'モニタリング');
-                                            if (defaultType) setType(defaultType.name);
-                                        }
-                                    }}
-                                />
-                                自分の予定として登録
-                            </label>
-                            <span className="text-[10px] text-slate-400 font-medium">※利用者は選ばない</span>
+                        <div className="flex gap-2">
+                            <div className="flex-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                                <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500"
+                                        checked={isPersonal}
+                                        onChange={(e) => {
+                                            setIsPersonal(e.target.checked);
+                                            if (e.target.checked) {
+                                                const personalType = scheduleTypes.find(t => t.id === 'offday' || t.name === '休み');
+                                                if (personalType) setType(personalType.name);
+                                            } else {
+                                                const defaultType = scheduleTypes.find(t => t.id === 'monitoring' || t.name === 'モニタリング');
+                                                if (defaultType) setType(defaultType.name);
+                                            }
+                                        }}
+                                    />
+                                    自分の予定
+                                </label>
+                            </div>
+
+                            <div className="flex-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
+                                <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
+                                    <input
+                                        type="checkbox"
+                                        className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500"
+                                        checked={allDay}
+                                        onChange={(e) => setAllDay(e.target.checked)}
+                                    />
+                                    終日 (時間指定なし)
+                                </label>
+                            </div>
                         </div>
 
                         {!isPersonal && (
@@ -248,26 +296,28 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
 
                     {/* Right Column: Time & Notes */}
                     <div className="space-y-3">
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">開始時間</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
-                                    value={startTime}
-                                    onChange={(e) => setStartTime(e.target.value)}
-                                />
+                        {!allDay && (
+                            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">開始時間</label>
+                                    <input
+                                        type="time"
+                                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
+                                        value={startTime}
+                                        onChange={(e) => setStartTime(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-slate-700 mb-1.5">終了時間</label>
+                                    <input
+                                        type="time"
+                                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
+                                        value={endTime}
+                                        onChange={(e) => setEndTime(e.target.value)}
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">終了時間</label>
-                                <input
-                                    type="time"
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-sky-500/10 focus:border-sky-500 outline-none text-sm font-bold text-slate-700"
-                                    value={endTime}
-                                    onChange={(e) => setEndTime(e.target.value)}
-                                />
-                            </div>
-                        </div>
+                        )}
 
                         <div>
                             <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">メモ</label>
@@ -367,19 +417,37 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                 </div>
 
                 {/* Footer Buttons */}
-                <div className="flex justify-end items-center gap-4 pt-3 mt-1">
-                    <button
-                        onClick={onClose}
-                        className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
-                    >
-                        キャンセル
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-8 py-2.5 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-md shadow-sky-100 hover:shadow-sky-200 hover:scale-[1.01] active:scale-98 transition-all"
-                    >
-                        予定を登録する
-                    </button>
+                <div className="flex justify-between items-center pt-3 mt-1">
+                    <div>
+                        {initialData && onDelete && (
+                            <button
+                                onClick={() => {
+                                    if (confirm('この予定を削除してもよろしいですか？')) {
+                                        onDelete(initialData.id!);
+                                        onClose();
+                                    }
+                                }}
+                                className="px-4 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
+                            >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                削除する
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={onClose}
+                            className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                        >
+                            キャンセル
+                        </button>
+                        <button
+                            onClick={handleSave}
+                            className="px-8 py-2.5 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-md shadow-sky-100 hover:shadow-sky-200 hover:scale-[1.01] active:scale-98 transition-all"
+                        >
+                            {initialData ? '変更を保存' : '予定を登録する'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </DraggableModal>

@@ -14,6 +14,7 @@ interface ScheduleCalendarProps {
   selectedClientId?: string | null;
   scheduleTypes?: ScheduleType[];
   onDateClick?: (date: Date) => void;
+  onEditEvent?: (event: any) => void;
   onDeleteEvent?: (eventInfo: any) => void;
 }
 
@@ -24,6 +25,7 @@ const ScheduleCalendar = ({
   selectedClientId,
   scheduleTypes = [],
   onDateClick,
+  onEditEvent,
   onDeleteEvent
 }: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
@@ -44,32 +46,8 @@ const ScheduleCalendar = ({
   };
 
   const handleEventClick = (info: any) => {
-    const eventTitle = info.event.title;
-    const isRecurring = info.event.extendedProps?.isRecurring || info.event._def?.recurringDef;
-
-    if (isRecurring) {
-      if (onDeleteEvent) {
-        onDeleteEvent(info.event);
-      }
-      return;
-    }
-
-    if (confirm(`「${eventTitle}」を削除してもよろしいですか？`)) {
-      if (onDeleteEvent) {
-        onDeleteEvent(info.event);
-        return;
-      }
-
-      const allEvents = propEvents || localEvents;
-      const updatedEvents = allEvents.filter(e =>
-        !(e.title === info.event.title && e.start === info.event.startStr)
-      );
-
-      if (setEvents) {
-        setEvents(updatedEvents);
-      } else {
-        setLocalEvents(updatedEvents);
-      }
+    if (onEditEvent) {
+      onEditEvent(info.event);
     }
   };
 

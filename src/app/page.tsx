@@ -6,11 +6,12 @@ import UserManagement from "@/components/UserManagement";
 
 import UserModal from "@/components/UserModal";
 import ShiftAutomation from "@/components/ShiftAutomation";
-import ConferenceAdjustment from "@/components/ConferenceAdjustment";
+import ConferenceAdjustment from '@/components/ConferenceAdjustment';
+import EditChoiceModal from "@/components/EditChoiceModal";
 import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
-import { Client, ScheduleType, CareManager, VisitType } from "@/types";
+import { Client, Visit, ScheduleType, CareManager, VisitType } from "@/types";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
@@ -23,11 +24,14 @@ export default function Home() {
     { id: 'cm2', name: 'ケアマネ A' },
     { id: 'cm3', name: 'ケアマネ B' },
   ]);
-  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
+  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('all');
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const [isVisitModalOpen, setIsVisitModalOpen] = useState(false);
-  const [selectedVisitDate, setSelectedVisitDate] = useState<Date | undefined>(undefined);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditChoiceModalOpen, setIsEditChoiceModalOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all'>('single');
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   const [isDeletionModalOpen, setIsDeletionModalOpen] = useState(false);
@@ -119,119 +123,194 @@ export default function Home() {
     setScheduleTypes(scheduleTypes.filter(t => t.id !== id));
   };
 
+  const handleDateClick = (date: Date) => {
+    setEditingEvent(null);
+    setSelectedDate(date);
+    setIsModalOpen(true);
+  };
+
+  const handleEditEvent = (event: any) => {
+    const isRecurring = event.extendedProps?.isRecurring || event._def?.recurringDef;
+    setEditingEvent(event);
+    setSelectedDate(new Date(event.start));
+
+    if (isRecurring) {
+      setIsEditChoiceModalOpen(true);
+    } else {
+      setIsModalOpen(true);
+    }
+  };
+
+  const handleEditChoice = (choice: 'single' | 'all') => {
+    setEditTargetChoice(choice);
+    setIsEditChoiceModalOpen(false);
+    setIsModalOpen(true);
+  };
+
   const handleAddEvent = (newEvent: any) => {
     setEvents([...events, newEvent]);
   };
 
-  const handleSaveVisit = (data: {
-    clientId: string | null;
-    type: VisitType;
-    start: string;
-    end: string;
-    notes: string;
-    isPersonal?: boolean;
-    recurring?: {
-      daysOfWeek: number[];
-      startTime: string;
-      endTime: string;
-    };
-    monthlyRecur?: {
-      week: number;
-      day: number;
-      startTime: string;
-      endTime: string;
-    };
-  }) => {
-    // If personal, don't require client
+  const handleSaveVisit = (data: any) => {
     const client = data.isPersonal ? null : clients.find(c => c.id === data.clientId);
     if (!data.isPersonal && !client) return;
 
-    // Determine label and color
-    let typeLabel = data.type;
-    let color = '#64748b'; // default
+    const typeLabel = scheduleTypes.find(t => t.id === data.type || t.name === data.type)?.name || data.type;
+    const color = scheduleTypes.find(t => t.id === data.type || t.name === data.type)?.color || '#94a3b8';
 
-    const typeDef = scheduleTypes.find(t => t.id === data.type || t.name === data.type);
-    if (typeDef) {
-      typeLabel = typeDef.name;
-      color = typeDef.color;
+    // Helper to format title
+    const eventTitle = data.isPersonal ? typeLabel : `${client?.name}: ${typeLabel}`;
+
+    if (editingEvent) {
+      const isRecurring = editingEvent.extendedProps?.isRecurring || editingEvent._def?.recurringDef;
+
+      if (isRecurring && editTargetChoice === 'single') {
+        // Exception logic for recurring event
+        const dateStr = editingEvent.startStr.split('T')[0];
+
+        // 1. Add this date to excludedDates of the original recurring event
+        const updatedEvents = events.map(e => {
+          if (e.id === editingEvent.id) {
+            const excluded = e.extendedProps?.excludedDates || [];
+            return {
+              ...e,
+              extendedProps: {
+                ...e.extendedProps,
+                excludedDates: [...excluded, dateStr]
+              }
+            };
+          }
+          return e;
+        });
+
+        // 2. Create a one-time event for this specific day
+        const singleEvent = {
+          id: Math.random().toString(36).substr(2, 9),
+          title: eventTitle,
+          start: data.allDay ? dateStr : `${dateStr}T${data.startTime}`,
+          end: data.allDay ? dateStr : `${dateStr}T${data.endTime}`,
+          allDay: data.allDay,
+          backgroundColor: color,
+          extendedProps: {
+            clientId: data.clientId,
+            careManagerId: editingEvent.extendedProps?.careManagerId || selectedCareManagerId,
+            type: data.type,
+            notes: data.notes,
+            isPersonal: data.isPersonal,
+            allDay: data.allDay
+          }
+        };
+
+        const finalEvents = [...updatedEvents, singleEvent];
+        setEvents(finalEvents);
+      } else {
+        // Regular update or Global Recurring update
+        const updatedEvents = events.map(e => {
+          if (e.id === editingEvent.id) {
+            // If it's recurring and we update 'all', we might want to preserve the recurring rules
+            const isRecur = e.extendedProps?.isRecurring;
+            return {
+              ...e,
+              title: eventTitle,
+              backgroundColor: color,
+              // Update times if it's not a recurring event (recurring events have startTime/endTime in extendedProps)
+              ...(isRecur ? {} : {
+                start: data.allDay ? e.start.split('T')[0] : `${e.start.split('T')[0]}T${data.startTime}`,
+                end: data.allDay ? e.end.split('T')[0] : `${e.end.split('T')[0]}T${data.endTime}`,
+                allDay: data.allDay,
+              }),
+              extendedProps: {
+                ...e.extendedProps,
+                clientId: data.clientId,
+                type: data.type,
+                notes: data.notes,
+                isPersonal: data.isPersonal,
+                allDay: data.allDay,
+                // Update recurring info if present
+                ...(data.recurring ? { recurring: data.recurring } : {}),
+                ...(data.monthlyRecur ? { monthlyRecur: data.monthlyRecur } : {})
+              },
+              // Update root properties for recurring
+              ...(data.recurring ? { daysOfWeek: data.recurring.daysOfWeek, startTime: data.recurring.startTime, endTime: data.recurring.endTime } : {}),
+              ...(data.monthlyRecur ? {
+                rrule: {
+                  freq: 'monthly',
+                  byweekday: data.monthlyRecur.day,
+                  bysetpos: data.monthlyRecur.week
+                },
+                startTime: data.monthlyRecur.startTime,
+                endTime: data.monthlyRecur.endTime,
+              } : {})
+            };
+          }
+          return e;
+        });
+
+        setEvents(updatedEvents);
+      }
+      setIsModalOpen(false);
+      setEditingEvent(null);
+      return;
     }
+
+    // NEW EVENT CREATION LOGIC
+    const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
 
     const eventBase = {
       id: Math.random().toString(36).substr(2, 9),
-      title: data.isPersonal ? typeLabel : `${client?.name}: ${typeLabel}`,
+      title: eventTitle,
       backgroundColor: color,
+      allDay: data.allDay,
       extendedProps: {
         clientId: data.clientId,
         careManagerId: selectedCareManagerId, // Tie to current CM
         type: data.type,
         notes: data.notes,
-        isPersonal: data.isPersonal
+        isPersonal: data.isPersonal,
+        allDay: data.allDay
       }
     };
 
+    let newEvent: any = { ...eventBase };
+
     if (data.recurring) {
-      const newEvent = {
-        ...eventBase,
+      newEvent = {
+        ...newEvent,
         daysOfWeek: data.recurring.daysOfWeek,
         startTime: data.recurring.startTime,
         endTime: data.recurring.endTime,
         extendedProps: {
-          ...eventBase.extendedProps,
-          isRecurring: true
+          ...newEvent.extendedProps,
+          isRecurring: true,
+          recurring: data.recurring
         }
       };
-      setEvents([...events, newEvent]);
     } else if (data.monthlyRecur) {
-      // For monthly Nth day, generate individual events for the next 12 months
-      const generatedEvents: any[] = [];
-      const { week, day, startTime, endTime } = data.monthlyRecur;
-      const seriesId = Math.random().toString(36).substr(2, 9);
-
-      const now = new Date();
-      for (let i = 0; i < 12; i++) {
-        const targetMonth = new Date(now.getFullYear(), now.getMonth() + i, 1);
-
-        // Find the Nth weekday of this month
-        let dayCount = 0;
-        let targetDate: Date | null = null;
-
-        for (let d = 1; d <= 31; d++) {
-          const checkDate = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), d);
-          if (checkDate.getMonth() !== targetMonth.getMonth()) break;
-
-          if (checkDate.getDay() === day) {
-            dayCount++;
-            if (dayCount === week) {
-              targetDate = checkDate;
-              break;
-            }
-          }
+      newEvent = {
+        ...newEvent,
+        rrule: {
+          freq: 'monthly',
+          byweekday: data.monthlyRecur.day,
+          bysetpos: data.monthlyRecur.week
+        },
+        startTime: data.monthlyRecur.startTime,
+        endTime: data.monthlyRecur.endTime,
+        extendedProps: {
+          ...newEvent.extendedProps,
+          isRecurring: true,
+          monthlyRecur: data.monthlyRecur
         }
-
-        if (targetDate) {
-          const dateStr = targetDate.toISOString().split('T')[0];
-          generatedEvents.push({
-            ...eventBase,
-            id: `${seriesId}-${i}`,
-            start: `${dateStr}T${startTime}:00`,
-            end: `${dateStr}T${endTime}:00`,
-            extendedProps: {
-              ...eventBase.extendedProps,
-              isRecurring: true, // Treat as recurring for deletion logic
-              seriesId: seriesId
-            }
-          });
-        }
-      }
-      setEvents([...events, ...generatedEvents]);
-    } else {
-      const newEvent = {
-        ...eventBase,
-        start: data.start,
-        end: data.end
       };
-      setEvents([...events, newEvent]);
+    } else {
+      newEvent = {
+        ...newEvent,
+        start: data.allDay ? dateStr : `${dateStr}T${data.startTime}`,
+        end: data.allDay ? dateStr : `${dateStr}T${data.endTime}`
+      };
     }
+
+    setEvents([...events, newEvent]);
+    setIsModalOpen(false);
   };
 
   const handleDeleteEvent = (eventInfo: any) => {
@@ -378,10 +457,10 @@ export default function Home() {
             </button>
             <div className="flex items-center gap-2">
               <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${isSaving ? 'text-sky-500 animate-pulse' : 'text-slate-300'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
+                <div className="w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}" />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.26</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.27</span>
             </div>
 
           </div>
@@ -442,15 +521,12 @@ export default function Home() {
               </div>
               <div className="flex-grow p-4 overflow-auto">
                 <ScheduleCalendar
-                  clients={filteredClients}
                   events={filteredEvents}
-                  setEvents={setEvents}
+                  clients={clients}
                   selectedClientId={selectedClientId}
                   scheduleTypes={scheduleTypes}
-                  onDateClick={(date) => {
-                    setSelectedVisitDate(date);
-                    setIsVisitModalOpen(true);
-                  }}
+                  onDateClick={handleDateClick}
+                  onEditEvent={handleEditEvent}
                   onDeleteEvent={handleDeleteEvent}
                 />
               </div>
@@ -477,13 +553,41 @@ export default function Home() {
             />
 
             <VisitModal
-              isOpen={isVisitModalOpen}
-              onClose={() => setIsVisitModalOpen(false)}
+              isOpen={isModalOpen}
+              onClose={() => {
+                setIsModalOpen(false);
+                setEditingEvent(null);
+              }}
               onSave={handleSaveVisit}
-              initialDate={selectedVisitDate}
+              onDelete={handleDeleteEvent} // Pass the delete handler
+              initialDate={selectedDate || undefined}
+              initialData={editingEvent ? {
+                id: editingEvent.id,
+                clientId: editingEvent.extendedProps?.clientId,
+                type: editingEvent.extendedProps?.type,
+                startTime: editingEvent.allDay ? '10:00' : editingEvent.startStr.split('T')[1]?.substring(0, 5) || editingEvent.extendedProps?.recurring?.startTime || editingEvent.extendedProps?.monthlyRecur?.startTime,
+                endTime: editingEvent.allDay ? '11:00' : editingEvent.endStr.split('T')[1]?.substring(0, 5) || editingEvent.extendedProps?.recurring?.endTime || editingEvent.extendedProps?.monthlyRecur?.endTime,
+                notes: editingEvent.extendedProps?.notes,
+                isPersonal: editingEvent.extendedProps?.isPersonal,
+                allDay: editingEvent.allDay,
+                recurrenceType: editingEvent.extendedProps?.recurring ? 'weekly' : (editingEvent.extendedProps?.monthlyRecur ? 'monthly' : 'none'),
+                weeklyDays: editingEvent.extendedProps?.recurring?.daysOfWeek,
+                monthlyWeek: editingEvent.extendedProps?.monthlyRecur?.week,
+                monthlyDay: editingEvent.extendedProps?.monthlyRecur?.day
+              } : undefined}
               clients={filteredClients}
               scheduleTypes={scheduleTypes}
               defaultClientId={selectedClientId}
+            />
+
+            <EditChoiceModal
+              isOpen={isEditChoiceModalOpen}
+              onClose={() => {
+                setIsEditChoiceModalOpen(false);
+                setEditingEvent(null);
+              }}
+              onSelect={handleEditChoice}
+              eventTitle={editingEvent?.title || ''}
             />
 
             <DeletionChoiceModal
