@@ -77,11 +77,16 @@ const DraggableModal = ({ isOpen, onClose, title, children, width = 'max-w-md' }
 
             <div
                 ref={modalRef}
-                className={`pointer-events-auto absolute bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-300 flex flex-col ${width} overflow-hidden`}
-                style={{
-                    left: position ? `${position.x}px` : '50%',
-                    top: position ? `${position.y}px` : '50%',
-                    transform: position ? 'none' : 'translate(-50%, -50%)',
+                className={`pointer-events-auto bg-white rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-slate-300 flex flex-col ${width} overflow-hidden`}
+                style={position ? {
+                    position: 'absolute',
+                    left: `${position.x}px`,
+                    top: `${position.y}px`,
+                    width: 'auto',
+                    backgroundColor: 'white',
+                    opacity: 1
+                } : {
+                    position: 'relative',
                     width: 'auto',
                     backgroundColor: 'white',
                     opacity: 1

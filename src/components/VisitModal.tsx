@@ -8,11 +8,12 @@ interface VisitModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSave: (data: {
-        clientId: string;
+        clientId: string | null;
         type: VisitType;
         start: string;
         end: string;
         notes: string;
+        isPersonal?: boolean;
         recurring?: {
             daysOfWeek: number[];
             startTime: string;
@@ -41,6 +42,7 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
     const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
     const [monthlyWeek, setMonthlyWeek] = useState(1);
     const [monthlyDay, setMonthlyDay] = useState(1);
+    const [isPersonal, setIsPersonal] = useState(false);
 
     useEffect(() => {
         if (isOpen && initialDate) {
@@ -67,6 +69,8 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
             const weekNumber = Math.ceil(initialDate.getDate() / 7);
             setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber); // Caps at 4 or maybe provide "last"
             setMonthlyDay(initialDate.getDay());
+
+            setIsPersonal(false);
         }
     }, [isOpen, initialDate, clients, scheduleTypes, defaultClientId]);
 
@@ -74,9 +78,10 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
         if (!initialDate) return;
 
         const baseData = {
-            clientId,
+            clientId: isPersonal ? null : clientId,
             type: type as VisitType,
             notes,
+            isPersonal,
         };
 
         if (recurrenceType === 'weekly') {
@@ -168,21 +173,47 @@ const VisitModal = ({ isOpen, onClose, onSave, initialDate, clients = [], schedu
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left Column: Basic Info */}
                     <div className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
-                                利用者
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 flex items-center justify-between">
+                            <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
+                                <input
+                                    type="checkbox"
+                                    className="w-4 h-4 text-sky-500 rounded border-slate-300 focus:ring-sky-500"
+                                    checked={isPersonal}
+                                    onChange={(e) => {
+                                        setIsPersonal(e.target.checked);
+                                        if (e.target.checked) {
+                                            // When switching to personal, try to find "offday" or "telework"
+                                            const personalType = scheduleTypes.find(t => t.id === 'offday' || t.name === '休み');
+                                            if (personalType) setType(personalType.name);
+                                        } else {
+                                            // When switching back, go to monitoring
+                                            const defaultType = scheduleTypes.find(t => t.id === 'monitoring' || t.name === 'モニタリング');
+                                            if (defaultType) setType(defaultType.name);
+                                        }
+                                    }}
+                                />
+                                自分の予定として登録
                             </label>
-                            <select
-                                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all font-medium text-slate-700"
-                                value={clientId}
-                                onChange={(e) => setClientId(e.target.value)}
-                            >
-                                {clients.map(client => (
-                                    <option key={client.id} value={client.id}>{client.name} 様</option>
-                                ))}
-                            </select>
+                            <span className="text-[10px] text-slate-400 font-medium">※ 利用者を選ばず登録</span>
                         </div>
+
+                        {!isPersonal && (
+                            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 bg-sky-500 rounded-full"></span>
+                                    利用者
+                                </label>
+                                <select
+                                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 outline-none transition-all font-medium text-slate-700"
+                                    value={clientId}
+                                    onChange={(e) => setClientId(e.target.value)}
+                                >
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name} 様</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
 
                         <div>
                             <label className="block text-sm font-bold text-slate-700 mb-1.5 flex items-center gap-2">

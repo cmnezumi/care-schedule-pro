@@ -41,6 +41,8 @@ export default function Home() {
     { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
     { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
     { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
+    { id: 'offday', name: '休み', color: '#fca5a5' },
+    { id: 'telework', name: 'テレワーク', color: '#6ee7b7' },
     { id: 'other', name: 'その他', color: '#64748b' },
   ]);
   const [events, setEvents] = useState<any[]>([]);
@@ -122,11 +124,12 @@ export default function Home() {
   };
 
   const handleSaveVisit = (data: {
-    clientId: string;
+    clientId: string | null;
     type: VisitType;
     start: string;
     end: string;
     notes: string;
+    isPersonal?: boolean;
     recurring?: {
       daysOfWeek: number[];
       startTime: string;
@@ -139,8 +142,9 @@ export default function Home() {
       endTime: string;
     };
   }) => {
-    const client = clients.find(c => c.id === data.clientId);
-    if (!client) return;
+    // If personal, don't require client
+    const client = data.isPersonal ? null : clients.find(c => c.id === data.clientId);
+    if (!data.isPersonal && !client) return;
 
     // Determine label and color
     let typeLabel = data.type;
@@ -154,12 +158,14 @@ export default function Home() {
 
     const eventBase = {
       id: Math.random().toString(36).substr(2, 9),
-      title: `${client.name}: ${typeLabel}`,
+      title: data.isPersonal ? typeLabel : `${client?.name}: ${typeLabel}`,
       backgroundColor: color,
       extendedProps: {
         clientId: data.clientId,
+        careManagerId: selectedCareManagerId, // Tie to current CM
         type: data.type,
-        notes: data.notes
+        notes: data.notes,
+        isPersonal: data.isPersonal
       }
     };
 
@@ -321,7 +327,12 @@ export default function Home() {
   // Filtered lists
   const filteredClients = clients.filter(c => c.careManagerId === selectedCareManagerId);
   const clientIdsOfSelectedCM = new Set(filteredClients.map(c => c.id));
-  const filteredEvents = events.filter(e => clientIdsOfSelectedCM.has(e.extendedProps?.clientId));
+  const filteredEvents = events.filter(e => {
+    // If it's a personal event for this CM, show it
+    if (e.extendedProps?.isPersonal && e.extendedProps?.careManagerId === selectedCareManagerId) return true;
+    // Otherwise show if it's for a client belonging to this CM
+    return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
+  });
 
   return (
     <div className="min-h-screen bg-[var(--background-soft)] flex flex-col">
@@ -370,7 +381,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.23</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.24</span>
             </div>
 
           </div>
