@@ -35,12 +35,14 @@ const ConferenceAdjustment = ({ clients, selectedClientId, onSaveEvent, currentE
     };
 
     const handleSaveVisit = (data: {
+        id?: string;
         clientId: string | null;
         type: any;
-        start: string;
-        end: string;
+        startTime: string;
+        endTime: string;
         notes: string;
         isPersonal?: boolean;
+        allDay?: boolean;
         recurring?: any;
         monthlyRecur?: any;
     }) => {
@@ -90,15 +92,19 @@ const ConferenceAdjustment = ({ clients, selectedClientId, onSaveEvent, currentE
             color = defaultColor[data.type] || '#64748b';
         }
 
+        const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
         const newEvent = {
+            id: Math.random().toString(36).substr(2, 9),
             title: `${client.name}: ${typeLabel}`,
-            start: data.start,
-            end: data.end,
+            start: data.allDay ? dateStr : `${dateStr}T${data.startTime}:00`,
+            end: data.allDay ? dateStr : `${dateStr}T${data.endTime}:00`,
+            allDay: data.allDay,
             backgroundColor: color,
             extendedProps: {
                 clientId: data.clientId,
                 type: data.type,
-                notes: data.notes
+                notes: data.notes,
+                allDay: data.allDay
             }
         };
 
