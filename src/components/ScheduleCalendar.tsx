@@ -53,7 +53,7 @@ const ScheduleCalendar = ({
 
   // Filter events if a client is selected
   const filteredEvents = selectedClientId
-    ? displayEvents.filter(e => e.extendedProps?.clientId === selectedClientId)
+    ? displayEvents.filter(e => e.extendedProps?.clientId === selectedClientId || e.extendedProps?.isPersonal)
     : displayEvents;
 
   if (!mounted) return <div className="h-full w-full bg-slate-50 animate-pulse rounded-lg"></div>;
