@@ -46,7 +46,7 @@ interface VisitModalProps {
     clients?: Client[];
     scheduleTypes?: ScheduleType[];
     defaultClientId?: string | null;
-    onDelete?: (id: string) => void;
+    onDelete?: (event: any) => void;
 }
 
 const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialData, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
@@ -423,7 +423,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, initialDate, initialDat
                             <button
                                 onClick={() => {
                                     if (confirm('この予定を削除してもよろしいですか？')) {
-                                        onDelete(initialData.id!);
+                                        onDelete(initialData);
                                         onClose();
                                     }
                                 }}
