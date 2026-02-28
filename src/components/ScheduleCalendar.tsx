@@ -6,7 +6,6 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import { Visit, Client, VisitType, ScheduleType } from '@/types';
-import VisitModal from './VisitModal';
 
 interface ScheduleCalendarProps {
   clients?: Client[];

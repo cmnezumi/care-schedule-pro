@@ -34,7 +34,17 @@ const ConferenceAdjustment = ({ clients, selectedClientId, onSaveEvent, currentE
         setIsModalOpen(true);
     };
 
-    const handleSaveVisit = (data: { clientId: string; type: string; start: string; end: string; notes: string }) => {
+    const handleSaveVisit = (data: {
+        clientId: string | null;
+        type: any;
+        start: string;
+        end: string;
+        notes: string;
+        isPersonal?: boolean;
+        recurring?: any;
+        monthlyRecur?: any;
+    }) => {
+        if (data.isPersonal) return; // Should not happen in this context
         const client = clients.find(c => c.id === data.clientId);
         if (!client) return;
 
