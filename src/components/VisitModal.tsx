@@ -99,11 +99,9 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                         setClientId('');
                     }
 
-                    if (scheduleTypes.length > 0) {
-                        setType(scheduleTypes[0].id);
-                    } else {
-                        setType('');
-                    }
+                    // Always start with an empty type as requested by user
+                    setType('');
+
                     setStartTime('10:00');
                     setEndTime('11:00');
                     setNotes('');

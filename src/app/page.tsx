@@ -44,9 +44,9 @@ export default function Home() {
   const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([
     { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
     { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
-    { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
-    { id: 'offday', name: '休み', color: '#eab308' },
-    { id: 'telework', name: 'テレワーク', color: '#6ee7b7' },
+    { id: 'conference', name: '担当者会議', color: '#f97316' }, // Orange
+    { id: 'offday', name: '休み', color: '#eab308' },          // Yellow
+    { id: 'telework', name: 'テレワーク', color: '#22c55e' },    // Green (Emerald-500)
     { id: 'other', name: 'その他', color: '#64748b' },
   ]);
   const [events, setEvents] = useState<any[]>([]);
@@ -77,13 +77,21 @@ export default function Home() {
     }
     if (savedEvents) {
       const parsedEvents = JSON.parse(savedEvents) as any[];
-      // Migrate existing event colors to yellow for 'offday'
+      // Force migrate all event colors in the calendar
       const migratedEvents = parsedEvents.map(e => {
         const type = e.extendedProps?.type;
-        if (type === 'offday' || type === '休み') {
-          return { ...e, backgroundColor: '#eab308' };
-        }
-        return e;
+        const typeName = (e.title || '').split(':').pop()?.trim();
+
+        let newColor = e.backgroundColor;
+        if (type === 'offday' || type === '休み' || typeName === '休み') newColor = '#eab308';
+        if (type === 'telework' || type === 'テレワーク' || typeName === 'テレワーク') newColor = '#22c55e';
+        if (type === 'conference' || type === '担当者会議' || typeName === '担当者会議' || typeName === '事業所会議') newColor = '#f97316';
+
+        return {
+          ...e,
+          backgroundColor: newColor,
+          borderColor: newColor
+        };
       });
       setEvents(migratedEvents);
     }
@@ -593,7 +601,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.51</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.52</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
