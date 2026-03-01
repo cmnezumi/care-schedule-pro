@@ -69,9 +69,9 @@ export default function Home() {
 
     if (savedTypes) {
       const parsed = JSON.parse(savedTypes) as ScheduleType[];
-      // Migrate offday color to yellow if it's the old one
+      // FORCE 'offday' to be yellow for better visibility
       const migrated = parsed.map(t =>
-        (t.id === 'offday' && t.color === '#fca5a5') ? { ...t, color: '#eab308' } : t
+        t.id === 'offday' ? { ...t, color: '#eab308' } : t
       );
       setScheduleTypes(migrated);
     }
@@ -582,7 +582,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.49</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.50</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
