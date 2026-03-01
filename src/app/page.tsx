@@ -75,7 +75,18 @@ export default function Home() {
       );
       setScheduleTypes(migrated);
     }
-    if (savedEvents) setEvents(JSON.parse(savedEvents));
+    if (savedEvents) {
+      const parsedEvents = JSON.parse(savedEvents) as any[];
+      // Migrate existing event colors to yellow for 'offday'
+      const migratedEvents = parsedEvents.map(e => {
+        const type = e.extendedProps?.type;
+        if (type === 'offday' || type === '休み') {
+          return { ...e, backgroundColor: '#eab308' };
+        }
+        return e;
+      });
+      setEvents(migratedEvents);
+    }
 
     setDataLoaded(true);
   }, []);
@@ -582,7 +593,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.50</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.51</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>

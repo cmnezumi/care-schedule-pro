@@ -53,7 +53,7 @@ interface VisitModalProps {
 
 const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDate, initialData, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
-    const [type, setType] = useState<string>('monitoring');
+    const [type, setType] = useState<string>('');
     const [startTime, setStartTime] = useState('10:00');
     const [endTime, setEndTime] = useState('11:00');
     const [notes, setNotes] = useState('');
@@ -77,7 +77,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
             if (initialData) {
                 // Editing mode (Always reset based on the event being edited)
                 setClientId(initialData.clientId || '');
-                setType(initialData.type || 'monitoring');
+                setType(initialData.type || '');
                 setStartTime(initialData.startTime || '10:00');
                 setEndTime(initialData.endTime || '11:00');
                 setNotes(initialData.notes || '');
@@ -102,7 +102,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                     if (scheduleTypes.length > 0) {
                         setType(scheduleTypes[0].id);
                     } else {
-                        setType('monitoring');
+                        setType('');
                     }
                     setStartTime('10:00');
                     setEndTime('11:00');
