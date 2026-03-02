@@ -101,29 +101,23 @@ const ScheduleCalendar = ({
         .fc-daygrid-day:hover { background-color: #f8fafc; cursor: pointer; }
         
         /* Personal Status Badges in Day Cell */
-        .status-badge-container {
-          position: absolute;
-          top: 2px;
-          left: 2px;
-          display: flex;
-          flex-wrap: wrap;
-          gap: 2px;
-          z-index: 5;
-          pointer-events: none;
-          max-width: 70%;
-        }
         .status-badge {
-          font-size: 9px;
-          padding: 1px 3px;
+          display: inline-block;
+          font-size: 8px;
+          padding: 0px 2px;
           border-radius: 2px;
           color: white;
           font-weight: bold;
-          line-height: 1;
+          line-height: normal;
           white-space: nowrap;
+          vertical-align: middle;
         }
-        .status-badge-yellow { background-color: #eab308; color: #854d0e; }
+        .status-badge-yellow { background-color: #fef08a; color: #854d0e; border: 1px solid #eab308; }
         .status-badge-orange { background-color: #f97316; }
         .status-badge-green { background-color: #22c55e; }
+        
+        /* Hide original event bars for personal events */
+        .hidden-personal-event { display: none !important; }
       `}</style>
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -157,8 +151,8 @@ const ScheduleCalendar = ({
           });
 
           return (
-            <div className="fc-daygrid-day-number-relative w-full h-full relative">
-              <div className="status-badge-container">
+            <div className="flex items-start justify-between w-full px-1 pt-0.5 pb-0">
+              <div className="flex flex-wrap gap-0.5 max-w-[75%] mt-0.5">
                 {dayEvents.map((e, idx) => {
                   const typeName = (e.title || '').split(':').pop()?.trim();
                   const yellowNames = ['休み', '法外', '法内', '有休', '有給'];
@@ -174,7 +168,7 @@ const ScheduleCalendar = ({
                   return null;
                 })}
               </div>
-              <div className="fc-daygrid-day-number">{arg.dayNumberText}</div>
+              <div className="fc-daygrid-day-number !p-0 !m-0 leading-none">{arg.dayNumberText}</div>
             </div>
           );
         }}
