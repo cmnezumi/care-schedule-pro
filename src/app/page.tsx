@@ -75,7 +75,7 @@ export default function Home() {
       // FORCE colors for consistency as requested by user
       const migrated = parsed.map(t => {
         if (['offday', 'offday_extra', 'offday_intra', 'paid_leave'].includes(t.id) ||
-          ['休み', '法外', '法内', '有休'].includes(t.name)) {
+          ['休み', '法外', '法内', '有休', '有給'].includes(t.name)) {
           return { ...t, color: '#eab308' };
         }
         if (t.id === 'telework' || t.name === 'テレワーク') return { ...t, color: '#22c55e' };
@@ -92,7 +92,7 @@ export default function Home() {
         const typeName = (e.title || '').split(':').pop()?.trim();
 
         let newColor = e.backgroundColor;
-        const yellowTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', '休み', '法外', '法内', '有休'];
+        const yellowTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', '休み', '法外', '法内', '有休', '有給'];
         if (yellowTypes.includes(type) || yellowTypes.includes(typeName)) newColor = '#eab308';
         if (type === 'telework' || type === 'テレワーク' || typeName === 'テレワーク') newColor = '#22c55e';
         if (type === 'conference' || type === '担当者会議' || typeName === '担当者会議' || typeName === '事業所会議') newColor = '#f97316';
@@ -611,7 +611,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.63</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.65</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
