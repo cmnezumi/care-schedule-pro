@@ -151,6 +151,7 @@ const ScheduleCalendar = ({
           // Find personal status events for this day
           const dateStr = arg.date.toLocaleDateString('sv-SE'); // YYYY-MM-DD
           const dayEvents = filteredEvents.filter(e => {
+            if (!e.start) return false;
             const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
             return startStr === dateStr && e.extendedProps?.isPersonal;
           });
