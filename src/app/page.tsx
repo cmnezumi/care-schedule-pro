@@ -46,6 +46,9 @@ export default function Home() {
     { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
     { id: 'conference', name: '担当者会議', color: '#f97316' }, // Orange
     { id: 'offday', name: '休み', color: '#eab308' },          // Yellow
+    { id: 'offday_extra', name: '法外', color: '#eab308' },    // Yellow
+    { id: 'offday_intra', name: '法内', color: '#eab308' },    // Yellow
+    { id: 'paid_leave', name: '有休', color: '#eab308' },      // Yellow
     { id: 'telework', name: 'テレワーク', color: '#22c55e' },    // Green (Emerald-500)
     { id: 'other', name: 'その他', color: '#64748b' },
   ]);
@@ -69,10 +72,16 @@ export default function Home() {
 
     if (savedTypes) {
       const parsed = JSON.parse(savedTypes) as ScheduleType[];
-      // FORCE 'offday' to be yellow for better visibility
-      const migrated = parsed.map(t =>
-        t.id === 'offday' ? { ...t, color: '#eab308' } : t
-      );
+      // FORCE colors for consistency as requested by user
+      const migrated = parsed.map(t => {
+        if (['offday', 'offday_extra', 'offday_intra', 'paid_leave'].includes(t.id) ||
+          ['休み', '法外', '法内', '有休'].includes(t.name)) {
+          return { ...t, color: '#eab308' };
+        }
+        if (t.id === 'telework' || t.name === 'テレワーク') return { ...t, color: '#22c55e' };
+        if (t.id === 'conference' || t.name === '担当者会議' || t.name === '事業所会議') return { ...t, color: '#f97316' };
+        return t;
+      });
       setScheduleTypes(migrated);
     }
     if (savedEvents) {
@@ -83,7 +92,8 @@ export default function Home() {
         const typeName = (e.title || '').split(':').pop()?.trim();
 
         let newColor = e.backgroundColor;
-        if (type === 'offday' || type === '休み' || typeName === '休み') newColor = '#eab308';
+        const yellowTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', '休み', '法外', '法内', '有休'];
+        if (yellowTypes.includes(type) || yellowTypes.includes(typeName)) newColor = '#eab308';
         if (type === 'telework' || type === 'テレワーク' || typeName === 'テレワーク') newColor = '#22c55e';
         if (type === 'conference' || type === '担当者会議' || typeName === '担当者会議' || typeName === '事業所会議') newColor = '#f97316';
 
@@ -601,7 +611,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.52</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.53</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
