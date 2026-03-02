@@ -99,6 +99,31 @@ const ScheduleCalendar = ({
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
         .fc-event { cursor: pointer; }
         .fc-daygrid-day:hover { background-color: #f8fafc; cursor: pointer; }
+        
+        /* Personal Status Badges in Day Cell */
+        .status-badge-container {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 2px;
+          z-index: 5;
+          pointer-events: none;
+          max-width: 70%;
+        }
+        .status-badge {
+          font-size: 9px;
+          padding: 1px 3px;
+          border-radius: 2px;
+          color: white;
+          font-weight: bold;
+          line-height: 1;
+          white-space: nowrap;
+        }
+        .status-badge-yellow { background-color: #eab308; color: #854d0e; }
+        .status-badge-orange { background-color: #f97316; }
+        .status-badge-green { background-color: #22c55e; }
       `}</style>
       <FullCalendar
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -122,17 +147,56 @@ const ScheduleCalendar = ({
           week: '週',
           day: '日'
         }}
+        dayCellContent={(arg) => {
+          // Find personal status events for this day
+          const dateStr = arg.date.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+          const dayEvents = filteredEvents.filter(e => {
+            const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
+            return startStr === dateStr && e.extendedProps?.isPersonal;
+          });
+
+          return (
+            <div className="fc-daygrid-day-number-relative w-full h-full relative">
+              <div className="status-badge-container">
+                {dayEvents.map((e, idx) => {
+                  const typeName = (e.title || '').split(':').pop()?.trim();
+                  const yellowNames = ['休み', '法外', '法内', '有休', '有給'];
+                  if (yellowNames.includes(typeName)) {
+                    return <span key={idx} className="status-badge status-badge-yellow">{typeName}</span>;
+                  }
+                  if (typeName === '事業所会議' || typeName === '担当者会議') {
+                    return <span key={idx} className="status-badge status-badge-orange">会議</span>;
+                  }
+                  if (typeName === 'テレワーク') {
+                    return <span key={idx} className="status-badge status-badge-green">テレ</span>;
+                  }
+                  return null;
+                })}
+              </div>
+              <div className="fc-daygrid-day-number">{arg.dayNumberText}</div>
+            </div>
+          );
+        }}
         eventClassNames={(arg) => {
+          const isPersonal = arg.event.extendedProps?.isPersonal;
           const excludedDates = arg.event.extendedProps?.excludedDates || [];
           const currentDate = arg.event.startStr.split('T')[0];
-          return excludedDates.includes(currentDate) ? ['fc-event-excluded', 'hidden'] : [];
+
+          const classes = [];
+          if (excludedDates.includes(currentDate)) classes.push('hidden');
+          // Hide personal events from main list in Month view
+          if (isPersonal && arg.view.type === 'dayGridMonth') classes.push('hidden-personal-event');
+
+          return classes;
         }}
         eventContent={(arg) => {
           const excludedDates = arg.event.extendedProps?.excludedDates || [];
           const currentDate = arg.event.startStr.split('T')[0];
-          if (excludedDates.includes(currentDate)) {
-            return null; // Don't render
-          }
+          if (excludedDates.includes(currentDate)) return null;
+
+          const isPersonal = arg.event.extendedProps?.isPersonal;
+          if (isPersonal && arg.view.type === 'dayGridMonth') return null; // Handled by dayCellContent
+
           return (
             <div className="fc-event-main-frame flex items-center px-1 overflow-hidden">
               <div className="fc-event-title-container overflow-hidden">

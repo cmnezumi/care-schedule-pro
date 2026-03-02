@@ -49,6 +49,7 @@ export default function Home() {
     { id: 'offday_extra', name: '法外', color: '#eab308' },    // Yellow
     { id: 'offday_intra', name: '法内', color: '#eab308' },    // Yellow
     { id: 'paid_leave', name: '有休', color: '#eab308' },      // Yellow
+    { id: 'office_mtg', name: '事業所会議', color: '#f97316' }, // Orange
     { id: 'telework', name: 'テレワーク', color: '#22c55e' },    // Green (Emerald-500)
     { id: 'other', name: 'その他', color: '#64748b' },
   ]);
@@ -79,7 +80,7 @@ export default function Home() {
           return { ...t, color: '#eab308' };
         }
         if (t.id === 'telework' || t.name === 'テレワーク') return { ...t, color: '#22c55e' };
-        if (t.id === 'conference' || t.name === '担当者会議' || t.name === '事業所会議') return { ...t, color: '#f97316' };
+        if (t.id === 'conference' || t.id === 'office_mtg' || t.name === '担当者会議' || t.name === '事業所会議') return { ...t, color: '#f97316' };
         return t;
       });
       setScheduleTypes(migrated);
@@ -95,7 +96,7 @@ export default function Home() {
         const yellowTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', '休み', '法外', '法内', '有休', '有給'];
         if (yellowTypes.includes(type) || yellowTypes.includes(typeName)) newColor = '#eab308';
         if (type === 'telework' || type === 'テレワーク' || typeName === 'テレワーク') newColor = '#22c55e';
-        if (type === 'conference' || type === '担当者会議' || typeName === '担当者会議' || typeName === '事業所会議') newColor = '#f97316';
+        if (['conference', 'office_mtg'].includes(type) || ['担当者会議', '事業所会議'].includes(typeName)) newColor = '#f97316';
 
         return {
           ...e,
@@ -611,7 +612,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.65</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.66</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
