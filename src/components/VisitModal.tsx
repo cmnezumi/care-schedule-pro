@@ -467,9 +467,14 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                             {initialData && onDelete && (
                                 <button
                                     onClick={() => {
-                                        if (confirm('この予定を削除してもよろしいですか？')) {
-                                            onDelete(initialData);
-                                            onClose();
+                                        if (confirm(`${type || '予定'}を削除してもよろしいですか？`)) {
+                                            try {
+                                                onDelete(initialData);
+                                            } catch (err) {
+                                                console.error("Delete failed:", err);
+                                            } finally {
+                                                onClose();
+                                            }
                                         }
                                     }}
                                     className="px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"

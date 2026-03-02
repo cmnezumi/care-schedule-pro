@@ -98,10 +98,18 @@ export default function Home() {
         if (type === 'telework' || type === 'テレワーク' || typeName === 'テレワーク') newColor = '#22c55e';
         if (['conference', 'office_mtg'].includes(type) || ['担当者会議', '事業所会議'].includes(typeName)) newColor = '#f97316';
 
+        // Force isPersonal for specific types
+        const personalTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', 'office_mtg', 'telework', '休み', '法外', '法内', '有休', '有給', '事業所会議', 'テレワーク'];
+        const isPers = personalTypes.includes(type) || personalTypes.includes(typeName);
+
         return {
           ...e,
           backgroundColor: newColor,
-          borderColor: newColor
+          borderColor: newColor,
+          extendedProps: {
+            ...e.extendedProps,
+            isPersonal: isPers
+          }
         };
       });
       setEvents(migratedEvents);
@@ -220,8 +228,12 @@ export default function Home() {
     const typeLabel = scheduleTypes.find(t => t.id === data.type || t.name === data.type)?.name || data.type;
     const color = scheduleTypes.find(t => t.id === data.type || t.name === data.type)?.color || '#94a3b8';
 
+    // Force isPersonal for specific names/types
+    const personalNames = ['休み', '法外', '法内', '有休', '有給', '事業所会議', '担当者会議', 'テレワーク'];
+    const forcePersonal = data.isPersonal || personalNames.includes(typeLabel);
+
     // Helper to format title
-    const eventTitle = data.isPersonal ? typeLabel : `${client?.name}: ${typeLabel}`;
+    const eventTitle = forcePersonal ? typeLabel : `${client?.name}: ${typeLabel}`;
 
     if (editingEvent) {
       const isRecurring = editingEvent.extendedProps?.isRecurring || editingEvent._def?.recurringDef;
@@ -262,7 +274,7 @@ export default function Home() {
             careManagerId: editingEvent.extendedProps?.careManagerId || selectedCareManagerId,
             type: data.type,
             notes: data.notes,
-            isPersonal: data.isPersonal,
+            isPersonal: forcePersonal,
             allDay: data.allDay
           }
         };
@@ -456,7 +468,9 @@ export default function Home() {
   }, [events]);
 
   const handleDeleteEvent = (eventInfo: any) => {
-    // Determine if it's recurring from either FullCalendar object or VisitModal initialData
+    if (!eventInfo) return;
+
+    // Determine if it's recurring
     const isRecurring = eventInfo.extendedProps?.isRecurring ||
       eventInfo.extendedProps?.isRecurInstance ||
       eventInfo.recurrenceType === 'weekly' ||
@@ -468,14 +482,24 @@ export default function Home() {
       return;
     }
 
-    // Otherwise standard deletion
-    const id = eventInfo.id;
+    // Standard deletion
+    const id = eventInfo.id || (eventInfo.id ? eventInfo.id : null);
     const title = eventInfo.title;
 
     setEvents(prev => prev.filter(e => {
-      if (id && e.id) return e.id !== id;
-      return !(e.title === title);
+      // Try ID match first
+      if (id && e.id && e.id === id) return false;
+      // Fallback to title and date match for un-ID'd events
+      if (!id && e.title === title) {
+        // If it's a personal event, title match might be enough or we check date
+        return false;
+      }
+      return true;
     }));
+
+    // Explicitly close modal to be safe
+    setIsModalOpen(false);
+    setEditingEvent(null);
   };
 
   const handleConfirmDelete = (choice: 'all' | 'following' | 'this') => {
@@ -612,7 +636,7 @@ export default function Home() {
                 <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
                 {isSaving ? '保存中...' : '自動保存済み'}
               </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.68</span>
+              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.69</span>
               {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
             </div>
           </div>
