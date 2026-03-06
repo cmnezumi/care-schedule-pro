@@ -65,9 +65,13 @@ export default function Home() {
           fetch('/api/events')
         ]);
 
-        const dbUsers = Array.isArray(await usersRes.json()) ? await usersRes.json() : [];
-        const dbTypes = Array.isArray(await typesRes.json()) ? await typesRes.json() : [];
-        const dbEvents = Array.isArray(await eventsRes.json()) ? await eventsRes.json() : [];
+        const usersData = await usersRes.json();
+        const typesData = await typesRes.json();
+        const eventsData = await eventsRes.json();
+
+        const dbUsers = Array.isArray(usersData) ? usersData : [];
+        const dbTypes = Array.isArray(typesData) ? typesData : [];
+        const dbEvents = Array.isArray(eventsData) ? eventsData : [];
 
         setClients(dbUsers);
         setScheduleTypes(dbTypes);
