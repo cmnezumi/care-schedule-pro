@@ -18,7 +18,12 @@ import { Check, Loader2, Sparkles, Settings as SettingsIcon, Calendar as Calenda
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
 export default function Home() {
+  const [hasMounted, setHasMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('schedule');
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   // Care Managers State
   const [careManagers] = useState<CareManager[]>([
@@ -60,12 +65,12 @@ export default function Home() {
           fetch('/api/events')
         ]);
 
-        const dbUsers = await usersRes.json();
-        const dbTypes = await typesRes.json();
-        const dbEvents = await eventsRes.json();
+        const dbUsers = Array.isArray(await usersRes.json()) ? await usersRes.json() : [];
+        const dbTypes = Array.isArray(await typesRes.json()) ? await typesRes.json() : [];
+        const dbEvents = Array.isArray(await eventsRes.json()) ? await eventsRes.json() : [];
 
-        setClients(dbUsers || []);
-        setScheduleTypes(dbTypes || []);
+        setClients(dbUsers);
+        setScheduleTypes(dbTypes);
         if (dbTypes.length === 0) {
           setScheduleTypes([
             { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
@@ -781,6 +786,8 @@ export default function Home() {
     // Otherwise show if it's for a client belonging to this filtered list
     return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
   });
+
+  if (!hasMounted) return null;
 
   return (
     <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
