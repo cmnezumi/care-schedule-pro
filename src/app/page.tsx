@@ -791,11 +791,23 @@ export default function Home() {
     return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
   });
 
-  if (!hasMounted) return null;
+  if (!hasMounted) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50">
+        <Loader2 className="animate-spin text-blue-500" size={48} />
+      </div>
+    );
+  }
 
-  return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
-      {/* Premium Header */}
+  // Diagnostic log for the user to check in browser console
+  if (typeof window !== 'undefined') {
+    console.log("Supabase Connection Check:", {
+      isInitialized: !!supabase,
+      urlExists: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+      keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    });
+  }
+  {/* Premium Header */ }
       <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar { width: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -924,7 +936,7 @@ export default function Home() {
         )}
       </div>
 
-      {/* Modals and Overlays */}
+  {/* Modals and Overlays */ }
       <VisitModal
         isOpen={isModalOpen}
         onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
@@ -949,15 +961,17 @@ export default function Home() {
         onConfirm={handleEditChoice}
       />
 
-      {/* Loading Overlay */}
-      {isLoading && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm transition-all">
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-12 w-12 animate-spin border-4 border-blue-500 border-t-transparent rounded-full"></div>
-            <p className="font-bold text-blue-600 animate-pulse">データを読み込み中...</p>
-          </div>
+  {/* Loading Overlay */ }
+  {
+    isLoading && (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm transition-all">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-12 w-12 animate-spin border-4 border-blue-500 border-t-transparent rounded-full"></div>
+          <p className="font-bold text-blue-600 animate-pulse">データを読み込み中...</p>
         </div>
-      )}
-    </main>
+      </div>
+    )
+  }
+    </main >
   );
 }
