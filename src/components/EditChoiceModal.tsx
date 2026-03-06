@@ -6,11 +6,11 @@ import DraggableModal from './DraggableModal';
 interface EditChoiceModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelect: (choice: 'single' | 'all') => void;
-    eventTitle: string;
+    onConfirm: (choice: 'single' | 'all') => void;
+    eventTitle?: string;
 }
 
-const EditChoiceModal = ({ isOpen, onClose, onSelect, eventTitle }: EditChoiceModalProps) => {
+const EditChoiceModal = ({ isOpen, onClose, onConfirm, eventTitle }: EditChoiceModalProps) => {
     return (
         <DraggableModal
             isOpen={isOpen}
@@ -29,7 +29,7 @@ const EditChoiceModal = ({ isOpen, onClose, onSelect, eventTitle }: EditChoiceMo
 
                 <div className="grid grid-cols-1 gap-3">
                     <button
-                        onClick={() => onSelect('single')}
+                        onClick={() => onConfirm('single')}
                         className="w-full py-4 px-4 bg-white border-2 border-slate-100 hover:border-sky-500 hover:bg-sky-50 rounded-2xl text-left transition-all group"
                     >
                         <div className="flex items-center gap-4">
@@ -44,7 +44,7 @@ const EditChoiceModal = ({ isOpen, onClose, onSelect, eventTitle }: EditChoiceMo
                     </button>
 
                     <button
-                        onClick={() => onSelect('all')}
+                        onClick={() => onConfirm('all')}
                         className="w-full py-4 px-4 bg-white border-2 border-slate-100 hover:border-violet-500 hover:bg-violet-50 rounded-2xl text-left transition-all group"
                     >
                         <div className="flex items-center gap-4">

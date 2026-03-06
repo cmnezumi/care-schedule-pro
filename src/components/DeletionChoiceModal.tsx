@@ -6,8 +6,8 @@ import DraggableModal from './DraggableModal';
 interface DeletionChoiceModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (choice: 'all' | 'following' | 'this') => void;
-    eventTitle: string;
+    onConfirm: (choice: 'all' | 'following' | 'this') => Promise<void>;
+    eventTitle?: string;
 }
 
 const DeletionChoiceModal = ({ isOpen, onClose, onConfirm, eventTitle }: DeletionChoiceModalProps) => {

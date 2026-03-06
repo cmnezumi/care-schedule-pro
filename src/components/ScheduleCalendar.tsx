@@ -14,8 +14,9 @@ interface ScheduleCalendarProps {
   selectedClientId?: string | null;
   scheduleTypes?: ScheduleType[];
   onDateClick?: (date: Date) => void;
-  onEditEvent?: (event: any) => void;
-  onDeleteEvent?: (eventInfo: any) => void;
+  onEventClick?: (event: any) => void;
+  onEventDrop?: (event: any) => void;
+  onEventResize?: (event: any) => void;
 }
 
 const ScheduleCalendar = ({
@@ -25,8 +26,9 @@ const ScheduleCalendar = ({
   selectedClientId,
   scheduleTypes = [],
   onDateClick,
-  onEditEvent,
-  onDeleteEvent
+  onEventClick,
+  onEventDrop,
+  onEventResize
 }: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
   // Allow local state fallback if props aren't provided (though they will be)
@@ -46,8 +48,21 @@ const ScheduleCalendar = ({
   };
 
   const handleEventClick = (info: any) => {
-    if (onEditEvent) {
-      onEditEvent(info.event);
+    if (onEventClick) {
+      // Pass both the event and the full info object just in case
+      onEventClick(info);
+    }
+  };
+
+  const handleEventDrop = (info: any) => {
+    if (onEventDrop) {
+      onEventDrop(info.event);
+    }
+  };
+
+  const handleEventResize = (info: any) => {
+    if (onEventResize) {
+      onEventResize(info.event);
     }
   };
 
@@ -142,30 +157,74 @@ const ScheduleCalendar = ({
           day: '日'
         }}
         dayCellContent={(arg) => {
-          // Find personal status events for this day
+          // Find personal status events for this day (including recurring and exceptions)
           const dateStr = arg.date.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+          const currentDay = arg.date.getDay();
+
           const dayEvents = filteredEvents.filter(e => {
-            if (!e.start) return false;
-            const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
-            return startStr === dateStr && e.extendedProps?.isPersonal;
+            const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
+            if (!isPersonal) return false;
+
+            // Check if this date is excluded
+            const excludedDates = e.extendedProps?.excludedDates || e.excludedDates || [];
+            if (excludedDates.includes(dateStr)) return false;
+
+            // Check single instance or monthly manually-created instances
+            if (e.start) {
+              const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
+              if (startStr === dateStr) return true;
+            }
+
+            // Check weekly recurring (using daysOfWeek)
+            const daysOfWeek = e.daysOfWeek || e.extendedProps?.recurring?.daysOfWeek;
+            if (daysOfWeek && Array.isArray(daysOfWeek) && daysOfWeek.includes(currentDay)) {
+              // Check recur limits if they exist
+              if (e.startRecur && dateStr < e.startRecur) return false;
+              if (e.endRecur && dateStr > e.endRecur) return false;
+              return true;
+            }
+
+            return false;
           });
 
           return (
-            <div className="flex items-start justify-between w-full px-1 pt-0.5 pb-0">
+            <div className="flex items-start justify-between w-full px-1 pt-0.5 pb-0 h-full">
               <div className="flex flex-wrap gap-0.5 max-w-[75%] mt-0.5">
                 {dayEvents.map((e, idx) => {
                   const typeName = (e.title || '').split(':').pop()?.trim();
                   const yellowNames = ['休み', '法外', '法内', '有休', '有給'];
+
+                  const handleBadgeClick = (event: React.MouseEvent) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (onEventClick) onEventClick({ event: e, isManual: true });
+                  };
+
                   if (yellowNames.includes(typeName)) {
-                    return <span key={idx} className="status-badge status-badge-yellow">{typeName}</span>;
+                    return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-yellow">{typeName}</span>;
                   }
                   if (typeName === '事業所会議' || typeName === '担当者会議') {
-                    return <span key={idx} className="status-badge status-badge-orange">会議</span>;
+                    return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-orange">会議</span>;
                   }
                   if (typeName === 'テレワーク') {
-                    return <span key={idx} className="status-badge status-badge-green">テレ</span>;
+                    return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-green">テレ</span>;
                   }
-                  return null;
+
+                  // Fallback: Show as a generic badge using its color for any other personal types
+                  return (
+                    <span
+                      key={idx}
+                      onClick={handleBadgeClick}
+                      className="status-badge"
+                      style={{
+                        backgroundColor: (e as any).backgroundColor || '#94a3b8',
+                        color: 'white',
+                        border: 'none'
+                      }}
+                    >
+                      {typeName.length > 2 ? typeName.substring(0, 2) : typeName}
+                    </span>
+                  );
                 })}
               </div>
               <div className="fc-daygrid-day-number !p-0 !m-0 leading-none">{arg.dayNumberText}</div>

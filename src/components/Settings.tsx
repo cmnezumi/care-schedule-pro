@@ -6,18 +6,20 @@ import UserModal from './UserModal';
 
 interface SettingsProps {
     clients: Client[];
-    onAddClient: (data: Omit<Client, 'id'>) => void;
-    onUpdateClient: (id: string, data: Omit<Client, 'id'>) => void;
+    onAddClient: (data: any) => void;
+    onUpdateClient: (id: string, data: any) => void;
     onDeleteClient: (id: string) => void;
     scheduleTypes: ScheduleType[];
     onAddScheduleType: (data: Omit<ScheduleType, 'id'>) => void;
     onDeleteScheduleType: (id: string) => void;
+    careManagerId: string;
 }
 
 const Settings = ({
-    clients, onAddClient, onUpdateClient, onDeleteClient,
-    scheduleTypes, onAddScheduleType, onDeleteScheduleType
+    clients: allClients, onAddClient, onUpdateClient, onDeleteClient,
+    scheduleTypes, onAddScheduleType, onDeleteScheduleType, careManagerId
 }: SettingsProps) => {
+    const clients = allClients.filter(c => c.careManagerId === careManagerId);
     const [activeTab, setActiveTab] = useState<'users' | 'scheduleTypes'>('users');
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -81,7 +83,39 @@ const Settings = ({
                 >
                     予定種別マスタ
                 </button>
+                <button
+                    onClick={() => setActiveTab('danger' as any)}
+                    className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'danger' as any ? 'text-rose-600 border-b-2 border-rose-600' : 'text-slate-500 hover:text-rose-400'}`}
+                >
+                    データ管理
+                </button>
             </div>
+
+            {activeTab === 'danger' as any && (
+                <div className="p-8 flex flex-col items-center justify-center gap-6 h-full">
+                    <div className="bg-rose-50 p-6 rounded-2xl border border-rose-100 max-w-md text-center">
+                        <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        </div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">データの全消去</h3>
+                        <p className="text-slate-600 text-sm mb-6 leading-relaxed">
+                            登録されている全ての利用者情報とスケジュールを消去します。<br />
+                            <span className="font-bold text-rose-600">この操作は取り消せません。</span>
+                        </p>
+                        <button
+                            onClick={() => {
+                                if (confirm("本当に全てのデータを消去してもよろしいですか？利用者名も予定もすべて消え、最初の状態に戻ります。")) {
+                                    // We will add onResetData to props later
+                                    (window as any)._resetData();
+                                }
+                            }}
+                            className="w-full py-3 bg-rose-500 text-white rounded-xl font-bold shadow-lg shadow-rose-200 hover:bg-rose-600 hover:scale-[1.02] active:scale-95 transition-all"
+                        >
+                            データをリセットする
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {activeTab === 'users' && (
                 <>

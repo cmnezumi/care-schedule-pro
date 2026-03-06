@@ -7,51 +7,30 @@ import DraggableModal from './DraggableModal';
 interface VisitModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSave: (data: {
-        id?: string;
-        clientId: string | null;
-        type: VisitType;
-        startTime: string;
-        endTime: string;
-        notes: string;
-        isPersonal?: boolean;
-        allDay?: boolean;
-        isContinuous?: boolean;
-        recurring?: {
-            daysOfWeek: number[];
-            startTime: string;
-            endTime: string;
-        };
-        monthlyRecur?: {
-            week: number;
-            day: number;
-            startTime: string;
-            endTime: string;
-        };
-    }) => void;
-    initialDate?: Date;
-    initialData?: {
-        id?: string;
-        clientId?: string | null;
-        type?: string;
-        startTime?: string;
-        endTime?: string;
-        notes?: string;
-        isPersonal?: boolean;
-        allDay?: boolean;
-        recurrenceType?: 'none' | 'weekly' | 'monthly';
-        weeklyDays?: number[];
-        monthlyWeek?: number;
-        monthlyDay?: number;
-    };
+    onSave: (data: any) => void;
+    selectedDate?: Date | null;
+    editingEvent?: any;
     clients?: Client[];
     scheduleTypes?: ScheduleType[];
     defaultClientId?: string | null;
     onDelete?: (event: any) => void;
     onDateChange?: (date: Date) => void;
+    editTargetChoice?: 'single' | 'all';
 }
 
-const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDate, initialData, clients = [], scheduleTypes = [], defaultClientId }: VisitModalProps) => {
+const VisitModal = ({
+    isOpen,
+    onClose,
+    onSave,
+    onDelete,
+    onDateChange,
+    selectedDate,
+    editingEvent,
+    clients = [],
+    scheduleTypes = [],
+    defaultClientId,
+    editTargetChoice = 'single'
+}: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('');
     const [startTime, setStartTime] = useState('10:00');
@@ -74,20 +53,28 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
 
     useEffect(() => {
         if (isOpen) {
-            if (initialData) {
-                // Editing mode (Always reset based on the event being edited)
-                setClientId(initialData.clientId || '');
-                setType(initialData.type || '');
-                setStartTime(initialData.startTime || '10:00');
-                setEndTime(initialData.endTime || '11:00');
-                setNotes(initialData.notes || '');
-                setIsPersonal(initialData.isPersonal || false);
-                setAllDay(initialData.allDay || false);
-                setRecurrenceType(initialData.recurrenceType || 'none');
-                setWeeklyDays(initialData.weeklyDays || []);
-                setMonthlyWeek(initialData.monthlyWeek || 1);
-                setMonthlyDay(initialData.monthlyDay ?? 1);
-            } else if (initialDate) {
+            if (editingEvent) {
+                // Editing mode (Using flattened properties)
+                setClientId(editingEvent.clientId || '');
+                setType(editingEvent.type || '');
+                setStartTime(editingEvent.startTime || '10:00');
+                setEndTime(editingEvent.endTime || '11:00');
+                setNotes(editingEvent.notes || '');
+                setIsPersonal(editingEvent.isPersonal || false);
+                setAllDay(editingEvent.allDay || false);
+
+                // Recurrence states
+                if (editingEvent.isRecurring && !editingEvent.isRecurInstance) {
+                    setRecurrenceType('weekly');
+                } else if (editingEvent.isRecurInstance) {
+                    setRecurrenceType('monthly');
+                } else {
+                    setRecurrenceType('none');
+                }
+                setWeeklyDays(editingEvent.daysOfWeek || editingEvent.weeklyDays || []);
+                setMonthlyWeek(editingEvent.monthlyRecur?.week || editingEvent.monthlyWeek || 1);
+                setMonthlyDay(editingEvent.monthlyRecur?.day ?? editingEvent.monthlyDay ?? 1);
+            } else if (selectedDate) {
                 // New event mode
                 if (isFirstOpen.current) {
                     // Only set initial boilerplate if this is the FIRST time the modal is opening
@@ -112,19 +99,19 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                 }
 
                 // Always update these based on the date, but don't reset type/notes if already open
-                setWeeklyDays([initialDate.getDay()]);
-                const weekNumber = Math.ceil(initialDate.getDate() / 7);
+                setWeeklyDays([selectedDate.getDay()]);
+                const weekNumber = Math.ceil(selectedDate.getDate() / 7);
                 setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber);
-                setMonthlyDay(initialDate.getDay());
+                setMonthlyDay(selectedDate.getDay());
             }
         }
-    }, [isOpen, initialDate, initialData, clients, scheduleTypes, defaultClientId]);
+    }, [isOpen, selectedDate, editingEvent, clients, scheduleTypes, defaultClientId]);
 
     const handleSave = () => {
-        if (!initialDate) return;
+        if (!selectedDate) return;
 
         const baseData = {
-            id: initialData?.id,
+            id: editingEvent?.id,
             clientId: isPersonal ? null : clientId,
             type: type as VisitType,
             notes,
@@ -158,9 +145,9 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                 isContinuous
             });
         } else {
-            const year = initialDate.getFullYear();
-            const month = String(initialDate.getMonth() + 1).padStart(2, '0');
-            const day = String(initialDate.getDate()).padStart(2, '0');
+            const year = selectedDate.getFullYear();
+            const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+            const day = String(selectedDate.getDate()).padStart(2, '0');
             const dateStr = `${year}-${month}-${day}`;
 
             onSave({
@@ -209,7 +196,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
         }
     };
 
-    const displayDate = initialDate ? initialDate.toLocaleDateString('ja-JP', {
+    const displayDate = selectedDate ? selectedDate.toLocaleDateString('ja-JP', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -219,12 +206,12 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
         <DraggableModal
             isOpen={isOpen}
             onClose={onClose}
-            title={initialData ? '予定を編集' : `${displayDate} の予定登録`}
+            title={editingEvent ? `予定を編集 ${editingEvent.DEBUG_VER || ''}` : `${displayDate} の予定登録`}
             width="w-[380px]"
             isModeless={isContinuous}
         >
-            <div className="flex flex-col gap-6">
-                {!initialData && (
+            <div className="flex flex-col gap-6 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+                {!editingEvent && (
                     <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100 flex items-center justify-between gap-4">
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white">
@@ -238,7 +225,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                         <input
                             type="date"
                             className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-                            value={initialDate ? initialDate.toISOString().split('T')[0] : ''}
+                            value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
                             onChange={(e) => {
                                 const newDate = new Date(e.target.value);
                                 if (!isNaN(newDate.getTime()) && onDateChange) {
@@ -464,12 +451,12 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                 <div className="flex flex-col gap-4 pt-4 border-t border-slate-100">
                     <div className="flex items-center justify-between">
                         <div>
-                            {initialData && onDelete && (
+                            {editingEvent && onDelete && (
                                 <button
                                     onClick={() => {
                                         if (confirm(`${type || '予定'}を削除してもよろしいですか？`)) {
                                             try {
-                                                onDelete(initialData);
+                                                onDelete(editingEvent);
                                             } catch (err) {
                                                 console.error("Delete failed:", err);
                                             } finally {
@@ -477,14 +464,14 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                                             }
                                         }
                                     }}
-                                    className="px-3 py-2 text-sm font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-1.5"
+                                    className="px-3 py-2 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-lg transition-colors flex items-center gap-1.5"
                                 >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    削除
+                                    予定を削除
                                 </button>
                             )}
                         </div>
-                        {!initialData && (
+                        {!editingEvent && (
                             <label className="flex items-center gap-2 cursor-pointer group">
                                 <input
                                     type="checkbox"
@@ -508,7 +495,7 @@ const VisitModal = ({ isOpen, onClose, onSave, onDelete, onDateChange, initialDa
                             onClick={handleSave}
                             className="flex-[2] py-2.5 bg-[var(--primary-color)] text-white rounded-xl font-bold shadow-md shadow-sky-100 hover:shadow-sky-200 hover:scale-[1.01] active:scale-98 transition-all"
                         >
-                            {initialData ? '保存' : '登録'}
+                            {editingEvent ? '保存' : '登録'}
                         </button>
                     </div>
                 </div>

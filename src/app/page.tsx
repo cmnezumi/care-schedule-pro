@@ -11,7 +11,9 @@ import EditChoiceModal from "@/components/EditChoiceModal";
 import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
+import SuggestionFinder from "@/components/SuggestionFinder";
 import { Client, Visit, ScheduleType, CareManager, VisitType } from "@/types";
+import { Check, Loader2, Sparkles, Settings as SettingsIcon, Calendar as CalendarIcon, Users, Repeat } from "lucide-react";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
@@ -25,6 +27,7 @@ export default function Home() {
     { id: 'cm3', name: 'ケアマネ B' },
   ]);
   const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
+  const isHandlingEventRef = React.useRef(false);
 
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,148 +41,203 @@ export default function Home() {
   const [eventToDelete, setEventToDelete] = useState<any>(null);
 
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Lifted state
   const [clients, setClients] = useState<Client[]>([]);
-  const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([
-    { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
-    { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
-    { id: 'conference', name: '担当者会議', color: '#f97316' }, // Orange
-    { id: 'offday', name: '休み', color: '#eab308' },          // Yellow
-    { id: 'offday_extra', name: '法外', color: '#eab308' },    // Yellow
-    { id: 'offday_intra', name: '法内', color: '#eab308' },    // Yellow
-    { id: 'paid_leave', name: '有休', color: '#eab308' },      // Yellow
-    { id: 'office_mtg', name: '事業所会議', color: '#f97316' }, // Orange
-    { id: 'telework', name: 'テレワーク', color: '#22c55e' },    // Green (Emerald-500)
-    { id: 'other', name: 'その他', color: '#64748b' },
-  ]);
+  const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 
-  // Load from localStorage on mount
+  // Load from APIs (and migrate if necessary)
   React.useEffect(() => {
-    const savedClients = localStorage.getItem('cp_clients');
-    const savedTypes = localStorage.getItem('cp_scheduleTypes');
-    const savedEvents = localStorage.getItem('cp_events');
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        // 1. Fetch from APIs
+        const [usersRes, typesRes, eventsRes] = await Promise.all([
+          fetch('/api/users'),
+          fetch('/api/schedule-types'),
+          fetch('/api/events')
+        ]);
 
-    if (savedClients) setClients(JSON.parse(savedClients));
-    else {
-      // Default initial data if none exists
-      setClients([
-        { id: '1', name: '田中 太郎', address: '東京都渋谷区...', careLevel: '要介護1', careManagerId: 'cm1' },
-        { id: '2', name: '佐藤 花子', address: '東京都新宿区...', careLevel: '要支援2', careManagerId: 'cm1' },
-        { id: '3', name: '鈴木 一郎', address: '東京都港区...', careLevel: '要介護3', careManagerId: 'cm2' },
-      ]);
-    }
+        const dbUsers = await usersRes.json();
+        const dbTypes = await typesRes.json();
+        const dbEvents = await eventsRes.json();
 
-    if (savedTypes) {
-      const parsed = JSON.parse(savedTypes) as ScheduleType[];
-      // FORCE colors for consistency as requested by user
-      const migrated = parsed.map(t => {
-        if (['offday', 'offday_extra', 'offday_intra', 'paid_leave'].includes(t.id) ||
-          ['休み', '法外', '法内', '有休', '有給'].includes(t.name)) {
-          return { ...t, color: '#eab308' };
+        setClients(dbUsers || []);
+        setScheduleTypes(dbTypes || []);
+        if (dbTypes.length === 0) {
+          setScheduleTypes([
+            { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
+            { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
+            { id: 'conference', name: '担当者会議', color: '#f97316' },
+            { id: 'offday', name: '休み', color: '#eab308' },
+            { id: 'office_mtg', name: '事業所会議', color: '#f97316' },
+            { id: 'telework', name: 'テレワーク', color: '#22c55e' },
+            { id: 'other', name: 'その他', color: '#64748b' },
+          ]);
         }
-        if (t.id === 'telework' || t.name === 'テレワーク') return { ...t, color: '#22c55e' };
-        if (t.id === 'conference' || t.id === 'office_mtg' || t.name === '担当者会議' || t.name === '事業所会議') return { ...t, color: '#f97316' };
-        return t;
-      });
-      setScheduleTypes(migrated);
-    }
-    if (savedEvents) {
-      const parsedEvents = JSON.parse(savedEvents) as any[];
-      // Force migrate all event colors in the calendar
-      const migratedEvents = parsedEvents.map(e => {
-        const type = e.extendedProps?.type;
-        const typeName = (e.title || '').split(':').pop()?.trim();
-
-        let newColor = e.backgroundColor;
-        const yellowTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', '休み', '法外', '法内', '有休', '有給'];
-        if (yellowTypes.includes(type) || yellowTypes.includes(typeName)) newColor = '#eab308';
-        if (type === 'telework' || type === 'テレワーク' || typeName === 'テレワーク') newColor = '#22c55e';
-        if (['conference', 'office_mtg'].includes(type) || ['担当者会議', '事業所会議'].includes(typeName)) newColor = '#f97316';
-
-        // Force isPersonal for specific types
-        const personalTypes = ['offday', 'offday_extra', 'offday_intra', 'paid_leave', 'office_mtg', 'telework', '休み', '法外', '法内', '有休', '有給', '事業所会議', 'テレワーク'];
-        const isPers = personalTypes.includes(type) || personalTypes.includes(typeName);
-
-        return {
-          ...e,
-          backgroundColor: newColor,
-          borderColor: newColor,
-          extendedProps: {
-            ...e.extendedProps,
-            isPersonal: isPers
-          }
-        };
-      });
-      setEvents(migratedEvents);
-    }
-
-    setDataLoaded(true);
+        setEvents(dbEvents || []);
+      } catch (e) {
+        console.error("Failed to load data from backend", e);
+      } finally {
+        setIsLoading(false);
+        setDataLoaded(true);
+      }
+    };
+    loadData();
   }, []);
 
-  // Save to localStorage on changes
-  React.useEffect(() => {
-    if (dataLoaded) {
-      localStorage.setItem('cp_clients', JSON.stringify(clients));
-      localStorage.setItem('cp_scheduleTypes', JSON.stringify(scheduleTypes));
-      localStorage.setItem('cp_events', JSON.stringify(events));
-    }
-  }, [clients, scheduleTypes, events, dataLoaded]);
-
   const [isSaving, setIsSaving] = useState(false);
-  React.useEffect(() => {
-    if (dataLoaded) {
+
+  const handleAddClient = async (clientData: Omit<Client, 'id' | 'careLevel' | 'careManagerId'>) => {
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...clientData, careManagerId: selectedCareManagerId })
+      });
+      const newClient = await res.json();
+      setClients([...clients, newClient]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleUpdateClient = async (id: string, clientData: Omit<Client, 'id'>) => {
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...clientData, id })
+      });
+      const updated = await res.json();
+      setClients(clients.map(c => c.id === id ? updated : c));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    (window as any)._resetData = async () => {
       setIsSaving(true);
-      const timer = setTimeout(() => setIsSaving(false), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [clients, scheduleTypes, events]);
-
-  const handleAddClient = (clientData: Omit<Client, 'id' | 'careManagerId'>) => {
-    const newClient: Client = {
-      ...clientData,
-      id: Math.random().toString(36).substr(2, 9),
-      careManagerId: selectedCareManagerId,
+      try {
+        await fetch('/api/reset', { method: 'POST' });
+        window.location.reload();
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setIsSaving(false);
+      }
     };
-    setClients([...clients, newClient]);
-  };
+  }, []);
 
-  const handleUpdateClient = (id: string, clientData: Omit<Client, 'id'>) => {
-    setClients(clients.map(c => c.id === id ? { ...c, ...clientData } : c));
-  };
-
-  const handleDeleteClient = (id: string) => {
-    setClients(clients.filter(c => c.id !== id));
-    if (selectedClientId === id) {
-      setSelectedClientId(null);
+  const handleDeleteClient = async (id: string) => {
+    setIsSaving(true);
+    try {
+      await fetch(`/api/users?id=${id}`, { method: 'DELETE' });
+      setClients(clients.filter(c => c.id !== id));
+      if (selectedClientId === id) {
+        setSelectedClientId(null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  const handleAddScheduleType = (typeData: Omit<ScheduleType, 'id'>) => {
-    const newType: ScheduleType = {
-      ...typeData,
-      id: Math.random().toString(36).substr(2, 9)
-    };
-    setScheduleTypes([...scheduleTypes, newType]);
+  const handleAddScheduleType = async (typeData: Omit<ScheduleType, 'id'>) => {
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/schedule-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(typeData)
+      });
+      const newType = await res.json();
+      setScheduleTypes([...scheduleTypes, newType]);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteScheduleType = (id: string) => {
-    setScheduleTypes(scheduleTypes.filter(t => t.id !== id));
+  const handleDeleteScheduleType = async (id: string) => {
+    setIsSaving(true);
+    try {
+      await fetch(`/api/schedule-types?id=${id}`, { method: 'DELETE' });
+      setScheduleTypes(scheduleTypes.filter(t => t.id !== id));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDateClick = (date: Date) => {
+    if (isHandlingEventRef.current) {
+      console.log("Date click ignored due to recent event click (v3.2)");
+      return;
+    }
+    console.log("handleDateClick triggering New Event mode (v3.2)");
     setEditingEvent(null);
     setSelectedDate(date);
     setIsModalOpen(true);
   };
 
-  const handleEditEvent = (event: any) => {
-    const isRecurring = event.extendedProps?.isRecurring || event._def?.recurringDef;
-    setEditingEvent(event);
-    setSelectedDate(new Date(event.start));
+  const handleEditEvent = (info: any) => {
+    const raw = info.event || (info.isManual ? info.event : info);
+    const isFC = !!info.jsEvent;
 
-    if (isRecurring) {
+    // Normalization: Look for ID everywhere
+    let id = raw.id || raw.publicId || (isFC ? raw._def?.publicId : null);
+
+    // Fallback: If no ID but we have a title and start, find it in our state
+    if (!id && raw.title && raw.start) {
+      const startStr = typeof raw.start === 'string' ? raw.start.split('T')[0] : (raw.start.toISOString ? raw.start.toISOString().split('T')[0] : '');
+      if (startStr) {
+        const match = events.find(e =>
+          e.title === raw.title &&
+          (e.start === startStr || (typeof e.start === 'string' && e.start.startsWith(startStr)))
+        );
+        if (match) id = match.id;
+      }
+    }
+
+    const extended = isFC ? raw.extendedProps : (raw.extendedProps || raw);
+
+    const prepared = {
+      id: id || raw.id || raw.publicId,
+      title: raw.title,
+      start: isFC ? (raw.startStr || (raw.start?.toISOString ? raw.start.toISOString() : raw.start)) : raw.start,
+      end: isFC ? (raw.endStr || (raw.end?.toISOString ? raw.end.toISOString() : raw.end)) : raw.end,
+      allDay: raw.allDay,
+      backgroundColor: raw.backgroundColor,
+      ...extended,
+      clientId: extended.clientId || null,
+      type: extended.type || raw.title?.split(':').pop()?.trim() || "",
+      isPersonal: !!extended.isPersonal,
+      isRecurring: !!(extended.isRecurring || (isFC && raw._def?.recurringDef) || extended.daysOfWeek),
+      isRecurInstance: !!extended.isRecurInstance,
+      groupId: extended.groupId || null,
+      // ID passed successfully
+    };
+
+    isHandlingEventRef.current = true;
+    setTimeout(() => { isHandlingEventRef.current = false; }, 100);
+
+    setEditingEvent(prepared);
+    setSelectedDate(new Date(prepared.start));
+
+    if (prepared.isRecurring && !prepared.isRecurInstance) {
       setIsEditChoiceModalOpen(true);
     } else {
       setIsModalOpen(true);
@@ -221,238 +279,310 @@ export default function Home() {
     return resultDate;
   };
 
-  const handleSaveVisit = (data: any) => {
-    const client = data.isPersonal ? null : clients.find(c => c.id === data.clientId);
-    if (!data.isPersonal && !client) return;
+  // Handle saving/updating visits
+  const handleSaveVisit = async (data: any) => {
+    setIsSaving(true);
+    try {
+      // Check if data is a FullCalendar event object (from drag/drop)
+      const isFCEvent = data.id && data.extendedProps && typeof data.id === 'string';
 
-    const typeLabel = scheduleTypes.find(t => t.id === data.type || t.name === data.type)?.name || data.type;
-    const color = scheduleTypes.find(t => t.id === data.type || t.name === data.type)?.color || '#94a3b8';
+      let client = null;
+      let typeLabel = '';
+      let color = '#94a3b8';
+      let isPersonal = false;
+      let notes = '';
+      let startTime = '10:00';
+      let endTime = '11:00';
+      let allDay = false;
 
-    // Force isPersonal for specific names/types
-    const personalNames = ['休み', '法外', '法内', '有休', '有給', '事業所会議', '担当者会議', 'テレワーク'];
-    const forcePersonal = data.isPersonal || personalNames.includes(typeLabel);
-
-    // Helper to format title
-    const eventTitle = forcePersonal ? typeLabel : `${client?.name}: ${typeLabel}`;
-
-    if (editingEvent) {
-      const isRecurring = editingEvent.extendedProps?.isRecurring || editingEvent._def?.recurringDef;
-
-      if (isRecurring && editTargetChoice === 'single') {
-        // Exception logic for recurring event
-        const dateStr = formatLocalDate(new Date(editingEvent.start));
-
-        if (!dateStr) return; // Safety
-
-        // 1. Add this date to excludedDates of the original recurring event
-        const masterId = editingEvent.id || editingEvent.publicId;
-        const eventTitleToMatch = editingEvent.title;
-        const updatedEvents = events.map(e => {
-          if ((masterId && e.id === masterId) || (!masterId && e.title === eventTitleToMatch)) {
-            const excluded = e.extendedProps?.excludedDates || [];
-            return {
-              ...e,
-              extendedProps: {
-                ...e.extendedProps,
-                excludedDates: [...new Set([...excluded, dateStr])]
-              }
-            };
-          }
-          return e;
-        });
-
-        // 2. Create a one-time event for this specific day
-        const singleEvent = {
-          id: Math.random().toString(36).substr(2, 9),
-          title: eventTitle,
-          start: data.allDay ? dateStr : `${dateStr}T${data.startTime}`,
-          end: data.allDay ? dateStr : `${dateStr}T${data.endTime}`,
-          allDay: data.allDay,
-          backgroundColor: color,
-          extendedProps: {
-            clientId: data.clientId,
-            careManagerId: editingEvent.extendedProps?.careManagerId || selectedCareManagerId,
-            type: data.type,
-            notes: data.notes,
-            isPersonal: forcePersonal,
-            allDay: data.allDay
-          }
-        };
-
-        setEvents([...updatedEvents, singleEvent]);
+      if (isFCEvent) {
+        client = clients.find(c => c.id === data.extendedProps.clientId);
+        typeLabel = data.extendedProps.type || '予定';
+        color = data.backgroundColor;
+        isPersonal = data.extendedProps.isPersonal;
+        notes = data.extendedProps.notes;
+        allDay = data.allDay;
       } else {
-        // Regular update or Global Recurring update
-        const isMonthlyGroup = editingEvent.extendedProps?.isRecurInstance && editingEvent.extendedProps?.groupId;
+        client = data.isPersonal ? null : clients.find(c => c.id === data.clientId);
+        const typeDef = scheduleTypes.find(t => t.id === data.type || t.name === data.type);
+        typeLabel = typeDef ? typeDef.name : (data.type || '予定');
+        color = typeDef ? typeDef.color : '#94a3b8';
+        isPersonal = data.isPersonal;
+        notes = data.notes;
+        startTime = data.startTime;
+        endTime = data.endTime;
+        allDay = data.allDay;
+      }
 
-        if (isMonthlyGroup && editTargetChoice === 'all') {
-          // Re-expand monthly series: delete old group and create new one
-          const oldGroupId = editingEvent.extendedProps.groupId;
-          const eventTitle = editingEvent.title;
-          const eventCM = editingEvent.extendedProps.careManagerId;
+      const personalNames = ['休み', '法外', '法内', '有休', '有給', '事業所会議', '担当者会議', 'テレワーク'];
+      const forcePersonal = isPersonal || personalNames.includes(typeLabel);
+      const eventTitle = forcePersonal ? typeLabel : `${client?.name}: ${typeLabel}`;
 
-          // Fuzzy match for deletion if groupId is likely unique per instance (bug in older versions)
-          const filteredEvents = events.filter(e => {
-            if (e.extendedProps?.groupId === oldGroupId) return false;
-            if (oldGroupId?.startsWith('monthly-') && e.title === eventTitle && e.extendedProps?.careManagerId === eventCM && e.extendedProps?.isRecurInstance) return false;
-            return true;
-          });
+      if (editingEvent || isFCEvent) {
+        const targetEventId = isFCEvent ? data.id : editingEvent.id;
+        const targetEvent = events.find(e => e.id === targetEventId);
 
-          const instances = [];
-          const now = new Date(); // Re-expand 12 months from TODAY to ensure future is correct
-          let year = now.getFullYear();
-          let month = now.getMonth();
-          const newGroupId = `monthly-${Date.now()}`;
+        if (!targetEvent) return;
 
-          for (let i = 0; i < 12; i++) {
-            const targetDate = calculateNthWeekday(year, month, data.monthlyRecur.week, data.monthlyRecur.day);
-            const dayStr = formatLocalDate(targetDate);
-            instances.push({
-              title: eventTitle,
-              backgroundColor: color,
-              allDay: data.allDay,
+        const isRecurringMaster = targetEvent.extendedProps?.isRecurring || targetEvent._def?.recurringDef;
+
+        if (isRecurringMaster && !isFCEvent) {
+          if (editTargetChoice === 'single') {
+            // Exception logic for recurring event
+            const dateStr = formatLocalDate(new Date(editingEvent.start));
+            if (!dateStr) return;
+
+            // 1. Update master event with excluded date
+            const masterId = editingEvent.id || editingEvent.publicId;
+            const masterEvent = events.find(e => e.id === masterId);
+            if (masterEvent) {
+              const excluded = masterEvent.extendedProps?.excludedDates || [];
+              const updatedMaster = {
+                ...masterEvent,
+                extendedProps: {
+                  ...masterEvent.extendedProps,
+                  excludedDates: [...new Set([...excluded, dateStr])]
+                }
+              };
+              await fetch('/api/events', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedMaster)
+              });
+            }
+
+            // 2. Create a one-time event
+            const singleEvent = {
               id: Math.random().toString(36).substr(2, 9),
-              start: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.startTime}`,
-              end: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.endTime}`,
+              title: eventTitle,
+              start: allDay ? dateStr : `${dateStr}T${startTime}`,
+              end: allDay ? dateStr : `${dateStr}T${endTime}`,
+              allDay: allDay,
+              backgroundColor: color,
               extendedProps: {
                 clientId: data.clientId,
                 careManagerId: editingEvent.extendedProps?.careManagerId || selectedCareManagerId,
                 type: data.type,
-                notes: data.notes,
-                isPersonal: data.isPersonal,
-                allDay: data.allDay,
+                notes: notes,
+                isPersonal: forcePersonal,
+                allDay: allDay
+              }
+            };
+            await fetch('/api/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(singleEvent)
+            });
+          } else {
+            // Edit all recurring instances
+            const updatedMaster = {
+              ...targetEvent,
+              title: eventTitle,
+              backgroundColor: color,
+              startTime: allDay ? '00:00' : startTime,
+              endTime: allDay ? '23:59' : endTime,
+              allDay: allDay,
+              extendedProps: {
+                ...targetEvent.extendedProps,
+                clientId: data.clientId,
+                type: data.type,
+                notes: notes,
+                isPersonal: forcePersonal,
+                allDay: allDay
+              }
+            };
+            await fetch('/api/events', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updatedMaster)
+            });
+          }
+        } else {
+          // Regular update or Global Recurring instance group update
+          const isMonthlyGroup = targetEvent.extendedProps?.isRecurInstance && targetEvent.extendedProps?.groupId;
+
+          if (isMonthlyGroup && editTargetChoice === 'all' && !isFCEvent) {
+            // Re-expand monthly series
+            const oldGroupId = targetEvent.extendedProps.groupId;
+
+            // Delete old group
+            const toDelete = events.filter(e => e.extendedProps?.groupId === oldGroupId);
+            await Promise.all(toDelete.map(e => fetch(`/api/events?id=${e.id}`, { method: 'DELETE' })));
+
+            const instances = [];
+            const now = new Date();
+            let year = now.getFullYear();
+            let month = now.getMonth();
+            const newGroupId = `monthly-${Date.now()}`;
+
+            for (let i = 0; i < 12; i++) {
+              const targetDate = calculateNthWeekday(year, month, data.monthlyRecur.week, data.monthlyRecur.day);
+              const dayStr = formatLocalDate(targetDate);
+              instances.push({
+                title: eventTitle,
+                backgroundColor: color,
+                allDay: allDay,
+                id: Math.random().toString(36).substr(2, 9),
+                start: allDay ? dayStr : `${dayStr}T${data.monthlyRecur.startTime}`,
+                end: allDay ? dayStr : `${dayStr}T${data.monthlyRecur.endTime}`,
+                extendedProps: {
+                  clientId: data.clientId,
+                  careManagerId: targetEvent.extendedProps?.careManagerId || selectedCareManagerId,
+                  type: data.type,
+                  notes: notes,
+                  isPersonal: forcePersonal,
+                  allDay: allDay,
+                  isRecurInstance: true,
+                  groupId: newGroupId,
+                  monthlyRecur: data.monthlyRecur
+                }
+              });
+              month++; if (month > 11) { month = 0; year++; }
+            }
+            // Use batch POST
+            await fetch('/api/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(instances)
+            });
+          } else {
+            // Regular update (Single Instance) or FC Drag/Drop
+            const formatFCDate = (date: Date) => {
+              const y = date.getFullYear();
+              const m = String(date.getMonth() + 1).padStart(2, '0');
+              const d = String(date.getDate()).padStart(2, '0');
+              const hh = String(date.getHours()).padStart(2, '0');
+              const mm = String(date.getMinutes()).padStart(2, '0');
+              return `${y}-${m}-${d}T${hh}:${mm}:00`;
+            };
+
+            const updated = {
+              ...targetEvent,
+              title: eventTitle,
+              backgroundColor: color,
+              start: isFCEvent ? formatFCDate(data.start) : (allDay ? targetEvent.start.split('T')[0] : `${targetEvent.start.split('T')[0]}T${startTime}`),
+              end: isFCEvent ? (data.end ? formatFCDate(data.end) : formatFCDate(data.start)) : (allDay ? targetEvent.start.split('T')[0] : `${targetEvent.start.split('T')[0]}T${endTime}`),
+              allDay: allDay,
+              extendedProps: {
+                ...targetEvent.extendedProps,
+                clientId: data.clientId,
+                type: data.type,
+                notes: notes,
+                isPersonal: forcePersonal,
+                allDay: allDay
+              }
+            };
+            await fetch('/api/events', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updated)
+            });
+          }
+        }
+      } else {
+        // NEW EVENT CREATION LOGIC
+        const eventDateStr = selectedDate ? formatLocalDate(selectedDate) : '';
+        if (data.recurring) {
+          const eventDateStr = selectedDate ? formatLocalDate(selectedDate) : '';
+          const newEvent = {
+            id: Math.random().toString(36).substr(2, 9),
+            title: eventTitle,
+            backgroundColor: color,
+            allDay: allDay,
+            start: eventDateStr, // Crucial: Set start for recurrence matching
+            daysOfWeek: data.recurring.daysOfWeek,
+            startTime: allDay ? '00:00:00' : `${data.recurring.startTime}:00`,
+            endTime: allDay ? '23:59:59' : `${data.recurring.endTime}:00`,
+            extendedProps: {
+              clientId: data.clientId,
+              careManagerId: selectedCareManagerId,
+              type: data.type,
+              notes: notes,
+              isPersonal: forcePersonal,
+              allDay: allDay,
+              isRecurring: true,
+              recurring: {
+                ...data.recurring,
+                startTime: allDay ? '00:00' : data.recurring.startTime,
+                endTime: allDay ? '23:59' : data.recurring.endTime
+              }
+            }
+          };
+          await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newEvent)
+          });
+        } else if (data.monthlyRecur) {
+          const instances = [];
+          const now = new Date();
+          let currentYear = now.getFullYear();
+          let currentMonth = now.getMonth();
+          const groupId = `monthly-${Date.now()}`;
+          for (let i = 0; i < 12; i++) {
+            const targetDate = calculateNthWeekday(currentYear, currentMonth, data.monthlyRecur.week, data.monthlyRecur.day);
+            const dayStr = formatLocalDate(targetDate);
+            instances.push({
+              title: eventTitle,
+              backgroundColor: color,
+              allDay: allDay,
+              id: Math.random().toString(36).substr(2, 9),
+              start: allDay ? dayStr : `${dayStr}T${data.monthlyRecur.startTime}`,
+              end: allDay ? dayStr : `${dayStr}T${data.monthlyRecur.endTime}`,
+              extendedProps: {
+                clientId: data.clientId,
+                careManagerId: selectedCareManagerId,
+                type: data.type,
+                notes: notes,
+                isPersonal: forcePersonal,
+                allDay: allDay,
                 isRecurInstance: true,
-                groupId: newGroupId,
+                groupId,
                 monthlyRecur: data.monthlyRecur
               }
             });
-            month++; if (month > 11) { month = 0; year++; }
+            currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
           }
-          setEvents([...filteredEvents, ...instances]);
-        } else {
-          // Regular update (Single Instance)
-          const updatedEvents = events.map(e => {
-            if (e.id === editingEvent.id) {
-              const isWeekly = !!e.daysOfWeek;
-
-              if (isWeekly && editTargetChoice === 'all' && data.recurring) {
-                // Update weekly recurrence parameters
-                return {
-                  ...e,
-                  title: eventTitle,
-                  backgroundColor: color,
-                  daysOfWeek: data.recurring.daysOfWeek,
-                  startTime: data.recurring.startTime,
-                  endTime: data.recurring.endTime,
-                  extendedProps: {
-                    ...e.extendedProps,
-                    clientId: data.clientId,
-                    type: data.type,
-                    notes: data.notes,
-                    isPersonal: data.isPersonal,
-                    allDay: data.allDay,
-                    recurring: data.recurring
-                  }
-                };
-              }
-
-              // Default update for single or other types
-              const newDateStr = e.start.split('T')[0];
-              return {
-                ...e,
-                title: eventTitle,
-                backgroundColor: color,
-                start: data.allDay ? newDateStr : `${newDateStr}T${data.startTime}`,
-                end: data.allDay ? newDateStr : `${newDateStr}T${data.endTime}`,
-                allDay: data.allDay,
-                extendedProps: {
-                  ...e.extendedProps,
-                  clientId: data.clientId,
-                  type: data.type,
-                  notes: data.notes,
-                  isPersonal: data.isPersonal,
-                  allDay: data.allDay,
-                  ...(data.monthlyRecur && { monthlyRecur: data.monthlyRecur })
-                }
-              };
-            }
-            return e;
+          // Batch registration for all 12 months at once
+          await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(instances)
           });
-          setEvents(updatedEvents);
+        } else {
+          const newEvent = {
+            id: Math.random().toString(36).substr(2, 9),
+            title: eventTitle,
+            backgroundColor: color,
+            allDay: allDay,
+            start: allDay ? eventDateStr : `${eventDateStr}T${startTime}`,
+            end: allDay ? eventDateStr : `${eventDateStr}T${endTime}`,
+            extendedProps: {
+              clientId: data.clientId,
+              careManagerId: selectedCareManagerId,
+              type: data.type,
+              notes: notes,
+              isPersonal: forcePersonal,
+              allDay: allDay
+            }
+          };
+          await fetch('/api/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newEvent)
+          });
         }
       }
+
+      // Final cleanup and refresh
+      const res = await fetch('/api/events');
+      setEvents(await res.json());
       setIsModalOpen(data.isContinuous || false);
       setEditingEvent(null);
-      return;
-    }
-
-    // NEW EVENT CREATION LOGIC
-    const dateStr = selectedDate ? formatLocalDate(selectedDate) : '';
-    const eventBase = {
-      title: eventTitle,
-      backgroundColor: color,
-      allDay: data.allDay,
-      extendedProps: {
-        clientId: data.clientId,
-        careManagerId: selectedCareManagerId,
-        type: data.type,
-        notes: data.notes,
-        isPersonal: data.isPersonal,
-        allDay: data.allDay
-      }
-    };
-
-    if (data.recurring) {
-      const newEvent = {
-        ...eventBase,
-        id: Math.random().toString(36).substr(2, 9),
-        daysOfWeek: data.recurring.daysOfWeek,
-        startTime: data.recurring.startTime,
-        endTime: data.recurring.endTime,
-        extendedProps: {
-          ...eventBase.extendedProps,
-          isRecurring: true,
-          recurring: data.recurring
-        }
-      };
-      setEvents([...events, newEvent]);
-    } else if (data.monthlyRecur) {
-      // Manual Expansion for Monthly Recurrence
-      const instances = [];
-      const now = new Date();
-      let year = now.getFullYear();
-      let month = now.getMonth();
-      const groupId = `monthly-${Date.now()}`;
-
-      for (let i = 0; i < 12; i++) {
-        const targetDate = calculateNthWeekday(year, month, data.monthlyRecur.week, data.monthlyRecur.day);
-        const dayStr = formatLocalDate(targetDate);
-        instances.push({
-          ...eventBase,
-          id: Math.random().toString(36).substr(2, 9),
-          start: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.startTime}`,
-          end: data.allDay ? dayStr : `${dayStr}T${data.monthlyRecur.endTime}`,
-          extendedProps: {
-            ...eventBase.extendedProps,
-            isRecurInstance: true,
-            groupId,
-            monthlyRecur: data.monthlyRecur
-          }
-        });
-        month++; if (month > 11) { month = 0; year++; }
-      }
-      setEvents([...events, ...instances]);
-    } else {
-      const newEvent = {
-        ...eventBase,
-        id: Math.random().toString(36).substr(2, 9),
-        start: data.allDay ? dateStr : `${dateStr}T${data.startTime}`,
-        end: data.allDay ? dateStr : `${dateStr}T${data.endTime}`,
-      };
-      setEvents([...events, newEvent]);
-    }
-
-    if (!data.isContinuous) {
-      setIsModalOpen(false);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -467,12 +597,12 @@ export default function Home() {
     }
   }, [events]);
 
-  const handleDeleteEvent = (eventInfo: any) => {
+  const handleDeleteEvent = async (eventInfo: any) => {
     if (!eventInfo) return;
 
-    // Determine if it's recurring
-    const isRecurring = eventInfo.extendedProps?.isRecurring ||
-      eventInfo.extendedProps?.isRecurInstance ||
+    // Detect recurring based on our normalized properties
+    const isRecurring = eventInfo.isRecurring ||
+      eventInfo.isRecurInstance ||
       eventInfo.recurrenceType === 'weekly' ||
       eventInfo.recurrenceType === 'monthly';
 
@@ -483,105 +613,146 @@ export default function Home() {
     }
 
     // Standard deletion
-    const id = eventInfo.id || (eventInfo.id ? eventInfo.id : null);
-    const title = eventInfo.title;
-
-    setEvents(prev => prev.filter(e => {
-      // Try ID match first
-      if (id && e.id && e.id === id) return false;
-      // Fallback to title and date match for un-ID'd events
-      if (!id && e.title === title) {
-        // If it's a personal event, title match might be enough or we check date
-        return false;
+    setIsSaving(true);
+    try {
+      const id = eventInfo.id;
+      if (id) {
+        await fetch(`/api/events?id=${id}`, { method: 'DELETE' });
+        const res = await fetch('/api/events');
+        setEvents(await res.json());
       }
-      return true;
-    }));
-
-    // Explicitly close modal to be safe
-    setIsModalOpen(false);
-    setEditingEvent(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+      setIsModalOpen(false);
+      setEditingEvent(null);
+    }
   };
 
-  const handleConfirmDelete = (choice: 'all' | 'following' | 'this') => {
+  const handleConfirmDelete = async (choice: 'all' | 'following' | 'this') => {
     if (!eventToDelete) return;
+    setIsSaving(true);
 
-    const eventId = eventToDelete.id;
-    const eventSeriesId = eventToDelete.extendedProps?.seriesId;
-    const eventTitle = eventToDelete.title;
-    const eventDate = eventToDelete.startStr?.split('T')[0] || eventToDelete.start.toISOString().split('T')[0];
+    try {
+      const eventId = eventToDelete.id;
+      const eventSeriesId = eventToDelete.seriesId || eventToDelete.extendedProps?.seriesId;
+      const eventTitle = eventToDelete.title;
+      const eventDate = eventToDelete.startStr?.split('T')[0] || (typeof eventToDelete.start === 'string' ? eventToDelete.start.split('T')[0] : eventToDelete.start.toISOString().split('T')[0]);
 
-    setEvents(prev => {
       if (choice === 'all') {
-        const eventGroupId = eventToDelete.extendedProps?.groupId;
-        const isMonthly = eventToDelete.extendedProps?.isRecurInstance;
-        return prev.filter(e => {
-          if (eventSeriesId && e.extendedProps?.seriesId === eventSeriesId) return false;
-          // Exact group match
-          if (eventGroupId && e.extendedProps?.groupId === eventGroupId) return false;
-          // Fuzzy match for orphaned monthly instances (same title, same CM, same clientId)
-          if (isMonthly && !eventSeriesId && e.extendedProps?.isRecurInstance &&
-            e.title === eventTitle &&
-            e.extendedProps?.careManagerId === eventToDelete.extendedProps?.careManagerId &&
-            e.extendedProps?.clientId === eventToDelete.extendedProps?.clientId) return false;
+        const eventGroupId = eventToDelete.groupId || eventToDelete.extendedProps?.groupId;
+        const isMonthly = eventToDelete.isRecurInstance || eventToDelete.extendedProps?.isRecurInstance;
 
-          if (eventId && e.id === eventId) return false;
-          if (!eventId && !eventSeriesId && !eventGroupId && e.title === eventTitle) return false;
-          return true;
-        });
+        const toDeleteIds = events
+          .filter(e => {
+            if (eventSeriesId && (e.extendedProps?.seriesId === eventSeriesId || e.seriesId === eventSeriesId)) return true;
+            if (eventGroupId && (e.extendedProps?.groupId === eventGroupId || e.groupId === eventGroupId)) return true;
+            if (isMonthly && !eventSeriesId && (e.extendedProps?.isRecurInstance || e.isRecurInstance) &&
+              e.title === eventTitle &&
+              (e.extendedProps?.clientId === eventToDelete.clientId || e.clientId === eventToDelete.clientId)) return true;
+            if (eventId && e.id === eventId) return true;
+            return false;
+          })
+          .map(e => e.id);
+
+        if (toDeleteIds.length > 0) {
+          await fetch('/api/events', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids: toDeleteIds })
+          });
+        }
       }
 
       if (choice === 'following') {
         const targetDate = new Date(eventDate);
+        // Exclusive end date for the series before this one
         targetDate.setDate(targetDate.getDate() - 1);
         const endDateStr = targetDate.toISOString().split('T')[0];
 
-        // For monthly series (generated individual events)
-        if (eventSeriesId) {
-          return prev.filter(e => {
-            if (e.extendedProps?.seriesId === eventSeriesId) {
-              const eDate = e.start?.split('T')[0];
-              return eDate <= endDateStr;
-            }
-            return true;
-          });
-        }
+        if (eventSeriesId || eventToDelete.groupId || eventToDelete.extendedProps?.groupId) {
+          const groupId = eventToDelete.groupId || eventToDelete.extendedProps?.groupId || eventSeriesId;
+          const toDeleteIds = events
+            .filter(e => {
+              const eStart = new Date(e.start);
+              const eGroupId = e.groupId || e.extendedProps?.groupId || e.seriesId || e.extendedProps?.seriesId;
+              return eGroupId === groupId && eStart >= new Date(eventDate);
+            })
+            .map(e => e.id);
 
-        // For weekly (recurring property)
-        return prev.map(e => {
-          if ((eventId && e.id === eventId) || (!eventId && e.title === eventTitle)) {
-            return { ...e, endRecur: endDateStr, end: endDateStr };
+          if (toDeleteIds.length > 0) {
+            await fetch('/api/events', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ids: toDeleteIds })
+            });
           }
-          return e;
-        });
+        } else {
+          // Weekly master
+          const masterId = eventId || eventToDelete.id;
+          const master = events.find(e => e.id === masterId);
+          if (master) {
+            const updated = {
+              ...master,
+              end: endDateStr,
+              endRecur: endDateStr,
+              extendedProps: {
+                ...(master.extendedProps || {}),
+                endRecur: endDateStr
+              }
+            };
+            await fetch('/api/events', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updated)
+            });
+          }
+        }
       }
 
       if (choice === 'this') {
-        const masterId = eventToDelete.id || eventToDelete.publicId;
-        const eventTitleToMatch = eventToDelete.title;
-        // Use timezone-safe formatting
-        const dateToDelete = formatLocalDate(new Date(eventToDelete.start));
+        const isMonthlyInstance = (eventToDelete.isRecurInstance || eventToDelete.extendedProps?.isRecurInstance) && !eventToDelete.isRecurring;
 
-        // Add to excluded dates
-        return prev.map(e => {
-          if ((masterId && e.id === masterId) || (!masterId && e.title === eventTitleToMatch)) {
-            const excluded = e.extendedProps?.excludedDates || [];
-            return {
-              ...e,
+        if (isMonthlyInstance) {
+          await fetch(`/api/events?id=${eventId}`, { method: 'DELETE' });
+        } else {
+          const dateToDelete = eventDate;
+          // Robust master lookup: try ID first, then seriesId
+          const master = events.find(e =>
+            e.id === eventId ||
+            (eventSeriesId && (e.id === eventSeriesId || e.extendedProps?.seriesId === eventSeriesId))
+          );
+          if (master) {
+            const excluded = master.extendedProps?.excludedDates || master.excludedDates || [];
+            const updated = {
+              ...master,
               extendedProps: {
-                ...e.extendedProps,
+                ...(master.extendedProps || {}),
                 excludedDates: [...new Set([...excluded, dateToDelete])]
               }
             };
+            await fetch('/api/events', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(updated)
+            });
+          } else {
+            await fetch(`/api/events?id=${eventId}`, { method: 'DELETE' });
           }
-          return e;
-        });
+        }
       }
 
-      return prev;
-    });
-
-    setIsDeletionModalOpen(false);
-    setEventToDelete(null);
+      // Refresh events
+      const res = await fetch('/api/events');
+      setEvents(await res.json());
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+      setIsDeletionModalOpen(false);
+      setEventToDelete(null);
+    }
   };
 
   const navigateToConference = (clientId: string) => {
@@ -612,189 +783,122 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen bg-[var(--background-soft)] flex flex-col">
-      <header className="bg-white shadow-sm border-b border-slate-200 sticky top-0 z-30">
-        <div className="px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <h1 className="text-xl font-bold text-[var(--secondary-color)] flex items-center gap-2">
-              <span className="w-8 h-8 bg-[var(--primary-color)] rounded-lg flex items-center justify-center text-white font-bold">CP</span>
-              CareSchedule Pro
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <button className="flex items-center gap-1 hover:text-slate-700">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" /></svg>
-              ローカル保存
-            </button>
-            <button className="flex items-center gap-1 hover:text-slate-700">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-              バックアップ
-            </button>
-            <div className="flex items-center gap-2">
-              <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold transition-all ${isSaving ? 'text-sky-500 animate-pulse' : 'text-slate-300'}`}>
-                <div className={`w-1.5 h-1.5 rounded-full ${isSaving ? 'bg-sky-500' : 'bg-slate-300'}`} />
-                {isSaving ? '保存中...' : '自動保存済み'}
-              </div>
-              <span className="text-xs bg-slate-100 px-2 py-0.5 rounded text-slate-400">v0.1.69</span>
-              {/* v0.1.42: 連続入力機能と繰り返し予定の改善 */}
+    <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+      {/* Premium Header */}
+      <style jsx global>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+      `}</style>
+      <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all duration-300">
+        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-between rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#2563eb] p-2 shadow-lg shadow-blue-500/20">
+              <CalendarIcon className="text-white" size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Care Schedule Pro</h1>
+              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Efficiency & Care</p>
             </div>
           </div>
-        </div>
 
-        {/* Tab Navigation */}
-        <div className="px-6 flex gap-6 text-sm font-medium text-slate-600 overflow-x-auto whitespace-nowrap scrollbar-hide">
-          <button
-            onClick={() => setActiveTab('schedule')}
-            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'schedule' ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent hover:text-slate-800'}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
-            個別スケジュール確認
-          </button>
-          <button
-            onClick={() => setActiveTab('conference')}
-            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'conference' ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent hover:text-slate-800'}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            担当者会議 調整場
-          </button>
-          <button
-            onClick={() => setActiveTab('shift')}
-            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'shift' ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent hover:text-slate-800'}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
-            シフト自動作成
-          </button>
-          <button
-            onClick={() => setActiveTab('settings')}
-            className={`pb-3 flex items-center gap-2 border-b-2 transition-colors ${activeTab === 'settings' ? 'border-[var(--primary-color)] text-[var(--primary-color)]' : 'border-transparent hover:text-slate-800'}`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            設定・マスター
-          </button>
+          {/* Premium Tab Navigation */}
+          <nav className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
+            <button
+              onClick={() => setActiveTab('schedule')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'schedule' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+            >
+              <CalendarIcon size={18} />
+              <span>スケジュール</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('conference')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'conference' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+            >
+              <Users size={18} />
+              <span>会議調整</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('shift')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shift' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+            >
+              <Repeat size={18} />
+              <span>シフト作成</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('settings')}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+            >
+              <SettingsIcon size={18} />
+              <span>設定</span>
+            </button>
+          </nav>
+
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 transition-colors hover:bg-slate-50">
+              <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+              <span className="text-xs font-semibold text-slate-600">{careManagers.find(cm => cm.id === selectedCareManagerId)?.name}</span>
+            </div>
+            {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={20} />}
+          </div>
         </div>
       </header>
 
-      <main className="flex-grow p-6 flex gap-6 overflow-hidden h-[calc(100vh-125px)]">
+      <div className="mx-auto max-w-[1600px] p-6 pb-12">
         {activeTab === 'schedule' && (
-          <>
-            <div className="flex-grow min-h-0 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
-              <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-                <h2 className="font-semibold text-slate-700">
-                  {selectedClientId ? `${clients.find(c => c.id === selectedClientId)?.name} 様のスケジュール` : `ねずみ 担当のスケジュール一覧`}
-                </h2>
+          <div className="flex flex-col h-[calc(100vh-150px)]">
+            {/* Main Calendar Area */}
+            <div className="flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 overflow-hidden">
+              <div className="mb-6 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-slate-800">月間スケジュール</h2>
                 <div className="flex gap-2">
-                  {selectedClientId && (
-                    <button
-                      onClick={() => navigateToConference(selectedClientId)}
-                      className="text-xs bg-violet-100 text-violet-700 px-3 py-1.5 rounded hover:bg-violet-200 transition-colors flex items-center gap-1"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                      担当者会議を調整する
-                    </button>
-                  )}
+                  <select
+                    value={selectedCareManagerId}
+                    onChange={(e) => setSelectedCareManagerId(e.target.value)}
+                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  >
+                    {careManagers.map(cm => <option key={cm.id} value={cm.id}>{cm.name}</option>)}
+                    <option value="all">すべて表示</option>
+                  </select>
                 </div>
               </div>
-              <div className="flex-grow min-h-0 p-4 overflow-auto">
-                <ScheduleCalendar
-                  events={filteredEvents}
-                  clients={clients}
-                  selectedClientId={selectedClientId}
-                  scheduleTypes={scheduleTypes}
-                  onDateClick={handleDateClick}
-                  onEditEvent={handleEditEvent}
-                  onDeleteEvent={handleDeleteEvent}
-                />
-              </div>
+              <ScheduleCalendar
+                events={events.filter(e => {
+                  const cmId = e.extendedProps?.careManagerId;
+                  return !cmId || cmId === selectedCareManagerId || selectedCareManagerId === 'all';
+                })}
+                onDateClick={handleDateClick}
+                onEventClick={handleEditEvent}
+                onEventDrop={handleSaveVisit}
+                onEventResize={handleSaveVisit}
+                clients={clients}
+                scheduleTypes={scheduleTypes}
+              />
             </div>
-
-            <div className="w-80 h-full flex flex-col min-h-0">
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 h-full flex flex-col overflow-hidden">
-                <h2 className="font-semibold text-slate-700 mb-4 text-sm">利用者一覧 ({filteredClients.length}名)</h2>
-                <div className="flex-grow overflow-auto">
-                  <UserManagement
-                    clients={filteredClients}
-                    onAddClient={() => setIsUserModalOpen(true)}
-                    selectedClientId={selectedClientId}
-                    onSelectClient={setSelectedClientId}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <UserModal
-              isOpen={isUserModalOpen}
-              onClose={() => setIsUserModalOpen(false)}
-              onSave={handleAddClient}
-            />
-
-            <VisitModal
-              isOpen={isModalOpen}
-              onClose={() => {
-                setIsModalOpen(false);
-                setEditingEvent(null);
-              }}
-              onSave={handleSaveVisit}
-              onDelete={handleDeleteEvent} // Pass the delete handler
-              initialDate={selectedDate || undefined}
-              initialData={editingEvent ? {
-                id: editingEvent.id,
-                clientId: editingEvent.extendedProps?.clientId,
-                type: editingEvent.extendedProps?.type,
-                startTime: editingEvent.allDay ? '10:00' : (editingEvent.extendedProps?.recurring?.startTime || editingEvent.extendedProps?.monthlyRecur?.startTime || (editingEvent.startStr.includes('T') ? editingEvent.startStr.split('T')[1].substring(0, 5) : '10:00')),
-                endTime: editingEvent.allDay ? '11:00' : (editingEvent.extendedProps?.recurring?.endTime || editingEvent.extendedProps?.monthlyRecur?.endTime || (editingEvent.endStr.includes('T') ? editingEvent.endStr.split('T')[1].substring(0, 5) : '11:00')),
-                notes: editingEvent.extendedProps?.notes,
-                isPersonal: editingEvent.extendedProps?.isPersonal,
-                allDay: editingEvent.allDay,
-                recurrenceType: editingEvent.extendedProps?.recurring ? 'weekly' : (editingEvent.extendedProps?.monthlyRecur ? 'monthly' : 'none'),
-                weeklyDays: editingEvent.extendedProps?.recurring?.daysOfWeek,
-                monthlyWeek: editingEvent.extendedProps?.monthlyRecur?.week || Math.ceil(new Date(editingEvent.start).getDate() / 7),
-                monthlyDay: editingEvent.extendedProps?.monthlyRecur?.day ?? new Date(editingEvent.start).getDay()
-              } : undefined}
-              clients={filteredClients}
-              scheduleTypes={scheduleTypes}
-              defaultClientId={selectedClientId}
-            />
-
-            <EditChoiceModal
-              isOpen={isEditChoiceModalOpen}
-              onClose={() => {
-                setIsEditChoiceModalOpen(false);
-                setEditingEvent(null);
-              }}
-              onSelect={handleEditChoice}
-              eventTitle={editingEvent?.title || ''}
-            />
-
-            <DeletionChoiceModal
-              isOpen={isDeletionModalOpen}
-              onClose={() => setIsDeletionModalOpen(false)}
-              onConfirm={handleConfirmDelete}
-              eventTitle={eventToDelete?.title || ''}
-            />
-          </>
+          </div>
         )}
 
         {activeTab === 'conference' && (
-          <div className="w-full h-full">
+          <div className="h-[calc(100vh-150px)]">
             <ConferenceAdjustment
-              clients={filteredClients}
-              selectedClientId={selectedClientId}
-              onSaveEvent={handleAddEvent}
-              currentEvents={filteredEvents}
+              clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
+              events={events}
+              onAddEvent={handleSaveVisit}
+              onUpdateEvent={handleSaveVisit}
               scheduleTypes={scheduleTypes}
             />
           </div>
         )}
 
         {activeTab === 'shift' && (
-          <div className="w-full h-full">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
             <ShiftAutomation />
           </div>
         )}
 
         {activeTab === 'settings' && (
-          <div className="w-full h-full">
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
             <Settings
               clients={clients}
               onAddClient={handleAddClient}
@@ -803,10 +907,46 @@ export default function Home() {
               scheduleTypes={scheduleTypes}
               onAddScheduleType={handleAddScheduleType}
               onDeleteScheduleType={handleDeleteScheduleType}
+              careManagerId={selectedCareManagerId}
             />
           </div>
         )}
-      </main>
-    </div >
+      </div>
+
+      {/* Modals and Overlays */}
+      <VisitModal
+        isOpen={isModalOpen}
+        onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
+        onSave={handleSaveVisit}
+        onDelete={handleDeleteEvent}
+        selectedDate={selectedDate}
+        editingEvent={editingEvent}
+        clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
+        scheduleTypes={scheduleTypes}
+        editTargetChoice={editTargetChoice}
+      />
+
+      <DeletionChoiceModal
+        isOpen={isDeletionModalOpen}
+        onClose={() => { setIsDeletionModalOpen(false); setEventToDelete(null); }}
+        onConfirm={handleConfirmDelete}
+      />
+
+      <EditChoiceModal
+        isOpen={isEditChoiceModalOpen}
+        onClose={() => setIsEditChoiceModalOpen(false)}
+        onConfirm={handleEditChoice}
+      />
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm transition-all">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-12 w-12 animate-spin border-4 border-blue-500 border-t-transparent rounded-full"></div>
+            <p className="font-bold text-blue-600 animate-pulse">データを読み込み中...</p>
+          </div>
+        </div>
+      )}
+    </main>
   );
 }

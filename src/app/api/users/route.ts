@@ -1,18 +1,28 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-
-// db.jsonのパス
-const dbPath = path.join(process.cwd(), 'data', 'db.json');
+import { supabase } from '@/lib/supabase';
 
 // GET: 全てのユーザーを取得
 export async function GET() {
   try {
-    const data = await fs.readFile(dbPath, 'utf-8');
-    const db = JSON.parse(data);
-    return NextResponse.json(db.users);
+    const { data, error } = await supabase
+      .from('clients')
+      .select('*');
+
+    if (error) throw error;
+
+    const formattedUsers = data.map(u => ({
+      id: u.id,
+      name: u.name,
+      careLevel: u.care_level,
+      address: u.address,
+      notes: u.notes,
+      careManagerId: u.care_manager_id
+    }));
+
+    return NextResponse.json(formattedUsers);
   } catch (error) {
-    return NextResponse.json({ message: 'Error reading database' }, { status: 500 });
+    console.error('Supabase error:', error);
+    return NextResponse.json({ message: 'Error reading from Supabase' }, { status: 500 });
   }
 }
 
@@ -25,19 +35,82 @@ export async function POST(request: Request) {
       return NextResponse.json({ message: 'User name is required' }, { status: 400 });
     }
 
-    const data = await fs.readFile(dbPath, 'utf-8');
-    const db = JSON.parse(data);
+    const userWithId = {
+      id: newUser.id || Math.random().toString(36).substr(2, 9),
+      name: newUser.name,
+      care_level: newUser.careLevel,
+      address: newUser.address,
+      notes: newUser.notes,
+      care_manager_id: newUser.careManagerId
+    };
 
-    const newId = db.users.length > 0 ? Math.max(...db.users.map((u: { id: string }) => parseInt(u.id) || 0)) + 1 : 1;
-    const userWithId = { id: newId.toString(), ...newUser };
+    const { data, error } = await supabase
+      .from('clients')
+      .upsert(userWithId)
+      .select()
+      .single();
 
-    db.users.push(userWithId);
+    if (error) throw error;
 
-    await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
-
-    return NextResponse.json(userWithId, { status: 201 });
+    return NextResponse.json(data, { status: 201 });
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ message: 'Error writing to database' }, { status: 500 });
+    console.error('Supabase error:', error);
+    return NextResponse.json({ message: 'Error writing to Supabase' }, { status: 500 });
+  }
+}
+
+// PUT: ユーザー情報を更新
+export async function PUT(request: Request) {
+  try {
+    const updatedUser = await request.json();
+    if (!updatedUser.id) {
+      return NextResponse.json({ message: 'User ID is required' }, { status: 400 });
+    }
+
+    const formattedUser = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      care_level: updatedUser.careLevel,
+      address: updatedUser.address,
+      notes: updatedUser.notes,
+      care_manager_id: updatedUser.careManagerId
+    };
+
+    const { data, error } = await supabase
+      .from('clients')
+      .upsert(formattedUser)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error('Supabase error:', error);
+    return NextResponse.json({ message: 'Error writing to Supabase' }, { status: 500 });
+  }
+}
+
+// DELETE: ユーザーを削除
+export async function DELETE(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ message: 'ID is required' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('clients')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    return NextResponse.json({ message: 'Deleted successfully' });
+  } catch (error) {
+    console.error('Supabase error:', error);
+    return NextResponse.json({ message: 'Error deleting from Supabase' }, { status: 500 });
   }
 }

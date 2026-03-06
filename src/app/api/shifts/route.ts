@@ -1,16 +1,24 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs/promises';
-import path from 'path';
-
-const dbPath = path.join(process.cwd(), 'data', 'db.json');
+import { supabase } from '@/lib/supabase';
 
 export async function GET() {
     try {
-        const data = await fs.readFile(dbPath, 'utf-8');
-        const db = JSON.parse(data);
-        return NextResponse.json(db.shifts || {});
+        const { data, error } = await supabase
+            .from('shifts')
+            .select('*');
+
+        if (error) throw error;
+
+        // Convert array to the structured object expected by the frontend
+        const shiftsObj: any = {};
+        data.forEach(item => {
+            shiftsObj[item.month] = item.data;
+        });
+
+        return NextResponse.json(shiftsObj);
     } catch (error) {
-        return NextResponse.json({ message: 'Error reading database' }, { status: 500 });
+        console.error('Supabase error:', error);
+        return NextResponse.json({ message: 'Error reading from Supabase' }, { status: 500 });
     }
 }
 
@@ -23,23 +31,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ message: 'Missing yearMonth' }, { status: 400 });
         }
 
-        const data = await fs.readFile(dbPath, 'utf-8');
-        const db = JSON.parse(data);
-
-        if (!db.shifts) db.shifts = {};
-
-        db.shifts[yearMonth] = {
+        const shiftData = {
             shifts,
             onCall,
             telework,
             updatedAt: new Date().toISOString()
         };
 
-        await fs.writeFile(dbPath, JSON.stringify(db, null, 2));
+        const { error } = await supabase
+            .from('shifts')
+            .upsert({
+                month: yearMonth,
+                care_manager_id: 'cm1', // Default
+                data: shiftData,
+                updated_at: shiftData.updatedAt
+            });
+
+        if (error) throw error;
 
         return NextResponse.json({ message: 'Saved successfully' }, { status: 200 });
     } catch (error) {
-        console.error(error);
-        return NextResponse.json({ message: 'Error writing to database' }, { status: 500 });
+        console.error('Supabase error:', error);
+        return NextResponse.json({ message: 'Error writing to Supabase' }, { status: 500 });
     }
 }
