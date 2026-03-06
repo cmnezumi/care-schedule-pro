@@ -11,7 +11,7 @@ export async function GET() {
 
         if (error) throw error;
 
-        const formattedTypes = data.map(t => ({
+        const formattedTypes = data.map((t: any) => ({
             id: t.id,
             name: t.name,
             color: t.color,

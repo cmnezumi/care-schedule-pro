@@ -13,7 +13,7 @@ export async function GET() {
     if (error) throw error;
 
     // Map database fields to FullCalendar format
-    const formattedEvents = data.map(e => ({
+    const formattedEvents = data.map((e: any) => ({
       id: e.id,
       title: e.title,
       allDay: e.all_day,

@@ -13,7 +13,7 @@ export async function GET() {
 
         // Convert array to the structured object expected by the frontend
         const shiftsObj: any = {};
-        data.forEach(item => {
+        data.forEach((item: any) => {
             shiftsObj[item.month] = item.data;
         });
 

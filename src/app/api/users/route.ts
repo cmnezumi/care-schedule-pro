@@ -12,7 +12,7 @@ export async function GET() {
 
     if (error) throw error;
 
-    const formattedUsers = data.map(u => ({
+    const formattedUsers = data.map((u: any) => ({
       id: u.id,
       name: u.name,
       careLevel: u.care_level,
