@@ -12,6 +12,7 @@ import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
 import SuggestionFinder from "@/components/SuggestionFinder";
+import { supabase } from "@/lib/supabase";
 import { Client, Visit, ScheduleType, CareManager, VisitType } from "@/types";
 import { Check, Loader2, Sparkles, Settings as SettingsIcon, Calendar as CalendarIcon, Users, Repeat } from "lucide-react";
 
@@ -807,171 +808,173 @@ export default function Home() {
       keyExists: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     });
   }
-  {/* Premium Header */ }
-      <style jsx global>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-      `}</style>
-      <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all duration-300">
-        <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-between rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#2563eb] p-2 shadow-lg shadow-blue-500/20">
-              <CalendarIcon className="text-white" size={24} />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Care Schedule Pro</h1>
-              <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Efficiency & Care</p>
-            </div>
-          </div>
-
-          {/* Premium Tab Navigation */}
-          <nav className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
-            <button
-              onClick={() => setActiveTab('schedule')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'schedule' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-            >
-              <CalendarIcon size={18} />
-              <span>スケジュール</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('conference')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'conference' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-            >
-              <Users size={18} />
-              <span>会議調整</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('shift')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shift' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-            >
-              <Repeat size={18} />
-              <span>シフト作成</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('settings')}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
-            >
-              <SettingsIcon size={18} />
-              <span>設定</span>
-            </button>
-          </nav>
-
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 transition-colors hover:bg-slate-50">
-              <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-              <span className="text-xs font-semibold text-slate-600">{careManagers.find(cm => cm.id === selectedCareManagerId)?.name}</span>
-            </div>
-            {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={20} />}
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-[1600px] p-6 pb-12">
-        {activeTab === 'schedule' && (
-          <div className="flex flex-col h-[calc(100vh-150px)]">
-            {/* Main Calendar Area */}
-            <div className="flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 overflow-hidden">
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-800">月間スケジュール</h2>
-                <div className="flex gap-2">
-                  <select
-                    value={selectedCareManagerId}
-                    onChange={(e) => setSelectedCareManagerId(e.target.value)}
-                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                  >
-                    {careManagers.map(cm => <option key={cm.id} value={cm.id}>{cm.name}</option>)}
-                    <option value="all">すべて表示</option>
-                  </select>
-                </div>
+  return (
+    <>
+      <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+        <style jsx global>{`
+          .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+          .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+          .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+          .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        `}</style>
+        <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all duration-300">
+          <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-6">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-between rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#2563eb] p-2 shadow-lg shadow-blue-500/20">
+                <CalendarIcon className="text-white" size={24} />
               </div>
-              <ScheduleCalendar
-                events={events.filter(e => {
-                  const cmId = e.extendedProps?.careManagerId;
-                  return !cmId || cmId === selectedCareManagerId || selectedCareManagerId === 'all';
-                })}
-                onDateClick={handleDateClick}
-                onEventClick={handleEditEvent}
-                onEventDrop={handleSaveVisit}
-                onEventResize={handleSaveVisit}
-                clients={clients}
+              <div>
+                <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Care Schedule Pro</h1>
+                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Efficiency & Care</p>
+              </div>
+            </div>
+
+            {/* Premium Tab Navigation */}
+            <nav className="flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
+              <button
+                onClick={() => setActiveTab('schedule')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'schedule' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+              >
+                <CalendarIcon size={18} />
+                <span>スケジュール</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('conference')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'conference' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+              >
+                <Users size={18} />
+                <span>会議調整</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('shift')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'shift' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+              >
+                <Repeat size={18} />
+                <span>シフト作成</span>
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all duration-200 ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+              >
+                <SettingsIcon size={18} />
+                <span>設定</span>
+              </button>
+            </nav>
+
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 transition-colors hover:bg-slate-50">
+                <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
+                <span className="text-xs font-semibold text-slate-600">{careManagers.find(cm => cm.id === selectedCareManagerId)?.name}</span>
+              </div>
+              {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={20} />}
+            </div>
+          </div>
+        </header>
+
+        <div className="mx-auto max-w-[1600px] p-6 pb-12">
+          {activeTab === 'schedule' && (
+            <div className="flex flex-col h-[calc(100vh-150px)]">
+              {/* Main Calendar Area */}
+              <div className="flex-1 rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 overflow-hidden">
+                <div className="mb-6 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-slate-800">月間スケジュール</h2>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedCareManagerId}
+                      onChange={(e) => setSelectedCareManagerId(e.target.value)}
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      {careManagers.map(cm => <option key={cm.id} value={cm.id}>{cm.name}</option>)}
+                      <option value="all">すべて表示</option>
+                    </select>
+                  </div>
+                </div>
+                <ScheduleCalendar
+                  events={events.filter(e => {
+                    const cmId = e.extendedProps?.careManagerId;
+                    return !cmId || cmId === selectedCareManagerId || selectedCareManagerId === 'all';
+                  })}
+                  onDateClick={handleDateClick}
+                  onEventClick={handleEditEvent}
+                  onEventDrop={handleSaveVisit}
+                  onEventResize={handleSaveVisit}
+                  clients={clients}
+                  scheduleTypes={scheduleTypes}
+                />
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'conference' && (
+            <div className="h-[calc(100vh-150px)]">
+              <ConferenceAdjustment
+                clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
+                events={events}
+                onAddEvent={handleSaveVisit}
+                onUpdateEvent={handleSaveVisit}
                 scheduleTypes={scheduleTypes}
               />
             </div>
-          </div>
-        )}
+          )}
 
-        {activeTab === 'conference' && (
-          <div className="h-[calc(100vh-150px)]">
-            <ConferenceAdjustment
-              clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
-              events={events}
-              onAddEvent={handleSaveVisit}
-              onUpdateEvent={handleSaveVisit}
-              scheduleTypes={scheduleTypes}
-            />
-          </div>
-        )}
+          {activeTab === 'shift' && (
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+              <ShiftAutomation />
+            </div>
+          )}
 
-        {activeTab === 'shift' && (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
-            <ShiftAutomation />
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
-            <Settings
-              clients={clients}
-              onAddClient={handleAddClient}
-              onUpdateClient={handleUpdateClient}
-              onDeleteClient={handleDeleteClient}
-              scheduleTypes={scheduleTypes}
-              onAddScheduleType={handleAddScheduleType}
-              onDeleteScheduleType={handleDeleteScheduleType}
-              careManagerId={selectedCareManagerId}
-            />
-          </div>
-        )}
-      </div>
-
-  {/* Modals and Overlays */ }
-      <VisitModal
-        isOpen={isModalOpen}
-        onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
-        onSave={handleSaveVisit}
-        onDelete={handleDeleteEvent}
-        selectedDate={selectedDate}
-        editingEvent={editingEvent}
-        clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
-        scheduleTypes={scheduleTypes}
-        editTargetChoice={editTargetChoice}
-      />
-
-      <DeletionChoiceModal
-        isOpen={isDeletionModalOpen}
-        onClose={() => { setIsDeletionModalOpen(false); setEventToDelete(null); }}
-        onConfirm={handleConfirmDelete}
-      />
-
-      <EditChoiceModal
-        isOpen={isEditChoiceModalOpen}
-        onClose={() => setIsEditChoiceModalOpen(false)}
-        onConfirm={handleEditChoice}
-      />
-
-  {/* Loading Overlay */ }
-  {
-    isLoading && (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm transition-all">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 animate-spin border-4 border-blue-500 border-t-transparent rounded-full"></div>
-          <p className="font-bold text-blue-600 animate-pulse">データを読み込み中...</p>
+          {activeTab === 'settings' && (
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+              <Settings
+                clients={clients}
+                onAddClient={handleAddClient}
+                onUpdateClient={handleUpdateClient}
+                onDeleteClient={handleDeleteClient}
+                scheduleTypes={scheduleTypes}
+                onAddScheduleType={handleAddScheduleType}
+                onDeleteScheduleType={handleDeleteScheduleType}
+                careManagerId={selectedCareManagerId}
+              />
+            </div>
+          )}
         </div>
-      </div>
-    )
-  }
-    </main >
+
+        {/* Modals and Overlays */}
+        <VisitModal
+          isOpen={isModalOpen}
+          onClose={() => { setIsModalOpen(false); setEditingEvent(null); }}
+          onSave={handleSaveVisit}
+          onDelete={handleDeleteEvent}
+          selectedDate={selectedDate}
+          editingEvent={editingEvent}
+          clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
+          scheduleTypes={scheduleTypes}
+          editTargetChoice={editTargetChoice}
+        />
+
+        <DeletionChoiceModal
+          isOpen={isDeletionModalOpen}
+          onClose={() => { setIsDeletionModalOpen(false); setEventToDelete(null); }}
+          onConfirm={handleConfirmDelete}
+        />
+
+        <EditChoiceModal
+          isOpen={isEditChoiceModalOpen}
+          onClose={() => setIsEditChoiceModalOpen(false)}
+          onConfirm={handleEditChoice}
+        />
+
+        {
+          isLoading && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white/60 backdrop-blur-sm transition-all">
+              <div className="flex flex-col items-center gap-4">
+                <div className="h-12 w-12 animate-spin border-4 border-blue-500 border-t-transparent rounded-full"></div>
+                <p className="font-bold text-blue-600 animate-pulse">データを読み込み中...</p>
+              </div>
+            </div>
+          )
+        }
+      </main >
+    </>
   );
 }
