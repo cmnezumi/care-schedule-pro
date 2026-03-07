@@ -95,7 +95,8 @@ const ScheduleCalendar = ({
         @media (max-width: 768px) {
           .fc-toolbar {
             flex-direction: column;
-            gap: 10px;
+            gap: 5px;
+            margin-bottom: 0.5em !important;
           }
           .fc-toolbar-chunk {
             display: flex;
@@ -103,11 +104,20 @@ const ScheduleCalendar = ({
             width: 100%;
           }
           .fc-toolbar-title {
-            font-size: 1.1rem !important;
+            font-size: 1rem !important;
           }
           .fc-button {
-            padding: 4px 8px !important;
-            font-size: 11px !important;
+            padding: 2px 4px !important;
+            font-size: 10px !important;
+          }
+        }
+        @media (max-height: 500px) and (orientation: landscape) {
+          .fc-toolbar {
+            flex-direction: row !important;
+            margin-bottom: 0.2em !important;
+          }
+          .fc-toolbar-title {
+            font-size: 0.9rem !important;
           }
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
