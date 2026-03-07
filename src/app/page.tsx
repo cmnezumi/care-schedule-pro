@@ -2,18 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import ScheduleCalendar from "@/components/ScheduleCalendar";
-import UserManagement from "@/components/UserManagement";
-import UserModal from "@/components/UserModal";
 import ShiftAutomation from "@/components/ShiftAutomation";
 import ConferenceAdjustment from '@/components/ConferenceAdjustment';
 import EditChoiceModal from "@/components/EditChoiceModal";
 import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
-import SuggestionFinder from "@/components/SuggestionFinder";
 import { supabase } from "@/lib/supabase";
-import { Client, Visit, ScheduleType, CareManager, VisitType } from "@/types";
-import { Check, Loader2, Sparkles, Settings as SettingsIcon, Calendar as CalendarIcon, Users, Repeat } from "lucide-react";
+import { Client, ScheduleType, CareManager } from "@/types";
+import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsIcon } from "lucide-react";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
@@ -30,19 +27,17 @@ export default function Home() {
   const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
   const isHandlingEventRef = React.useRef(false);
 
-  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditChoiceModalOpen, setIsEditChoiceModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all'>('single');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
 
   const [isDeletionModalOpen, setIsDeletionModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<any>(null);
 
-  const [dataLoaded, setDataLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Lifted state
   const [clients, setClients] = useState<Client[]>([]);
@@ -53,7 +48,7 @@ export default function Home() {
     setHasMounted(true);
   }, []);
 
-  // Load from APIs
+  // Load data
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
@@ -68,14 +63,11 @@ export default function Home() {
         const typesData = await typesRes.json();
         const eventsData = await eventsRes.json();
 
-        const dbUsers = Array.isArray(usersData) ? usersData : [];
-        const dbTypes = Array.isArray(typesData) ? typesData : [];
-        const dbEvents = Array.isArray(eventsData) ? eventsData : [];
+        setClients(Array.isArray(usersData) ? usersData : []);
 
-        setClients(dbUsers);
-        setScheduleTypes(dbTypes);
-        if (dbTypes.length === 0) {
-          setScheduleTypes([
+        let loadedTypes = Array.isArray(typesData) ? typesData : [];
+        if (loadedTypes.length === 0) {
+          loadedTypes = [
             { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
             { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
             { id: 'conference', name: '担当者会議', color: '#f97316' },
@@ -83,28 +75,20 @@ export default function Home() {
             { id: 'office_mtg', name: '事業所会議', color: '#f97316' },
             { id: 'telework', name: 'テレワーク', color: '#22c55e' },
             { id: 'other', name: 'その他', color: '#64748b' },
-          ]);
+          ];
         }
-        setEvents(dbEvents);
+        setScheduleTypes(loadedTypes);
+        setEvents(Array.isArray(eventsData) ? eventsData : []);
       } catch (e) {
-        console.error("Failed to load data from backend", e);
+        console.error("Failed to load data", e);
       } finally {
         setIsLoading(false);
-        setDataLoaded(true);
       }
     };
     if (hasMounted) loadData();
   }, [hasMounted]);
 
-  const [isSaving, setIsSaving] = useState(false);
-
-  // Event handlers (Simplified for file rewrite brevity, actual logic below)
-  const handleAddClient = async (data: any) => { /* ... */ };
-  const handleUpdateClient = async (id: string, data: any) => { /* ... */ };
-  const handleDeleteClient = async (id: string) => { /* ... */ };
-  const handleAddScheduleType = async (data: any) => { /* ... */ };
-  const handleDeleteScheduleType = async (id: string) => { /* ... */ };
-
+  // Event handlers
   const handleDateClick = (date: Date) => {
     if (isHandlingEventRef.current) return;
     setEditingEvent(null);
@@ -113,18 +97,16 @@ export default function Home() {
   };
 
   const handleEditEvent = (info: any) => {
-    const raw = info.event || (info.isManual ? info.event : info);
+    const raw = info.event || info;
     const isFC = !!info.jsEvent;
 
-    // Normalize data
     const extended = isFC ? raw.extendedProps : (raw.extendedProps || raw);
     const prepared = {
-      id: raw.id || raw.publicId || (isFC ? raw._def?.publicId : null),
+      id: raw.id,
       title: raw.title,
       start: isFC ? (raw.startStr || raw.start?.toISOString()) : raw.start,
       end: isFC ? (raw.endStr || raw.end?.toISOString()) : raw.end,
       allDay: raw.allDay,
-      backgroundColor: raw.backgroundColor,
       ...extended
     };
 
@@ -150,15 +132,13 @@ export default function Home() {
   const handleSaveVisit = async (data: any) => {
     setIsSaving(true);
     try {
-      // API call logic (POST/PUT)
-      // This is long, keeping most logic same as before
-      const res = await fetch('/api/events', {
-        method: editingEvent ? 'PUT' : 'POST',
+      await fetch('/api/events', {
+        method: (data.id || editingEvent?.id) ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data) // Simplified for brevity in rewrite
+        body: JSON.stringify(data)
       });
-      const refreshRes = await fetch('/api/events');
-      setEvents(await refreshRes.json());
+      const res = await fetch('/api/events');
+      setEvents(await res.json());
       setIsModalOpen(false);
       setEditingEvent(null);
     } catch (e) {
@@ -169,6 +149,11 @@ export default function Home() {
   };
 
   const handleDeleteEvent = async (eventInfo: any) => {
+    if (eventInfo.isRecurring && !eventInfo.isRecurInstance) {
+      setEventToDelete(eventInfo);
+      setIsDeletionModalOpen(true);
+      return;
+    }
     setIsSaving(true);
     try {
       await fetch(`/api/events?id=${eventInfo.id}`, { method: 'DELETE' });
@@ -183,11 +168,50 @@ export default function Home() {
     }
   };
 
-  const handleConfirmDelete = async (choice: string) => { /* ... */ };
-  const handleEditTargetChoice = (choice: any) => { /* ... */ };
-  const navigateToConference = (clientId: string) => {
-    setSelectedClientId(clientId);
-    setActiveTab('conference');
+  const handleConfirmDelete = async (choice: 'all' | 'following' | 'this') => {
+    if (!eventToDelete) return;
+    setIsSaving(true);
+    try {
+      await fetch(`/api/events?id=${eventToDelete.id}${choice !== 'this' ? `&choice=${choice}` : ''}`, {
+        method: 'DELETE'
+      });
+      const res = await fetch('/api/events');
+      setEvents(await res.json());
+      setIsDeletionModalOpen(false);
+      setEventToDelete(null);
+      setIsModalOpen(false);
+      setEditingEvent(null);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleAddClient = async (data: any) => {
+    await fetch('/api/users', { method: 'POST', body: JSON.stringify(data) });
+    const res = await fetch('/api/users');
+    setClients(await res.json());
+  };
+  const handleUpdateClient = async (id: string, data: any) => {
+    await fetch('/api/users', { method: 'PUT', body: JSON.stringify({ ...data, id }) });
+    const res = await fetch('/api/users');
+    setClients(await res.json());
+  };
+  const handleDeleteClient = async (id: string) => {
+    await fetch(`/api/users?id=${id}`, { method: 'DELETE' });
+    const res = await fetch('/api/users');
+    setClients(await res.json());
+  };
+  const handleAddScheduleType = async (data: any) => {
+    await fetch('/api/schedule-types', { method: 'POST', body: JSON.stringify(data) });
+    const res = await fetch('/api/schedule-types');
+    setScheduleTypes(await res.json());
+  };
+  const handleDeleteScheduleType = async (id: string) => {
+    await fetch(`/api/schedule-types?id=${id}`, { method: 'DELETE' });
+    const res = await fetch('/api/schedule-types');
+    setScheduleTypes(await res.json());
   };
 
   // Filtered lists
@@ -215,64 +239,66 @@ export default function Home() {
 
   return (
     <>
-      <main className="min-h-screen bg-[#f8fafc] text-[#1e293b]">
+      <main className="min-h-screen bg-[#f8fafc] text-[#1e293b] overflow-x-hidden">
         <style jsx global>{`
           .custom-scrollbar::-webkit-scrollbar { width: 6px; }
           .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
           .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
           .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+          body { overflow-x: hidden; width: 100%; position: relative; }
         `}</style>
-        <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all duration-300">
-          <div className="mx-auto flex h-16 max-w-[1600px] items-center justify-between px-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-between rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#2563eb] p-2 shadow-lg shadow-blue-500/20">
-                <CalendarIcon className="text-white" size={24} />
+
+        <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all">
+          <div className="mx-auto flex h-14 md:h-16 max-w-[1600px] items-center justify-between px-4 md:px-6">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#2563eb] shadow-lg shadow-blue-500/20">
+                <CalendarIcon className="text-white" size={18} />
               </div>
-              <div>
-                <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">Care Schedule Pro</h1>
-                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-widest">Efficiency & Care</p>
+              <div className="hidden sm:block">
+                <h1 className="text-base md:text-lg font-bold tracking-tight text-slate-900 leading-tight">Care Schedule Pro</h1>
+                <p className="text-[8px] md:text-[10px] text-slate-500 leading-none">EFFICIENCY & CARE</p>
               </div>
             </div>
 
             <nav className="hidden md:flex items-center gap-1 rounded-2xl bg-slate-100 p-1">
-              <button onClick={() => setActiveTab('schedule')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'schedule' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><CalendarIcon size={18} /><span>スケジュール</span></button>
-              <button onClick={() => setActiveTab('conference')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'conference' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><Users size={18} /><span>会議調整</span></button>
-              <button onClick={() => setActiveTab('shift')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'shift' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><Repeat size={18} /><span>シフト作成</span></button>
+              <button onClick={() => setActiveTab('schedule')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'schedule' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><CalendarIcon size={18} /><span>予定</span></button>
+              <button onClick={() => setActiveTab('conference')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'conference' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><Users size={18} /><span>会議</span></button>
+              <button onClick={() => setActiveTab('shift')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'shift' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><Repeat size={18} /><span>シフト</span></button>
               <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><SettingsIcon size={18} /><span>設定</span></button>
             </nav>
 
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 shadow-sm">
+            <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
                 <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                <span className="text-xs font-semibold text-slate-600">
+                <span className="text-[10px] md:text-xs font-semibold text-slate-600">
                   {careManagers.find(cm => cm.id === selectedCareManagerId)?.name || '管理者'}
                 </span>
               </div>
-              {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={20} />}
+              {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={16} />}
             </div>
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1600px] p-4 md:p-6 pb-12">
+        <div className="mx-auto max-w-[1600px] p-2 md:p-6 pb-20 md:pb-12">
           {activeTab === 'schedule' && (
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-bold text-slate-800">月間スケジュール</h2>
+            <div className="flex flex-col gap-2 md:gap-4">
+              <div className="flex items-center justify-between px-2">
+                <h2 className="text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
                 <select
                   value={selectedCareManagerId}
                   onChange={(e) => setSelectedCareManagerId(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="rounded-lg border border-slate-200 bg-white px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 >
                   {careManagers.map(cm => <option key={cm.id} value={cm.id}>{cm.name}</option>)}
                   <option value="all">すべて表示</option>
                 </select>
               </div>
-              <div className="h-[75vh] min-h-[400px] rounded-3xl border border-slate-200 bg-white p-4 shadow-xl overflow-hidden">
+              <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[300px] rounded-2xl md:rounded-3xl border border-slate-200 bg-white p-2 md:p-4 shadow-xl overflow-hidden">
                 <ScheduleCalendar
                   clients={filteredClients}
                   events={filteredEvents}
                   setEvents={setEvents}
-                  selectedClientId={selectedClientId}
+                  selectedClientId={null}
                   scheduleTypes={scheduleTypes}
                   onDateClick={handleDateClick}
                   onEventClick={handleEditEvent}
@@ -282,21 +308,20 @@ export default function Home() {
           )}
 
           {activeTab === 'conference' && (
-            <div className="h-[80vh] min-h-[400px] w-full">
+            <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[300px] w-full">
               <ConferenceAdjustment
                 clients={filteredClients}
-                selectedClientId={selectedClientId}
-                onClientSelect={setSelectedClientId}
                 events={filteredEvents}
-                onEventClick={handleEditEvent}
-                onNavigateToConference={navigateToConference}
+                onAddEvent={handleSaveVisit}
+                onUpdateEvent={handleSaveVisit}
+                scheduleTypes={scheduleTypes}
               />
             </div>
           )}
 
           {activeTab === 'shift' && (
-            <div className="h-[80vh] min-h-[400px] w-full">
-              <ShiftAutomation clients={filteredClients} scheduleTypes={scheduleTypes} />
+            <div className="w-full">
+              <ShiftAutomation />
             </div>
           )}
 
@@ -316,11 +341,11 @@ export default function Home() {
       </main>
 
       {/* Mobile Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-white/90 backdrop-blur-md p-2 pb-safe shadow-2xl">
-        <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-1 ${activeTab === 'schedule' ? 'text-blue-600' : 'text-slate-400'}`}><CalendarIcon size={24} /><span className="text-[10px]">予定</span></button>
-        <button onClick={() => setActiveTab('conference')} className={`flex flex-col items-center gap-1 ${activeTab === 'conference' ? 'text-blue-600' : 'text-slate-400'}`}><Users size={24} /><span className="text-[10px]">会議</span></button>
-        <button onClick={() => setActiveTab('shift')} className={`flex flex-col items-center gap-1 ${activeTab === 'shift' ? 'text-blue-600' : 'text-slate-400'}`}><Repeat size={24} /><span className="text-[10px]">シフト</span></button>
-        <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1 ${activeTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`}><SettingsIcon size={24} /><span className="text-[10px]">設定</span></button>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-white/95 backdrop-blur-md p-2 pb-safe shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.1)]">
+        <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'schedule' ? 'text-blue-600' : 'text-slate-400'}`}><CalendarIcon size={20} /><span className="text-[10px] font-bold">予定</span></button>
+        <button onClick={() => setActiveTab('conference')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'conference' ? 'text-blue-600' : 'text-slate-400'}`}><Users size={20} /><span className="text-[10px] font-bold">会議</span></button>
+        <button onClick={() => setActiveTab('shift')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'shift' ? 'text-blue-600' : 'text-slate-400'}`}><Repeat size={20} /><span className="text-[10px] font-bold">シフト</span></button>
+        <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`}><SettingsIcon size={20} /><span className="text-[10px] font-bold">設定</span></button>
       </nav>
 
       <VisitModal
@@ -335,16 +360,17 @@ export default function Home() {
         editTargetChoice={editTargetChoice}
       />
 
-      <DeletionChoiceModal
-        isOpen={isDeletionModalOpen}
-        onClose={() => { setIsDeletionModalOpen(false); setEventToDelete(null); }}
-        onConfirm={handleConfirmDelete}
-      />
-
       <EditChoiceModal
         isOpen={isEditChoiceModalOpen}
         onClose={() => setIsEditChoiceModalOpen(false)}
         onConfirm={handleEditChoice}
+      />
+
+      <DeletionChoiceModal
+        isOpen={isDeletionModalOpen}
+        onClose={() => { setIsDeletionModalOpen(false); setEventToDelete(null); }}
+        onConfirm={handleConfirmDelete}
+        eventTitle={eventToDelete?.title}
       />
     </>
   );

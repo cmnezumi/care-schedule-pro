@@ -111,13 +111,26 @@ const ScheduleCalendar = ({
             font-size: 10px !important;
           }
         }
+        @media (max-height: 450px) and (orientation: landscape) {
+          .fc-toolbar {
+            display: none !important;
+          }
+          .fc-view-harness {
+            height: 100% !important;
+          }
+        }
         @media (max-height: 500px) and (orientation: landscape) {
           .fc-toolbar {
             flex-direction: row !important;
-            margin-bottom: 0.2em !important;
+            margin-bottom: 0.1em !important;
+            padding: 0 4px !important;
           }
           .fc-toolbar-title {
-            font-size: 0.9rem !important;
+            font-size: 0.8rem !important;
+          }
+          .fc-button {
+            padding: 1px 3px !important;
+            font-size: 9px !important;
           }
         }
         .scrollbar-hide::-webkit-scrollbar { display: none; }
