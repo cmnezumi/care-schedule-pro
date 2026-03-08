@@ -248,7 +248,7 @@ export default function Home() {
           body { overflow-x: hidden; width: 100%; position: relative; }
         `}</style>
 
-        <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all">
+        <header className="sticky top-0 z-40 w-full border-b border-white/20 bg-white/70 backdrop-blur-xl transition-all landscape:max-h-0 landscape:overflow-hidden landscape:border-none md:landscape:max-h-none md:landscape:overflow-visible md:landscape:border-b">
           <div className="mx-auto flex h-14 md:h-16 max-w-[1600px] items-center justify-between px-4 md:px-6">
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 md:h-10 md:w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#0ea5e9] to-[#2563eb] shadow-lg shadow-blue-500/20">
@@ -279,10 +279,10 @@ export default function Home() {
           </div>
         </header>
 
-        <div className="mx-auto max-w-[1600px] p-2 md:p-6 pb-20 md:pb-12">
+        <div className="mx-auto max-w-[1600px] p-2 md:p-6 pb-20 md:pb-12 landscape:pt-1 md:landscape:pt-6">
           {activeTab === 'schedule' && (
             <div className="flex flex-col gap-2 md:gap-4">
-              <div className="flex items-center justify-between px-2">
+              <div className="flex items-center justify-between px-2 landscape:hidden md:landscape:flex">
                 <h2 className="text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
                 <select
                   value={selectedCareManagerId}
