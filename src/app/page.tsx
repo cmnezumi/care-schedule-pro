@@ -308,7 +308,7 @@ export default function Home() {
           )}
 
           {activeTab === 'conference' && (
-            <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[300px] w-full">
+            <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[250px] w-full">
               <ConferenceAdjustment
                 clients={filteredClients}
                 events={filteredEvents}

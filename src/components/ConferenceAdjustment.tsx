@@ -71,34 +71,44 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
     const filteredEvents = events.filter(e => e.extendedProps?.clientId === selectedClientId);
 
     return (
-        <div className="h-full flex flex-col bg-white rounded-3xl overflow-hidden shadow-xl border border-slate-200">
-            <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white">
-                <div>
-                    <h2 className="font-bold text-slate-800 text-xl flex items-center gap-2">
-                        <Users className="text-violet-500" size={24} />
+        <div className="h-full flex flex-col bg-white rounded-2xl md:rounded-3xl overflow-hidden shadow-xl border border-slate-200">
+            <div className="p-3 md:p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4 bg-white">
+                <div className="flex items-center justify-between md:block">
+                    <h2 className="font-bold text-slate-800 text-base md:text-xl flex items-center gap-2">
+                        <Users className="text-violet-500" size={20} />
                         担当者会議の調整
                     </h2>
-                    <p className="text-sm text-slate-500">カレンダーで空き状況を確認しながら日程を選べます</p>
+                    <p className="hidden md:block text-xs md:text-sm text-slate-500">空き状況を確認しながら日程を選べます</p>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <label className="text-sm font-bold text-slate-600">利用者選択:</label>
+                <div className="flex items-center gap-2 md:gap-3">
+                    <label className="text-[10px] md:text-sm font-bold text-slate-600">利用者:</label>
                     <select
                         value={selectedClientId}
                         onChange={(e) => setSelectedClientId(e.target.value)}
-                        className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
+                        className="flex-1 md:flex-none rounded-lg md:rounded-xl border border-slate-200 bg-slate-50 px-2 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-500/20"
                     >
                         {clients.map(c => <option key={c.id} value={c.id}>{c.name} 様</option>)}
                     </select>
                 </div>
             </div>
 
-            <div className="flex-grow p-6">
+            <div className="flex-grow p-2 md:p-6">
                 <style jsx global>{`
                     .fc-event { cursor: pointer; border-radius: 6px !important; border: none !important; padding: 2px 4px !important; }
-                    .fc-toolbar-title { font-size: 1.1rem !important; font-weight: 800 !important; color: #1e293b !important; }
-                    .fc-button-primary { background-color: #f1f5f9 !important; border: none !important; color: #475569 !important; font-weight: 700 !important; text-transform: uppercase !important; font-size: 0.75rem !important; }
+                    .fc-toolbar-title { font-size: 1rem !important; font-weight: 800 !important; color: #1e293b !important; }
+                    .fc-button-primary { background-color: #f1f5f9 !important; border: none !important; color: #475569 !important; font-weight: 700 !important; text-transform: uppercase !important; font-size: 0.75rem !important; padding: 4px 8px !important; }
                     .fc-button-active { background-color: #8b5cf6 !important; color: white !important; }
+                    
+                    @media (max-height: 500px) and (orientation: landscape) {
+                        .fc-toolbar { 
+                            margin-bottom: 4px !important;
+                            display: flex !important;
+                            align-items: center !important;
+                        }
+                        .fc-toolbar-title { font-size: 0.8rem !important; }
+                        .fc-button { padding: 1px 4px !important; font-size: 9px !important; }
+                    }
                 `}</style>
                 <FullCalendar
                     plugins={[dayGridPlugin, interactionPlugin]}
