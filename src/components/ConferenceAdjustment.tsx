@@ -102,12 +102,14 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
                     
                     @media (max-height: 500px) and (orientation: landscape) {
                         .fc-toolbar { 
-                            margin-bottom: 4px !important;
+                            margin-bottom: 2px !important;
                             display: flex !important;
                             align-items: center !important;
+                            padding: 0 4px !important;
                         }
                         .fc-toolbar-title { font-size: 0.8rem !important; }
                         .fc-button { padding: 1px 4px !important; font-size: 9px !important; }
+                        .fc-toolbar-chunk:empty { display: none; }
                     }
                 `}</style>
                 <FullCalendar

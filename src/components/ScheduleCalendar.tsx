@@ -113,11 +113,11 @@ const ScheduleCalendar = ({
         }
         @media (max-height: 450px) and (orientation: landscape) {
           .fc-toolbar {
-            display: none !important;
+            display: flex !important;
+            padding: 0 4px !important;
+            margin-bottom: 2px !important;
           }
-          .fc-view-harness {
-            height: 100% !important;
-          }
+          .fc-toolbar-chunk:empty { display: none; }
         }
         @media (max-height: 500px) and (orientation: landscape) {
           .fc-toolbar {
