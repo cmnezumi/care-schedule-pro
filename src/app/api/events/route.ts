@@ -36,22 +36,59 @@ export async function POST(request: Request) {
     const body = await request.json();
     const inputEvents = Array.isArray(body) ? body : [body];
 
-    const formattedEvents = inputEvents.map(event => {
-      const id = event.id || Math.random().toString(36).substr(2, 9);
-      return {
-        id,
+    const expandedEvents: any[] = [];
+
+    inputEvents.forEach(event => {
+      const baseId = event.id || Math.random().toString(36).substr(2, 9);
+      const recurrence = event.extendedProps?.recurrenceType;
+
+      // Add the initial event
+      expandedEvents.push({
+        id: baseId,
         title: event.title,
         all_day: event.allDay ?? false,
         start_time: event.start,
         end_time: event.end,
         background_color: event.backgroundColor,
-        extended_props: event.extendedProps || {}
-      };
+        extended_props: { ...event.extendedProps, baseEventId: baseId }
+      });
+
+      // Handle recurrence expansion (next 6 months)
+      if (recurrence && recurrence !== 'none') {
+        const start = new Date(event.start);
+        const end = new Date(event.end);
+
+        for (let i = 1; i <= 26; i++) { // Approx 6 months for weekly
+          let nextStart = new Date(start);
+          let nextEnd = new Date(end);
+
+          if (recurrence === 'weekly') {
+            nextStart.setDate(start.getDate() + (7 * i));
+            nextEnd.setDate(end.getDate() + (7 * i));
+          } else if (recurrence === 'monthly') {
+            nextStart.setMonth(start.getMonth() + i);
+            nextEnd.setMonth(end.getMonth() + i);
+            // Handle day-of-month shift if necessary, but setMonth is usually okay for simple monthly
+          }
+
+          expandedEvents.push({
+            id: `${baseId}-${i}`,
+            title: event.title,
+            all_day: event.allDay ?? false,
+            start_time: nextStart.toISOString(),
+            end_time: nextEnd.toISOString(),
+            background_color: event.backgroundColor,
+            extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
+          });
+
+          if (recurrence === 'monthly' && i >= 6) break; // Only 6 months for monthly
+        }
+      }
     });
 
     const { data, error } = await supabase
       .from('events')
-      .upsert(formattedEvents)
+      .upsert(expandedEvents)
       .select();
 
     if (error) throw error;

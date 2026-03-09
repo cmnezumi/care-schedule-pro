@@ -156,7 +156,13 @@ const VisitModal = ({
         { label: '水', value: 3 }, { label: '木', value: 4 }, { label: '金', value: 5 }, { label: '土', value: 6 }
     ];
 
-    const handleTypeSelect = (sType: ScheduleType) => {
+    const handleTypeSelect = (sType: ScheduleType | 'free') => {
+        if (sType === 'free') {
+            setType('');
+            // Optional: focus notes or show an input if we want a separate 'custom type' field
+            // For now, setting type to empty allows the user to see it's custom
+            return;
+        }
         setType(sType.name);
         if (sType.defaultStartTime) setStartTime(sType.defaultStartTime);
         if (sType.defaultEndTime) setEndTime(sType.defaultEndTime);
@@ -248,8 +254,28 @@ const VisitModal = ({
                                         {sType.name}
                                     </button>
                                 ))}
+                                <button
+                                    type="button" onClick={() => handleTypeSelect('free')}
+                                    className={`px-2 py-1.5 rounded-lg border text-[12px] font-bold transition-all ${type === '' || !effectiveScheduleTypes.some(t => t.name === type) ? 'bg-slate-700 text-white shadow-md' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                                >
+                                    自由記載
+                                </button>
                             </div>
                         </div>
+
+                        {(type === '' || !effectiveScheduleTypes.some(t => t.name === type)) && (
+                            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">カスタム予定名</label>
+                                <input
+                                    type="text"
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm"
+                                    placeholder="予定名を入力..."
+                                    value={type}
+                                    onChange={(e) => setType(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="space-y-3">
