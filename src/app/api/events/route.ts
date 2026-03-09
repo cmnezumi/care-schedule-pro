@@ -57,31 +57,49 @@ export async function POST(request: Request) {
       if (recurrence && recurrence !== 'none') {
         const start = new Date(event.start);
         const end = new Date(event.end);
+        const limitDate = new Date(start);
+        limitDate.setMonth(start.getMonth() + 6);
 
-        for (let i = 1; i <= 26; i++) { // Approx 6 months for weekly
-          let nextStart = new Date(start);
-          let nextEnd = new Date(end);
+        if (recurrence === 'weekly') {
+          const days = event.extendedProps?.weeklyDays || [start.getDay()];
+          days.forEach((dayNum: number) => {
+            for (let i = 0; i < 26; i++) {
+              let nextStart = new Date(start);
+              let nextEnd = new Date(end);
+              const diff = (dayNum - start.getDay() + 7) % 7;
+              const dayOffset = diff + (7 * i);
+              if (dayOffset === 0 && i === 0) continue;
+              nextStart.setDate(start.getDate() + dayOffset);
+              nextEnd.setDate(end.getDate() + dayOffset);
+              if (nextStart > limitDate) break;
 
-          if (recurrence === 'weekly') {
-            nextStart.setDate(start.getDate() + (7 * i));
-            nextEnd.setDate(end.getDate() + (7 * i));
-          } else if (recurrence === 'monthly') {
+              expandedEvents.push({
+                id: `${baseId}-w${dayNum}-${i}`,
+                title: event.title,
+                all_day: event.allDay ?? false,
+                start_time: nextStart.toISOString(),
+                end_time: nextEnd.toISOString(),
+                background_color: event.backgroundColor,
+                extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
+              });
+            }
+          });
+        } else if (recurrence === 'monthly') {
+          for (let i = 1; i <= 6; i++) {
+            let nextStart = new Date(start);
+            let nextEnd = new Date(end);
             nextStart.setMonth(start.getMonth() + i);
             nextEnd.setMonth(end.getMonth() + i);
-            // Handle day-of-month shift if necessary, but setMonth is usually okay for simple monthly
+            expandedEvents.push({
+              id: `${baseId}-m-${i}`,
+              title: event.title,
+              all_day: event.allDay ?? false,
+              start_time: nextStart.toISOString(),
+              end_time: nextEnd.toISOString(),
+              background_color: event.backgroundColor,
+              extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
+            });
           }
-
-          expandedEvents.push({
-            id: `${baseId}-${i}`,
-            title: event.title,
-            all_day: event.allDay ?? false,
-            start_time: nextStart.toISOString(),
-            end_time: nextEnd.toISOString(),
-            background_color: event.backgroundColor,
-            extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
-          });
-
-          if (recurrence === 'monthly' && i >= 6) break; // Only 6 months for monthly
         }
       }
     });
