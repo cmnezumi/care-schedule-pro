@@ -179,6 +179,7 @@ const ScheduleCalendar = ({
           week: '週',
           day: '日'
         }}
+        timeZone="local"
         dayCellContent={(arg) => {
           // Find personal status events for this day (including recurring and exceptions)
           const dateStr = arg.date.toLocaleDateString('sv-SE'); // YYYY-MM-DD

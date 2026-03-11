@@ -29,8 +29,18 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
     };
 
     const handleEventClick = (info: any) => {
-        setEditingEvent(info.event);
-        setSelectedDate(info.event.start);
+        const raw = info.event;
+        const extended = raw.extendedProps || {};
+        const prepared = {
+            id: raw.id,
+            title: raw.title,
+            start: raw.startStr || raw.start?.toISOString(),
+            end: raw.endStr || raw.end?.toISOString(),
+            allDay: raw.allDay,
+            ...extended
+        };
+        setEditingEvent(prepared);
+        setSelectedDate(raw.start);
         setIsModalOpen(true);
     };
 
@@ -40,7 +50,9 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
 
         const conferenceType = scheduleTypes.find(t => t.name.includes('会議')) || scheduleTypes[0];
 
-        const dateStr = selectedDate ? selectedDate.toISOString().split('T')[0] : '';
+        const dateStr = selectedDate ?
+            `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+            : '';
         const startTime = data.startTime || '10:00';
         const endTime = data.endTime || '11:00';
 
@@ -127,6 +139,8 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
                     locale="ja"
                     buttonText={{ today: '今日' }}
                     dayMaxEvents={true}
+                    displayEventTime={false}
+                    timeZone="local"
                 />
             </div>
 
