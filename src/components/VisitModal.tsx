@@ -137,7 +137,8 @@ const VisitModal = ({
                 endTime,
                 recurrenceType,
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
-                monthlyRecur: recurrenceType === 'monthly' ? { week: monthlyWeek, day: monthlyDay } : undefined
+                monthlyRecur: recurrenceType === 'monthly' ? { week: monthlyWeek, day: monthlyDay } : undefined,
+                baseEventId: editingEvent?.baseEventId
             }
         };
 
