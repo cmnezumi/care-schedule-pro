@@ -42,23 +42,22 @@ export async function POST(request: Request) {
       const baseId = event.id || Math.random().toString(36).substr(2, 9);
       const recurrence = event.extendedProps?.recurrenceType;
 
-      // Add the initial event
-      expandedEvents.push({
-        id: baseId,
-        title: event.title,
-        all_day: event.allDay ?? false,
-        start_time: event.start,
-        end_time: event.end,
-        background_color: event.backgroundColor,
-        extended_props: { ...event.extendedProps, baseEventId: baseId }
-      });
+      // Add the initial event with JST timezone marker if not present
+      const ensureJst = (iso: string) => iso.includes('+') || iso.endsWith('Z') ? iso : `${iso}+09:00`;
+
+      const baseStartTime = ensureJst(event.start);
+      const baseEndTime = ensureJst(event.end);
 
       // Handle recurrence expansion (next 6 months)
       if (recurrence && recurrence !== 'none') {
-        const start = new Date(event.start);
-        const end = new Date(event.end);
+        const start = new Date(baseStartTime);
+        const end = new Date(baseEndTime);
         const limitDate = new Date(start);
         limitDate.setMonth(start.getMonth() + 6);
+
+        // We only add the base event if it's NOT a recurring instance that will be generated below
+        // This avoids double-posting on the first day
+        let baseAdded = false;
 
         if (recurrence === 'weekly') {
           const days = event.extendedProps?.weeklyDays || [start.getDay()];
@@ -68,23 +67,42 @@ export async function POST(request: Request) {
               let nextEnd = new Date(end);
               const diff = (dayNum - start.getDay() + 7) % 7;
               const dayOffset = diff + (7 * i);
-              if (dayOffset === 0 && i === 0) continue;
+
               nextStart.setDate(start.getDate() + dayOffset);
               nextEnd.setDate(end.getDate() + dayOffset);
               if (nextStart > limitDate) break;
 
+              const isInitial = dayOffset === 0;
+              if (isInitial) baseAdded = true;
+
               expandedEvents.push({
-                id: `${baseId}-w${dayNum}-${i}`,
+                id: isInitial ? baseId : `${baseId}-w${dayNum}-${i}`,
                 title: event.title,
                 all_day: event.allDay ?? false,
-                start_time: nextStart.toISOString(),
-                end_time: nextEnd.toISOString(),
+                start_time: nextStart.toISOString().replace(/Z$/, '+09:00'),
+                end_time: nextEnd.toISOString().replace(/Z$/, '+09:00'),
                 background_color: event.backgroundColor,
-                extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
+                extended_props: {
+                  ...event.extendedProps,
+                  isRecurringInstance: !isInitial,
+                  baseEventId: baseId
+                }
               });
             }
           });
         } else if (recurrence === 'monthly') {
+          // Manual first event
+          expandedEvents.push({
+            id: baseId,
+            title: event.title,
+            all_day: event.allDay ?? false,
+            start_time: baseStartTime,
+            end_time: baseEndTime,
+            background_color: event.backgroundColor,
+            extended_props: { ...event.extendedProps, baseEventId: baseId }
+          });
+          baseAdded = true;
+
           for (let i = 1; i <= 6; i++) {
             let nextStart = new Date(start);
             let nextEnd = new Date(end);
@@ -94,13 +112,39 @@ export async function POST(request: Request) {
               id: `${baseId}-m-${i}`,
               title: event.title,
               all_day: event.allDay ?? false,
-              start_time: nextStart.toISOString(),
-              end_time: nextEnd.toISOString(),
+              start_time: nextStart.toISOString().replace(/Z$/, '+09:00'),
+              end_time: nextEnd.toISOString().replace(/Z$/, '+09:00'),
               background_color: event.backgroundColor,
               extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
             });
           }
         }
+
+        if (!baseAdded) {
+          // If for some reason the clicked day wasn't in the recurrence days, still add it?
+          // Actually, if it's weekly, we usually want it to land on a valid day.
+          // For now, let's just make sure something is added if nothing was.
+          expandedEvents.push({
+            id: baseId,
+            title: event.title,
+            all_day: event.allDay ?? false,
+            start_time: baseStartTime,
+            end_time: baseEndTime,
+            background_color: event.backgroundColor,
+            extended_props: { ...event.extendedProps, baseEventId: baseId }
+          });
+        }
+      } else {
+        // No recurrence
+        expandedEvents.push({
+          id: baseId,
+          title: event.title,
+          all_day: event.allDay ?? false,
+          start_time: baseStartTime,
+          end_time: baseEndTime,
+          background_color: event.backgroundColor,
+          extended_props: { ...event.extendedProps, baseEventId: baseId }
+        });
       }
     });
 
@@ -126,12 +170,14 @@ export async function PUT(request: Request) {
       return NextResponse.json({ message: 'Event ID is required' }, { status: 400 });
     }
 
+    const ensureJst = (iso: string) => iso.includes('+') || iso.endsWith('Z') ? iso : `${iso}+09:00`;
+
     const formattedEvent = {
       id: event.id,
       title: event.title,
       all_day: event.allDay ?? false,
-      start_time: event.start,
-      end_time: event.end,
+      start_time: ensureJst(event.start),
+      end_time: ensureJst(event.end),
       background_color: event.backgroundColor,
       extended_props: event.extendedProps || {}
     };

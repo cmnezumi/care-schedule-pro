@@ -141,6 +141,7 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
                     dayMaxEvents={true}
                     displayEventTime={false}
                     timeZone="local"
+                    eventOrder="start,allDay,title"
                 />
             </div>
 
