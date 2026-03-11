@@ -136,6 +136,23 @@ export async function PUT(request: Request) {
       extended_props: event.extendedProps || {}
     };
 
+    const baseEventId = event.extendedProps?.baseEventId;
+    const updateAll = event.editTargetChoice === 'all' && baseEventId;
+
+    if (updateAll) {
+      const { error } = await supabase
+        .from('events')
+        .update({
+          title: event.title,
+          background_color: event.backgroundColor,
+          extended_props: event.extendedProps
+        })
+        .filter('extended_props->>baseEventId', 'eq', baseEventId);
+
+      if (error) throw error;
+      return NextResponse.json({ message: 'Series updated' });
+    }
+
     const { data, error } = await supabase
       .from('events')
       .upsert(formattedEvent)
@@ -156,29 +173,47 @@ export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
+    const choice = searchParams.get('choice');
 
-    let idsToDelete: string[] = [];
-    try {
-      const body = await request.clone().json();
-      if (body && Array.isArray(body.ids)) {
-        idsToDelete = body.ids;
-      }
-    } catch (e) {
-      if (id) idsToDelete = [id];
-    }
-
-    if (idsToDelete.length === 0) {
+    if (!id) {
       return NextResponse.json({ message: 'ID is required' }, { status: 400 });
     }
 
+    if (choice === 'all' || choice === 'following') {
+      // First, get the event to find its baseEventId and start_time
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('start_time, extended_props')
+        .eq('id', id)
+        .single();
+
+      const baseEventId = eventData?.extended_props?.baseEventId;
+
+      if (baseEventId) {
+        let query = supabase
+          .from('events')
+          .delete()
+          .filter('extended_props->>baseEventId', 'eq', baseEventId);
+
+        if (choice === 'following') {
+          query = query.gte('start_time', eventData.start_time);
+        }
+
+        const { error } = await query;
+        if (error) throw error;
+        return NextResponse.json({ message: choice === 'all' ? 'Series deleted successfully' : 'Upcoming events deleted successfully' });
+      }
+    }
+
+    // Default: delete single event
     const { error } = await supabase
       .from('events')
       .delete()
-      .in('id', idsToDelete);
+      .eq('id', id);
 
     if (error) throw error;
 
-    return NextResponse.json({ message: 'Deleted successfully', count: idsToDelete.length });
+    return NextResponse.json({ message: 'Deleted successfully' });
   } catch (error) {
     console.error('Supabase error:', error);
     return NextResponse.json({ message: 'Error deleting from Supabase' }, { status: 500 });

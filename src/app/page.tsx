@@ -116,7 +116,7 @@ export default function Home() {
     setEditingEvent(prepared);
     setSelectedDate(new Date(prepared.start));
 
-    if (prepared.isRecurring && !prepared.isRecurInstance) {
+    if (prepared.baseEventId) {
       setIsEditChoiceModalOpen(true);
     } else {
       setIsModalOpen(true);
@@ -149,7 +149,7 @@ export default function Home() {
   };
 
   const handleDeleteEvent = async (eventInfo: any) => {
-    if (eventInfo.isRecurring && !eventInfo.isRecurInstance) {
+    if (eventInfo.baseEventId) {
       setEventToDelete(eventInfo);
       setIsDeletionModalOpen(true);
       return;
@@ -358,6 +358,7 @@ export default function Home() {
         clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
         scheduleTypes={scheduleTypes}
         editTargetChoice={editTargetChoice}
+        isSaving={isSaving}
       />
 
       <EditChoiceModal

@@ -17,6 +17,7 @@ interface VisitModalProps {
     onDelete?: (event: any) => void;
     onDateChange?: (date: Date) => void;
     editTargetChoice?: 'single' | 'all';
+    isSaving?: boolean;
 }
 
 const VisitModal = ({
@@ -30,7 +31,8 @@ const VisitModal = ({
     clients = [],
     scheduleTypes = [],
     defaultClientId,
-    editTargetChoice = 'single'
+    editTargetChoice = 'single',
+    isSaving = false
 }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('');
@@ -120,6 +122,7 @@ const VisitModal = ({
 
         const finalData = {
             id: editingEvent?.id,
+            editTargetChoice,
             title: isPersonal ? type : `${clients.find(c => c.id === clientId)?.name || ''}: ${type}`,
             start: startIso,
             end: endIso,
@@ -329,8 +332,11 @@ const VisitModal = ({
                         )}
                     </div>
                     <div className="flex gap-3">
-                        <button onClick={onClose} className="flex-1 py-2 text-sm font-bold text-slate-400">閉じる</button>
-                        <button onClick={handleSave} className="flex-[2] py-2 bg-sky-500 text-white rounded-xl font-bold">保存</button>
+                        <button onClick={onClose} disabled={isSaving} className="flex-1 py-2 text-sm font-bold text-slate-400 disabled:opacity-50">閉じる</button>
+                        <button onClick={handleSave} disabled={isSaving} className="flex-[2] py-2 bg-sky-500 text-white rounded-xl font-bold disabled:bg-slate-300 flex items-center justify-center gap-2">
+                            {isSaving && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                            {isSaving ? '保存中...' : '保存'}
+                        </button>
                     </div>
                 </div>
             </div>
