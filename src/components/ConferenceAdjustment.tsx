@@ -79,8 +79,18 @@ const ConferenceAdjustment = ({ clients, events, onAddEvent, onUpdateEvent, sche
         }
     };
 
-    // Filter events for the selected client ONLY
-    const filteredEvents = events.filter(e => e.extendedProps?.clientId === selectedClientId);
+    // Filter and normalize events
+    const ensureJst = (iso: string) => {
+        if (!iso || typeof iso !== 'string') return iso;
+        return iso.includes('+') || iso.endsWith('Z') ? iso : `${iso}+09:00`;
+    };
+
+    const filteredEvents = events.map(e => ({
+        ...e,
+        start: ensureJst(e.start),
+        end: ensureJst(e.end)
+    }))
+        .filter(e => e.extendedProps?.clientId === selectedClientId);
 
     return (
         <div className="h-full flex flex-col bg-white rounded-2xl md:rounded-3xl overflow-hidden shadow-xl border border-slate-200">

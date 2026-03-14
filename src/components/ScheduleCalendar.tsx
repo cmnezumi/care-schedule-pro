@@ -66,10 +66,19 @@ const ScheduleCalendar = ({
     }
   };
 
-  // Filter events if a client is selected
-  const filteredEvents = selectedClientId
+  // Filter and normalize events for display
+  const ensureJst = (iso: string) => {
+    if (!iso || typeof iso !== 'string') return iso;
+    return iso.includes('+') || iso.endsWith('Z') ? iso : `${iso}+09:00`;
+  };
+
+  const filteredEvents = (selectedClientId
     ? displayEvents.filter(e => e.extendedProps?.clientId === selectedClientId || e.extendedProps?.isPersonal)
-    : displayEvents;
+    : displayEvents).map(e => ({
+      ...e,
+      start: ensureJst(e.start),
+      end: ensureJst(e.end)
+    }));
 
   if (!mounted) return <div className="h-full w-full bg-slate-50 animate-pulse rounded-lg"></div>;
 
