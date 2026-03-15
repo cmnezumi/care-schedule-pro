@@ -79,8 +79,8 @@ export async function POST(request: Request) {
                 id: isInitial ? baseId : `${baseId}-w${dayNum}-${i}`,
                 title: event.title,
                 all_day: event.allDay ?? false,
-                start_time: nextStart.toISOString().replace(/Z$/, '+09:00'),
-                end_time: nextEnd.toISOString().replace(/Z$/, '+09:00'),
+                start_time: nextStart.toISOString(),
+                end_time: nextEnd.toISOString(),
                 background_color: event.backgroundColor,
                 extended_props: {
                   ...event.extendedProps,
@@ -112,8 +112,8 @@ export async function POST(request: Request) {
               id: `${baseId}-m-${i}`,
               title: event.title,
               all_day: event.allDay ?? false,
-              start_time: nextStart.toISOString().replace(/Z$/, '+09:00'),
-              end_time: nextEnd.toISOString().replace(/Z$/, '+09:00'),
+              start_time: nextStart.toISOString(),
+              end_time: nextEnd.toISOString(),
               background_color: event.backgroundColor,
               extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
             });
@@ -186,16 +186,40 @@ export async function PUT(request: Request) {
     const updateAll = event.editTargetChoice === 'all' && baseEventId;
 
     if (updateAll) {
-      const { error } = await supabase
+      const { data: existingEvents, error: fetchError } = await supabase
         .from('events')
-        .update({
-          title: event.title,
-          background_color: event.backgroundColor,
-          extended_props: event.extendedProps
-        })
+        .select('*')
         .filter('extended_props->>baseEventId', 'eq', baseEventId);
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      const newStartStr = ensureJst(event.start);
+      const newEndStr = ensureJst(event.end);
+
+      const newTimeStart = newStartStr.includes('T') ? newStartStr.split('T')[1] : '00:00:00+09:00';
+      const newTimeEnd = newEndStr.includes('T') ? newEndStr.split('T')[1] : '23:59:59+09:00';
+
+      const updatedEvents = existingEvents.map((ex: any) => {
+        const d = new Date(ex.start_time);
+        const jstDate = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+        const datePart = jstDate.toISOString().split('T')[0];
+
+        return {
+          id: ex.id,
+          title: event.title,
+          all_day: event.allDay ?? false,
+          start_time: event.allDay ? datePart : `${datePart}T${newTimeStart}`,
+          end_time: event.allDay ? datePart : `${datePart}T${newTimeEnd}`,
+          background_color: event.backgroundColor,
+          extended_props: event.extendedProps
+        };
+      });
+
+      const { error: updateError } = await supabase
+        .from('events')
+        .upsert(updatedEvents);
+
+      if (updateError) throw updateError;
       return NextResponse.json({ message: 'Series updated' });
     }
 
