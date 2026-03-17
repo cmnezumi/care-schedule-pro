@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Client, ScheduleType } from '@/types';
+import { Client, ScheduleType, Clinic } from '@/types';
 import UserModal from './UserModal';
 
 interface SettingsProps {
@@ -12,15 +12,20 @@ interface SettingsProps {
     scheduleTypes: ScheduleType[];
     onAddScheduleType: (data: Omit<ScheduleType, 'id'>) => void;
     onDeleteScheduleType: (id: string) => void;
+    clinics: Clinic[];
+    onAddClinic: (data: any) => void;
+    onDeleteClinic: (id: string) => void;
     careManagerId: string;
 }
 
 const Settings = ({
     clients: allClients, onAddClient, onUpdateClient, onDeleteClient,
-    scheduleTypes, onAddScheduleType, onDeleteScheduleType, careManagerId
+    scheduleTypes, onAddScheduleType, onDeleteScheduleType,
+    clinics, onAddClinic, onDeleteClinic,
+    careManagerId
 }: SettingsProps) => {
     const clients = allClients.filter(c => c.careManagerId === careManagerId);
-    const [activeTab, setActiveTab] = useState<'users' | 'scheduleTypes'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'scheduleTypes' | 'clinics'>('users');
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
 
@@ -29,6 +34,13 @@ const Settings = ({
     const [newTypeColor, setNewTypeColor] = useState('#cbd5e1');
     const [newTypeStartTime, setNewTypeStartTime] = useState('');
     const [newTypeEndTime, setNewTypeEndTime] = useState('');
+
+    // Clinic Master State
+    const [newClinicName, setNewClinicName] = useState('');
+    const [newClinicWeeks, setNewClinicWeeks] = useState<number[]>([]);
+    const [newClinicDay, setNewClinicDay] = useState<number>(1); // Monday default
+    const [newClinicStartTime, setNewClinicStartTime] = useState('10:00');
+    const [newClinicEndTime, setNewClinicEndTime] = useState('11:00');
 
     const handleEditClient = (client: Client) => {
         setEditingClient(client);
@@ -68,6 +80,26 @@ const Settings = ({
         setNewTypeEndTime('');
     };
 
+    const handleAddClinic = () => {
+        if (!newClinicName) return;
+        onAddClinic({
+            name: newClinicName,
+            monthlyWeeks: newClinicWeeks,
+            dayOfWeek: newClinicDay,
+            startTime: newClinicStartTime,
+            endTime: newClinicEndTime
+        });
+        setNewClinicName('');
+        setNewClinicWeeks([]);
+        setNewClinicDay(1);
+    };
+
+    const toggleClinicWeek = (week: number) => {
+        setNewClinicWeeks(prev =>
+            prev.includes(week) ? prev.filter(w => w !== week) : [...prev, week].sort()
+        );
+    };
+
     return (
         <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
             <div className="flex border-b border-slate-100">
@@ -82,6 +114,12 @@ const Settings = ({
                     className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'scheduleTypes' ? 'text-[var(--primary-color)] border-b-2 border-[var(--primary-color)]' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     予定種別マスタ
+                </button>
+                <button
+                    onClick={() => setActiveTab('clinics')}
+                    className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'clinics' ? 'text-[var(--primary-color)] border-b-2 border-[var(--primary-color)]' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    往診クリニックマスタ
                 </button>
                 <button
                     onClick={() => setActiveTab('danger' as any)}
@@ -186,88 +224,113 @@ const Settings = ({
                 </>
             )}
 
-            {activeTab === 'scheduleTypes' && (
-                <div className="p-6 flex flex-col h-full">
-                    <div className="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-                        <h3 className="font-bold text-slate-700 mb-3">新しい予定種別を追加</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+            {activeTab === 'clinics' && (
+                <div className="p-6 flex flex-col h-full bg-slate-50/30">
+                    <div className="mb-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                            新しい往診クリニックを追加
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                             <div className="md:col-span-4">
-                                <label className="block text-xs font-medium text-slate-500 mb-1">名称</label>
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">クリニック名</label>
                                 <input
                                     type="text"
-                                    value={newTypeName}
-                                    onChange={(e) => setNewTypeName(e.target.value)}
-                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                    placeholder="例: 往診、デイサービス..."
+                                    value={newClinicName}
+                                    onChange={(e) => setNewClinicName(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
+                                    placeholder="例: あおぞらクリニック..."
                                 />
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-medium text-slate-500 mb-1">色</label>
-                                <input
-                                    type="color"
-                                    value={newTypeColor}
-                                    onChange={(e) => setNewTypeColor(e.target.value)}
-                                    className="h-9 w-full p-1 border border-slate-300 rounded-lg cursor-pointer"
-                                />
+                            <div className="md:col-span-8 flex flex-col">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">訪問週</label>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map(w => (
+                                        <button
+                                            key={w}
+                                            onClick={() => toggleClinicWeek(w)}
+                                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${newClinicWeeks.includes(w) ? 'bg-sky-500 text-white border-sky-400 shadow-sm shadow-sky-100' : 'bg-white text-slate-500 border-slate-100 hover:border-slate-300'}`}
+                                        >
+                                            第{w}週
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-medium text-slate-500 mb-1">開始時間(任意)</label>
-                                <input
-                                    type="time"
-                                    value={newTypeStartTime}
-                                    onChange={(e) => setNewTypeStartTime(e.target.value)}
-                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-xs font-medium text-slate-500 mb-1">終了時間(任意)</label>
-                                <input
-                                    type="time"
-                                    value={newTypeEndTime}
-                                    onChange={(e) => setNewTypeEndTime(e.target.value)}
-                                    className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                />
-                            </div>
-                            <div className="md:col-span-2">
-                                <button
-                                    onClick={handleAddType}
-                                    disabled={!newTypeName}
-                                    className="w-full px-4 py-2 bg-[var(--primary-color)] text-white rounded-lg hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+                            <div className="md:col-span-4">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">曜日</label>
+                                <select
+                                    value={newClinicDay}
+                                    onChange={(e) => setNewClinicDay(parseInt(e.target.value))}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-white"
                                 >
-                                    追加
+                                    {['日', '月', '火', '水', '木', '金', '土'].map((d, i) => (
+                                        <option key={i} value={i}>{d}曜日</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">開始時間</label>
+                                <input
+                                    type="time"
+                                    value={newClinicStartTime}
+                                    onChange={(e) => setNewClinicStartTime(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none"
+                                />
+                            </div>
+                            <div className="md:col-span-3">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">終了時間</label>
+                                <input
+                                    type="time"
+                                    value={newClinicEndTime}
+                                    onChange={(e) => setNewClinicEndTime(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none"
+                                />
+                            </div>
+                            <div className="md:col-span-2 flex items-end">
+                                <button
+                                    onClick={handleAddClinic}
+                                    disabled={!newClinicName || newClinicWeeks.length === 0}
+                                    className="w-full p-3 bg-slate-800 text-white rounded-xl hover:bg-slate-900 disabled:opacity-30 transition-all font-bold text-sm shadow-lg shadow-slate-100 active:scale-95"
+                                >
+                                    登録
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     <div className="flex-grow overflow-auto">
-                        <h3 className="font-bold text-slate-700 mb-3">登録済みの予定種別</h3>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                            {scheduleTypes.map(type => (
-                                <div key={type.id} className="p-3 border border-slate-200 rounded-lg flex items-center justify-between bg-white shadow-sm">
-                                    <div className="flex flex-col gap-1">
-                                        <div className="flex items-center gap-2">
-                                            <div
-                                                className="w-4 h-4 rounded-full border border-slate-100 shadow-sm"
-                                                style={{ backgroundColor: type.color }}
-                                            />
-                                            <span className="font-medium text-slate-700">{type.name}</span>
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            登録済みのクリニック一覧
+                        </h3>
+                        {clinics.length === 0 ? (
+                            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
+                                まだクリニックが登録されていません
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {clinics.map(clinic => (
+                                    <div key={clinic.id} className="group bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all relative">
+                                        <button
+                                            onClick={() => onDeleteClinic(clinic.id)}
+                                            className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                        <div className="font-bold text-slate-800 mb-3">{clinic.name}</div>
+                                        <div className="flex flex-wrap gap-1.5 mb-3">
+                                            {clinic.monthlyWeeks.sort().map(w => (
+                                                <span key={w} className="px-2 py-0.5 bg-sky-50 text-sky-600 rounded-md text-[10px] font-bold">第{w}週</span>
+                                            ))}
                                         </div>
-                                        {(type.defaultStartTime || type.defaultEndTime) && (
-                                            <div className="text-xs text-slate-400 pl-6">
-                                                {type.defaultStartTime || '--:--'} 〜 {type.defaultEndTime || '--:--'}
-                                            </div>
-                                        )}
+                                        <div className="flex items-center justify-between text-xs font-bold text-slate-400 mt-auto pt-3 border-t border-slate-50">
+                                            <span>{['日', '月', '火', '水', '木', '金', '土'][clinic.dayOfWeek]}曜日</span>
+                                            <span className="bg-slate-50 px-2 py-0.5 rounded text-slate-500">{clinic.startTime} 〜 {clinic.endTime}</span>
+                                        </div>
                                     </div>
-                                    <button
-                                        onClick={() => onDeleteScheduleType(type.id)}
-                                        className="text-slate-400 hover:text-rose-500 p-1"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             )}

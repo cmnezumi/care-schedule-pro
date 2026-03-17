@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Client, VisitType, ScheduleType } from '@/types';
+import { Client, VisitType, ScheduleType, Clinic } from '@/types';
 import DraggableModal from './DraggableModal';
 import { Calendar as CalendarIcon } from 'lucide-react';
 
@@ -19,6 +19,7 @@ interface VisitModalProps {
     editTargetChoice?: 'single' | 'all';
     isSaving?: boolean;
     onCopy?: (data: any) => void;
+    clinics?: Clinic[];
 }
 
 const VisitModal = ({
@@ -34,7 +35,8 @@ const VisitModal = ({
     defaultClientId,
     editTargetChoice = 'single',
     isSaving = false,
-    onCopy
+    onCopy,
+    clinics = []
 }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('');
@@ -238,6 +240,19 @@ const VisitModal = ({
         { id: 'other', name: 'その他', color: '#64748b' }
     ];
 
+    const handleClinicSelect = (clinicId: string) => {
+        const clinic = clinics.find(c => c.id === clinicId);
+        if (!clinic) return;
+
+        setType(clinic.name);
+        setStartTime(clinic.startTime);
+        setEndTime(clinic.endTime);
+        setRecurrenceType('monthly');
+        setMonthlyRecurType('weekday');
+        setMonthlyWeeks(clinic.monthlyWeeks);
+        setMonthlyDay(clinic.dayOfWeek);
+    };
+
     return (
         <DraggableModal
             isOpen={isOpen}
@@ -287,17 +302,35 @@ const VisitModal = ({
                         </div>
 
                         {!isPersonal && (
-                            <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">利用者</label>
-                                <select
-                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm"
-                                    value={clientId}
-                                    onChange={(e) => setClientId(e.target.value)}
-                                >
-                                    {clients.map(client => (
-                                        <option key={client.id} value={client.id}>{client.name} 様</option>
-                                    ))}
-                                </select>
+                            <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-3">
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">利用者</label>
+                                    <select
+                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm"
+                                        value={clientId}
+                                        onChange={(e) => setClientId(e.target.value)}
+                                    >
+                                        {clients.map(client => (
+                                            <option key={client.id} value={client.id}>{client.name} 様</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {clinics.length > 0 && !editingEvent && (
+                                    <div className="bg-sky-50 border border-sky-100 p-2.5 rounded-xl">
+                                        <label className="block text-[10px] font-bold text-sky-600 mb-1 ml-1 uppercase">クリニックの往診予定を適用</label>
+                                        <select
+                                            className="w-full bg-transparent font-bold text-sky-700 text-xs outline-none cursor-pointer"
+                                            value=""
+                                            onChange={(e) => handleClinicSelect(e.target.value)}
+                                        >
+                                            <option value="" disabled>テンプレートを選択...</option>
+                                            {clinics.map(c => (
+                                                <option key={c.id} value={c.id}>{c.name} ({c.startTime}〜)</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
                             </div>
                         )}
 

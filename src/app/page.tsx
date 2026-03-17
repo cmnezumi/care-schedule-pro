@@ -9,7 +9,7 @@ import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
 import { supabase } from "@/lib/supabase";
-import { Client, ScheduleType, CareManager } from "@/types";
+import { Client, ScheduleType, CareManager, Clinic } from "@/types";
 import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsIcon } from "lucide-react";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
@@ -41,6 +41,7 @@ export default function Home() {
 
   // Lifted state
   const [clients, setClients] = useState<Client[]>([]);
+  const [clinics, setClinics] = useState<Clinic[]>([]);
   const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([]);
   const [events, setEvents] = useState<any[]>([]);
 
@@ -53,17 +54,20 @@ export default function Home() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [usersRes, typesRes, eventsRes] = await Promise.all([
+        const [usersRes, typesRes, eventsRes, clinicsRes] = await Promise.all([
           fetch('/api/users'),
           fetch('/api/schedule-types'),
-          fetch('/api/events')
+          fetch('/api/events'),
+          fetch('/api/clinics')
         ]);
 
         const usersData = await usersRes.json();
         const typesData = await typesRes.json();
         const eventsData = await eventsRes.json();
+        const clinicsData = await clinicsRes.json();
 
         setClients(Array.isArray(usersData) ? usersData : []);
+        setClinics(Array.isArray(clinicsData) ? clinicsData : []);
 
         let loadedTypes = Array.isArray(typesData) ? typesData : [];
         if (loadedTypes.length === 0) {
@@ -230,6 +234,17 @@ export default function Home() {
     setScheduleTypes(await res.json());
   };
 
+  const handleAddClinic = async (data: any) => {
+    await fetch('/api/clinics', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } });
+    const res = await fetch('/api/clinics');
+    setClinics(await res.json());
+  };
+  const handleDeleteClinic = async (id: string) => {
+    await fetch(`/api/clinics?id=${id}`, { method: 'DELETE' });
+    const res = await fetch('/api/clinics');
+    setClinics(await res.json());
+  };
+
   // Filtered lists
   const filteredClients = clients.filter(c =>
     selectedCareManagerId === 'all' ||
@@ -350,6 +365,9 @@ export default function Home() {
               scheduleTypes={scheduleTypes}
               onAddScheduleType={handleAddScheduleType}
               onDeleteScheduleType={handleDeleteScheduleType}
+              clinics={clinics}
+              onAddClinic={handleAddClinic}
+              onDeleteClinic={handleDeleteClinic}
               careManagerId={selectedCareManagerId}
             />
           )}
@@ -373,6 +391,7 @@ export default function Home() {
         editingEvent={editingEvent}
         clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
         scheduleTypes={scheduleTypes}
+        clinics={clinics}
         editTargetChoice={editTargetChoice}
         isSaving={isSaving}
         onCopy={handleCopyEvent}

@@ -36,3 +36,12 @@ export interface Visit {
     notes?: string;
     status: 'scheduled' | 'completed' | 'cancelled';
 }
+
+export interface Clinic {
+    id: string;
+    name: string;
+    monthlyWeeks: number[]; // [1, 3]
+    dayOfWeek: number;      // 0-6
+    startTime: string;      // HH:mm
+    endTime: string;        // HH:mm
+}
