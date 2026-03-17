@@ -31,6 +31,8 @@ const ScheduleCalendar = ({
   onEventResize
 }: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
+  const [currentView, setCurrentView] = useState('dayGridMonth');
+  const [weekViewClientId, setWeekViewClientId] = useState<string>('all');
   // Allow local state fallback if props aren't provided (though they will be)
   const [localEvents, setLocalEvents] = useState<any[]>([]);
 
@@ -72,9 +74,16 @@ const ScheduleCalendar = ({
     return iso.includes('+') || iso.endsWith('Z') ? iso : `${iso}+09:00`;
   };
 
+  const isWeekOrDayView = currentView === 'timeGridWeek' || currentView === 'timeGridDay';
+
   const filteredEvents = (selectedClientId
     ? displayEvents.filter(e => e.extendedProps?.clientId === selectedClientId || e.extendedProps?.isPersonal)
-    : displayEvents).map(e => ({
+    : displayEvents).filter(e => {
+      if (isWeekOrDayView && weekViewClientId !== 'all') {
+        return e.extendedProps?.clientId === weekViewClientId || e.extendedProps?.isPersonal;
+      }
+      return true;
+    }).map(e => ({
       ...e,
       start: ensureJst(e.start),
       end: ensureJst(e.end)
@@ -83,8 +92,26 @@ const ScheduleCalendar = ({
   if (!mounted) return <div className="h-full w-full bg-slate-50 animate-pulse rounded-lg"></div>;
 
   return (
-    <div className="h-full w-full calendar-wrapper">
-      <style jsx global>{`
+    <div className="h-full w-full flex flex-col calendar-wrapper relative bg-white rounded-xl">
+      {isWeekOrDayView && clients.length > 0 && (
+        <div className="w-full flex justify-end px-4 pt-2 -mb-2 z-10 relative">
+          <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.05)] text-sm">
+            <span className="text-[11px] font-bold text-sky-600/80">週の予定表示:</span>
+            <select
+              className="bg-transparent font-bold text-sky-700 outline-none cursor-pointer"
+              value={weekViewClientId}
+              onChange={(e) => setWeekViewClientId(e.target.value)}
+            >
+              <option value="all">全員を表示する</option>
+              {clients.map(c => (
+                <option key={c.id} value={c.id}>{c.name} 様のみ</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+      <div className="flex-1 w-full min-h-0 relative">
+        <style jsx global>{`
         .fc-toolbar-title {
           font-size: 1.25rem !important;
           font-weight: 600;
@@ -166,135 +193,137 @@ const ScheduleCalendar = ({
         /* Hide original event bars for personal events */
         .hidden-personal-event { display: none !important; }
       `}</style>
-      <FullCalendar
-        plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-        initialView="dayGridMonth"
-        headerToolbar={{
-          left: 'prev,next today',
-          center: 'title',
-          right: 'dayGridMonth,timeGridWeek,timeGridDay'
-        }}
-        events={filteredEvents}
-        dateClick={handleDateClick}
-        height="100%"
-        editable={true}
-        selectable={true}
-        selectMirror={true}
-        dayMaxEvents={true}
-        locale="ja"
-        buttonText={{
-          today: '今',
-          month: '月',
-          week: '週',
-          day: '日'
-        }}
-        timeZone="local"
-        eventOrder="start,allDay,title"
-        dayCellContent={(arg) => {
-          // Find personal status events for this day (including recurring and exceptions)
-          const dateStr = arg.date.toLocaleDateString('sv-SE'); // YYYY-MM-DD
-          const currentDay = arg.date.getDay();
+        <FullCalendar
+          plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          datesSet={(arg) => setCurrentView(arg.view.type)}
+          headerToolbar={{
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,timeGridDay'
+          }}
+          events={filteredEvents}
+          dateClick={handleDateClick}
+          height="100%"
+          editable={true}
+          selectable={true}
+          selectMirror={true}
+          dayMaxEvents={true}
+          locale="ja"
+          buttonText={{
+            today: '今',
+            month: '月',
+            week: '週',
+            day: '日'
+          }}
+          timeZone="local"
+          eventOrder="start,allDay,title"
+          dayCellContent={(arg) => {
+            // Find personal status events for this day (including recurring and exceptions)
+            const dateStr = arg.date.toLocaleDateString('sv-SE'); // YYYY-MM-DD
+            const currentDay = arg.date.getDay();
 
-          const dayEvents = filteredEvents.filter(e => {
-            const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
-            if (!isPersonal) return false;
+            const dayEvents = filteredEvents.filter(e => {
+              const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
+              if (!isPersonal) return false;
 
-            // Check if this date is excluded
-            const excludedDates = e.extendedProps?.excludedDates || e.excludedDates || [];
-            if (excludedDates.includes(dateStr)) return false;
+              // Check if this date is excluded
+              const excludedDates = e.extendedProps?.excludedDates || e.excludedDates || [];
+              if (excludedDates.includes(dateStr)) return false;
 
-            // Check single instance or monthly manually-created instances
-            if (e.start) {
-              const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
-              if (startStr === dateStr) return true;
-            }
+              // Check single instance or monthly manually-created instances
+              if (e.start) {
+                const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
+                if (startStr === dateStr) return true;
+              }
 
-            // Check weekly recurring (using daysOfWeek)
-            const daysOfWeek = e.daysOfWeek || e.extendedProps?.recurring?.daysOfWeek;
-            if (daysOfWeek && Array.isArray(daysOfWeek) && daysOfWeek.includes(currentDay)) {
-              // Check recur limits if they exist
-              if (e.startRecur && dateStr < e.startRecur) return false;
-              if (e.endRecur && dateStr > e.endRecur) return false;
-              return true;
-            }
+              // Check weekly recurring (using daysOfWeek)
+              const daysOfWeek = e.daysOfWeek || e.extendedProps?.recurring?.daysOfWeek;
+              if (daysOfWeek && Array.isArray(daysOfWeek) && daysOfWeek.includes(currentDay)) {
+                // Check recur limits if they exist
+                if (e.startRecur && dateStr < e.startRecur) return false;
+                if (e.endRecur && dateStr > e.endRecur) return false;
+                return true;
+              }
 
-            return false;
-          });
+              return false;
+            });
 
-          return (
-            <div className="flex items-start justify-between w-full px-1 pt-0.5 pb-0 h-full">
-              <div className="flex flex-wrap gap-0.5 max-w-[75%] mt-0.5">
-                {dayEvents.map((e, idx) => {
-                  const typeName = (e.title || '').split(':').pop()?.trim();
-                  const yellowNames = ['休み', '法外', '法内', '有休', '有給'];
+            return (
+              <div className="flex items-start justify-between w-full px-1 pt-0.5 pb-0 h-full">
+                <div className="flex flex-wrap gap-0.5 max-w-[75%] mt-0.5">
+                  {dayEvents.map((e, idx) => {
+                    const typeName = (e.title || '').split(':').pop()?.trim();
+                    const yellowNames = ['休み', '法外', '法内', '有休', '有給'];
 
-                  const handleBadgeClick = (event: React.MouseEvent) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    if (onEventClick) onEventClick({ event: e, isManual: true });
-                  };
+                    const handleBadgeClick = (event: React.MouseEvent) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (onEventClick) onEventClick({ event: e, isManual: true });
+                    };
 
-                  if (yellowNames.includes(typeName)) {
-                    return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-yellow">{typeName}</span>;
-                  }
-                  if (typeName === '事業所会議' || typeName === '担当者会議') {
-                    return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-orange">会議</span>;
-                  }
-                  if (typeName === 'テレワーク') {
-                    return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-green">テレ</span>;
-                  }
+                    if (yellowNames.includes(typeName)) {
+                      return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-yellow">{typeName}</span>;
+                    }
+                    if (typeName === '事業所会議' || typeName === '担当者会議') {
+                      return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-orange">会議</span>;
+                    }
+                    if (typeName === 'テレワーク') {
+                      return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-green">テレ</span>;
+                    }
 
-                  // Fallback: Show as a generic badge using its color for any other personal types
-                  return (
-                    <span
-                      key={idx}
-                      onClick={handleBadgeClick}
-                      className="status-badge"
-                      style={{
-                        backgroundColor: (e as any).backgroundColor || '#94a3b8',
-                        color: 'white',
-                        border: 'none'
-                      }}
-                    >
-                      {typeName.length > 2 ? typeName.substring(0, 2) : typeName}
-                    </span>
-                  );
-                })}
+                    // Fallback: Show as a generic badge using its color for any other personal types
+                    return (
+                      <span
+                        key={idx}
+                        onClick={handleBadgeClick}
+                        className="status-badge"
+                        style={{
+                          backgroundColor: (e as any).backgroundColor || '#94a3b8',
+                          color: 'white',
+                          border: 'none'
+                        }}
+                      >
+                        {typeName.length > 2 ? typeName.substring(0, 2) : typeName}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="fc-daygrid-day-number !p-0 !m-0 leading-none">{arg.dayNumberText}</div>
               </div>
-              <div className="fc-daygrid-day-number !p-0 !m-0 leading-none">{arg.dayNumberText}</div>
-            </div>
-          );
-        }}
-        eventClassNames={(arg) => {
-          const isPersonal = arg.event.extendedProps?.isPersonal;
-          const excludedDates = arg.event.extendedProps?.excludedDates || [];
-          const currentDate = arg.event.startStr.split('T')[0];
+            );
+          }}
+          eventClassNames={(arg) => {
+            const isPersonal = arg.event.extendedProps?.isPersonal;
+            const excludedDates = arg.event.extendedProps?.excludedDates || [];
+            const currentDate = arg.event.startStr.split('T')[0];
 
-          const classes = [];
-          if (excludedDates.includes(currentDate)) classes.push('hidden');
-          // Hide personal events from main list in Month view
-          if (isPersonal && arg.view.type === 'dayGridMonth') classes.push('hidden-personal-event');
+            const classes = [];
+            if (excludedDates.includes(currentDate)) classes.push('hidden');
+            // Hide personal events from main list in Month view
+            if (isPersonal && arg.view.type === 'dayGridMonth') classes.push('hidden-personal-event');
 
-          return classes;
-        }}
-        eventContent={(arg) => {
-          const excludedDates = arg.event.extendedProps?.excludedDates || [];
-          const currentDate = arg.event.startStr.split('T')[0];
-          if (excludedDates.includes(currentDate)) return null;
+            return classes;
+          }}
+          eventContent={(arg) => {
+            const excludedDates = arg.event.extendedProps?.excludedDates || [];
+            const currentDate = arg.event.startStr.split('T')[0];
+            if (excludedDates.includes(currentDate)) return null;
 
-          const isPersonal = arg.event.extendedProps?.isPersonal;
-          if (isPersonal && arg.view.type === 'dayGridMonth') return null; // Handled by dayCellContent
+            const isPersonal = arg.event.extendedProps?.isPersonal;
+            if (isPersonal && arg.view.type === 'dayGridMonth') return null; // Handled by dayCellContent
 
-          return (
-            <div className="fc-event-main-frame flex items-center px-1 overflow-hidden">
-              <div className="fc-event-title-container overflow-hidden">
-                <div className="fc-event-title fc-sticky text-[10px] leading-tight truncate">{arg.event.title}</div>
+            return (
+              <div className="fc-event-main-frame flex items-center px-1 overflow-hidden">
+                <div className="fc-event-title-container overflow-hidden">
+                  <div className="fc-event-title fc-sticky text-[10px] leading-tight truncate">{arg.event.title}</div>
+                </div>
               </div>
-            </div>
-          );
-        }}
-        eventClick={handleEventClick}
-      />
+            );
+          }}
+          eventClick={handleEventClick}
+        />
+      </div>
     </div>
   );
 };
