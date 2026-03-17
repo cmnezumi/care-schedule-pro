@@ -105,13 +105,11 @@ export async function POST(request: Request) {
 
           const monthlyRecur = event.extendedProps?.monthlyRecur;
           const isWeekdayRecur = monthlyRecur?.type === 'weekday';
-          const targetWeek = monthlyRecur?.week || 1;
+          // Now expects an array of weeks (e.g., [1, 3] for 1st and 3rd week)
+          const targetWeeks = monthlyRecur?.weeks || (monthlyRecur?.week ? [monthlyRecur.week] : [1]);
           const targetDay = monthlyRecur?.day || 0;
 
           for (let i = 1; i <= 6; i++) {
-            let nextStart = new Date(start);
-            let nextEnd = new Date(end);
-
             if (isWeekdayRecur) {
               const hoursS = start.getHours();
               const minutesS = start.getMinutes();
@@ -127,26 +125,40 @@ export async function POST(request: Request) {
               let dayOffset = targetDay - firstDayOfMonth.getDay();
               if (dayOffset < 0) dayOffset += 7;
 
-              const expectedDate = 1 + dayOffset + (targetWeek - 1) * 7;
-              const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
-              const finalDate = expectedDate > lastDayOfMonth ? expectedDate - 7 : expectedDate;
+              targetWeeks.forEach((targetWeek: number) => {
+                const expectedDate = 1 + dayOffset + (targetWeek - 1) * 7;
+                const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+                const finalDate = expectedDate > lastDayOfMonth ? expectedDate - 7 : expectedDate;
 
-              nextStart = new Date(year, month, finalDate, hoursS, minutesS, 0, 0);
-              nextEnd = new Date(year, month, finalDate, hoursE, minutesE, 0, 0);
+                const nextStart = new Date(year, month, finalDate, hoursS, minutesS, 0, 0);
+                const nextEnd = new Date(year, month, finalDate, hoursE, minutesE, 0, 0);
+
+                expandedEvents.push({
+                  id: `${baseId}-m-${i}-w${targetWeek}`,
+                  title: event.title,
+                  all_day: event.allDay ?? false,
+                  start_time: nextStart.toISOString(),
+                  end_time: nextEnd.toISOString(),
+                  background_color: event.backgroundColor,
+                  extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
+                });
+              });
             } else {
+              let nextStart = new Date(start);
+              let nextEnd = new Date(end);
               nextStart.setMonth(start.getMonth() + i);
               nextEnd.setMonth(end.getMonth() + i);
-            }
 
-            expandedEvents.push({
-              id: `${baseId}-m-${i}`,
-              title: event.title,
-              all_day: event.allDay ?? false,
-              start_time: nextStart.toISOString(),
-              end_time: nextEnd.toISOString(),
-              background_color: event.backgroundColor,
-              extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
-            });
+              expandedEvents.push({
+                id: `${baseId}-m-${i}`,
+                title: event.title,
+                all_day: event.allDay ?? false,
+                start_time: nextStart.toISOString(),
+                end_time: nextEnd.toISOString(),
+                background_color: event.backgroundColor,
+                extended_props: { ...event.extendedProps, isRecurringInstance: true, baseEventId: baseId }
+              });
+            }
           }
         }
 

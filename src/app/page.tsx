@@ -139,13 +139,29 @@ export default function Home() {
       });
       const res = await fetch('/api/events');
       setEvents(await res.json());
-      setIsModalOpen(false);
-      setEditingEvent(null);
+      if (!data.isContinuous) {
+        setIsModalOpen(false);
+        setEditingEvent(null);
+      } else {
+        // Keep it open, maybe clear the editing event if it was a new continuous entry
+        setEditingEvent(null);
+      }
     } catch (e) {
       console.error(e);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleCopyEvent = (copyData: any) => {
+    // Prep the copied data as a new 'editingEvent' so the modal displays it but saves as new
+    setEditingEvent({
+      ...copyData.extendedProps,
+      ...copyData,
+      id: undefined,
+      baseEventId: undefined
+    });
+    // Modal stays open, the user can adjust date/time and click save
   };
 
   const handleDeleteEvent = async (eventInfo: any) => {
@@ -359,6 +375,7 @@ export default function Home() {
         scheduleTypes={scheduleTypes}
         editTargetChoice={editTargetChoice}
         isSaving={isSaving}
+        onCopy={handleCopyEvent}
       />
 
       <EditChoiceModal

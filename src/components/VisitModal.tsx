@@ -18,6 +18,7 @@ interface VisitModalProps {
     onDateChange?: (date: Date) => void;
     editTargetChoice?: 'single' | 'all';
     isSaving?: boolean;
+    onCopy?: (data: any) => void;
 }
 
 const VisitModal = ({
@@ -32,7 +33,8 @@ const VisitModal = ({
     scheduleTypes = [],
     defaultClientId,
     editTargetChoice = 'single',
-    isSaving = false
+    isSaving = false,
+    onCopy
 }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('');
@@ -41,7 +43,7 @@ const VisitModal = ({
     const [notes, setNotes] = useState('');
     const [recurrenceType, setRecurrenceType] = useState<'none' | 'weekly' | 'monthly'>('none');
     const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
-    const [monthlyWeek, setMonthlyWeek] = useState(1);
+    const [monthlyWeeks, setMonthlyWeeks] = useState<number[]>([]);
     const [monthlyDay, setMonthlyDay] = useState(1);
     const [monthlyRecurType, setMonthlyRecurType] = useState<'date' | 'weekday'>('date');
     const [isPersonal, setIsPersonal] = useState(false);
@@ -73,7 +75,8 @@ const VisitModal = ({
                     setRecurrenceType('none');
                 }
                 setWeeklyDays(editingEvent.weeklyDays || []);
-                setMonthlyWeek(editingEvent.monthlyRecur?.week || 1);
+                const mWeeks = editingEvent.monthlyRecur?.weeks || (editingEvent.monthlyRecur?.week ? [editingEvent.monthlyRecur.week] : [1]);
+                setMonthlyWeeks(mWeeks);
                 setMonthlyDay(editingEvent.monthlyRecur?.day ?? 1);
                 setMonthlyRecurType(editingEvent.monthlyRecur?.type || 'date');
             } else if (selectedDate) {
@@ -95,7 +98,7 @@ const VisitModal = ({
                 }
                 setWeeklyDays([selectedDate.getDay()]);
                 const weekNumber = Math.ceil(selectedDate.getDate() / 7);
-                setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber);
+                setMonthlyWeeks([weekNumber > 4 ? 4 : weekNumber]);
                 setMonthlyDay(selectedDate.getDay());
                 setMonthlyRecurType('date');
             }
@@ -140,22 +143,71 @@ const VisitModal = ({
                 endTime,
                 recurrenceType,
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
-                monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, week: monthlyWeek, day: monthlyDay } : undefined,
+                monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
                 baseEventId: editingEvent?.baseEventId
-            }
+            },
+            isContinuous
         };
 
         onSave(finalData);
 
-        if (!isContinuous) {
-            onClose();
-        }
+
     };
 
     const toggleWeeklyDay = (day: number) => {
         setWeeklyDays(prev =>
             prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]
         );
+    };
+
+    const toggleMonthlyWeek = (week: number) => {
+        setMonthlyWeeks(prev =>
+            prev.includes(week) ? prev.filter(w => w !== week) : [...prev, week]
+        );
+    };
+
+    const handleCopy = () => {
+        if (!selectedDate || !onCopy) return;
+
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+        const day = String(selectedDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
+
+        const startIso = allDay ? dateStr : `${dateStr}T${startTime}:00`;
+        const endIso = allDay ? dateStr : `${dateStr}T${endTime}:00`;
+
+        const effectiveScheduleTypes = scheduleTypes.length > 0 ? scheduleTypes : [
+            { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
+            { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
+            { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
+            { id: 'other', name: 'その他', color: '#64748b' }
+        ];
+
+        const selectedType = effectiveScheduleTypes.find(t => t.name === type || t.id === type);
+        const backgroundColor = selectedType?.color || '#3b82f6';
+
+        const copyData = {
+            id: undefined, // Strip ID to create a new one
+            title: isPersonal ? type : `${clients.find(c => c.id === clientId)?.name || ''}: ${type}`,
+            start: startIso,
+            end: endIso,
+            allDay,
+            backgroundColor,
+            extendedProps: {
+                clientId: isPersonal ? null : clientId,
+                type,
+                notes,
+                isPersonal,
+                startTime,
+                endTime,
+                recurrenceType,
+                weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
+                monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
+                baseEventId: undefined // Strip baseEventId
+            }
+        };
+        onCopy(copyData);
     };
 
     const weekDays = [
@@ -322,24 +374,45 @@ const VisitModal = ({
                         </div>
                     )}
                     {recurrenceType === 'monthly' && (
-                        <div className="mt-3 flex gap-2">
+                        <div className="mt-3 flex flex-col gap-2">
                             <label className="flex items-center gap-1.5 cursor-pointer">
                                 <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'date'} onChange={() => setMonthlyRecurType('date')} />
                                 <span className="text-[11px] font-bold text-slate-600">毎月同じ日 ({selectedDate?.getDate()}日)</span>
                             </label>
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'weekday'} onChange={() => setMonthlyRecurType('weekday')} />
-                                <span className="text-[11px] font-bold text-slate-600">毎月第{monthlyWeek}{weekDays.find(d => d.value === monthlyDay)?.label}曜日</span>
-                            </label>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'weekday'} onChange={() => setMonthlyRecurType('weekday')} />
+                                    <span className="text-[11px] font-bold text-slate-600">毎月指定の{weekDays.find(d => d.value === monthlyDay)?.label}曜日</span>
+                                </label>
+                                {monthlyRecurType === 'weekday' && (
+                                    <div className="flex gap-1.5 ml-5">
+                                        {[1, 2, 3, 4, 5].map(w => (
+                                            <button
+                                                key={w}
+                                                onClick={() => toggleMonthlyWeek(w)}
+                                                className={`w-7 h-7 rounded text-xs font-bold ${monthlyWeeks.includes(w) ? 'bg-sky-500 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+                                            >
+                                                {w}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
 
                 <div className="flex flex-col gap-4 pt-4 border-t border-slate-100">
                     <div className="flex items-center justify-between">
-                        {editingEvent && onDelete && (
-                            <button onClick={() => { if (confirm('削除しますか？')) { onDelete(editingEvent); onClose(); } }} className="text-sm font-bold text-rose-500">削除</button>
-                        )}
+                        <div className="flex items-center gap-4">
+                            {editingEvent && onDelete && (
+                                <button onClick={() => { if (confirm('削除しますか？')) { onDelete(editingEvent); onClose(); } }} className="text-sm font-bold text-rose-500">削除</button>
+                            )}
+                            {editingEvent && onCopy && (
+                                <button onClick={handleCopy} className="text-sm font-bold text-sky-500">コピー</button>
+                            )}
+                        </div>
                         {!editingEvent && (
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input type="checkbox" className="w-4 h-4 text-sky-500" checked={isContinuous} onChange={(e) => setIsContinuous(e.target.checked)} />
