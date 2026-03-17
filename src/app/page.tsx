@@ -64,7 +64,15 @@ export default function Home() {
         const usersData = await usersRes.json();
         const typesData = await typesRes.json();
         const eventsData = await eventsRes.json();
-        const clinicsData = await clinicsRes.json();
+
+        let clinicsData = [];
+        try {
+          if (clinicsRes.ok) {
+            clinicsData = await clinicsRes.json();
+          }
+        } catch (e) {
+          console.error("Failed to parse clinics data", e);
+        }
 
         setClients(Array.isArray(usersData) ? usersData : []);
         setClinics(Array.isArray(clinicsData) ? clinicsData : []);
@@ -235,14 +243,35 @@ export default function Home() {
   };
 
   const handleAddClinic = async (data: any) => {
-    await fetch('/api/clinics', { method: 'POST', body: JSON.stringify(data), headers: { 'Content-Type': 'application/json' } });
-    const res = await fetch('/api/clinics');
-    setClinics(await res.json());
+    try {
+      const res = await fetch('/api/clinics', {
+        method: 'POST',
+        body: JSON.stringify(data),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error('Save failed');
+
+      const refreshRes = await fetch('/api/clinics');
+      if (refreshRes.ok) {
+        setClinics(await refreshRes.json());
+      }
+    } catch (e) {
+      console.error(e);
+      alert("登録に失敗しました。SQLの実行（テーブル作成）が完了しているか確認してください。");
+    }
   };
   const handleDeleteClinic = async (id: string) => {
-    await fetch(`/api/clinics?id=${id}`, { method: 'DELETE' });
-    const res = await fetch('/api/clinics');
-    setClinics(await res.json());
+    try {
+      const res = await fetch(`/api/clinics?id=${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+
+      const refreshRes = await fetch('/api/clinics');
+      if (refreshRes.ok) {
+        setClinics(await refreshRes.json());
+      }
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Filtered lists

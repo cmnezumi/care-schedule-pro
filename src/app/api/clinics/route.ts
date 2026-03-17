@@ -21,9 +21,13 @@ export async function GET() {
         }));
 
         return NextResponse.json(formattedClinics);
-    } catch (error) {
+    } catch (error: any) {
         console.error('Supabase error:', error);
-        return NextResponse.json({ message: 'Error reading from Supabase' }, { status: 500 });
+        return NextResponse.json({
+            message: 'Error reading from Supabase',
+            error: error.message,
+            code: error.code
+        }, { status: 500 });
     }
 }
 
@@ -107,8 +111,12 @@ export async function DELETE(request: Request) {
         if (error) throw error;
 
         return NextResponse.json({ message: 'Deleted successfully' });
-    } catch (error) {
+    } catch (error: any) {
         console.error('Supabase error:', error);
-        return NextResponse.json({ message: 'Error deleting from Supabase' }, { status: 500 });
+        return NextResponse.json({
+            message: 'Error deleting from Supabase',
+            error: error.message,
+            code: error.code
+        }, { status: 500 });
     }
 }
