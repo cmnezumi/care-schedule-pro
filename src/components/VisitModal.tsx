@@ -43,6 +43,7 @@ const VisitModal = ({
     const [weeklyDays, setWeeklyDays] = useState<number[]>([]);
     const [monthlyWeek, setMonthlyWeek] = useState(1);
     const [monthlyDay, setMonthlyDay] = useState(1);
+    const [monthlyRecurType, setMonthlyRecurType] = useState<'date' | 'weekday'>('date');
     const [isPersonal, setIsPersonal] = useState(false);
     const [allDay, setAllDay] = useState(false);
     const [isContinuous, setIsContinuous] = useState(false);
@@ -74,6 +75,7 @@ const VisitModal = ({
                 setWeeklyDays(editingEvent.weeklyDays || []);
                 setMonthlyWeek(editingEvent.monthlyRecur?.week || 1);
                 setMonthlyDay(editingEvent.monthlyRecur?.day ?? 1);
+                setMonthlyRecurType(editingEvent.monthlyRecur?.type || 'date');
             } else if (selectedDate) {
                 // New event mode
                 if (isFirstOpen.current) {
@@ -95,6 +97,7 @@ const VisitModal = ({
                 const weekNumber = Math.ceil(selectedDate.getDate() / 7);
                 setMonthlyWeek(weekNumber > 4 ? 4 : weekNumber);
                 setMonthlyDay(selectedDate.getDay());
+                setMonthlyRecurType('date');
             }
         }
     }, [isOpen, selectedDate, editingEvent, clients, scheduleTypes, defaultClientId]);
@@ -137,7 +140,7 @@ const VisitModal = ({
                 endTime,
                 recurrenceType,
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
-                monthlyRecur: recurrenceType === 'monthly' ? { week: monthlyWeek, day: monthlyDay } : undefined,
+                monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, week: monthlyWeek, day: monthlyDay } : undefined,
                 baseEventId: editingEvent?.baseEventId
             }
         };
@@ -316,6 +319,18 @@ const VisitModal = ({
                             {weekDays.map(day => (
                                 <button key={day.value} onClick={() => toggleWeeklyDay(day.value)} className={`w-8 h-8 rounded-lg text-xs font-bold ${weeklyDays.includes(day.value) ? 'bg-sky-500 text-white' : 'bg-slate-50 text-slate-400'}`}>{day.label}</button>
                             ))}
+                        </div>
+                    )}
+                    {recurrenceType === 'monthly' && (
+                        <div className="mt-3 flex gap-2">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'date'} onChange={() => setMonthlyRecurType('date')} />
+                                <span className="text-[11px] font-bold text-slate-600">毎月同じ日 ({selectedDate?.getDate()}日)</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                                <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'weekday'} onChange={() => setMonthlyRecurType('weekday')} />
+                                <span className="text-[11px] font-bold text-slate-600">毎月第{monthlyWeek}{weekDays.find(d => d.value === monthlyDay)?.label}曜日</span>
+                            </label>
                         </div>
                     )}
                 </div>

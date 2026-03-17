@@ -103,11 +103,41 @@ export async function POST(request: Request) {
           });
           baseAdded = true;
 
+          const monthlyRecur = event.extendedProps?.monthlyRecur;
+          const isWeekdayRecur = monthlyRecur?.type === 'weekday';
+          const targetWeek = monthlyRecur?.week || 1;
+          const targetDay = monthlyRecur?.day || 0;
+
           for (let i = 1; i <= 6; i++) {
             let nextStart = new Date(start);
             let nextEnd = new Date(end);
-            nextStart.setMonth(start.getMonth() + i);
-            nextEnd.setMonth(end.getMonth() + i);
+
+            if (isWeekdayRecur) {
+              const hoursS = start.getHours();
+              const minutesS = start.getMinutes();
+              const hoursE = end.getHours();
+              const minutesE = end.getMinutes();
+
+              const targetDateObj = new Date(start);
+              targetDateObj.setMonth(start.getMonth() + i);
+              const year = targetDateObj.getFullYear();
+              const month = targetDateObj.getMonth();
+
+              const firstDayOfMonth = new Date(year, month, 1, hoursS, minutesS, 0, 0);
+              let dayOffset = targetDay - firstDayOfMonth.getDay();
+              if (dayOffset < 0) dayOffset += 7;
+
+              const expectedDate = 1 + dayOffset + (targetWeek - 1) * 7;
+              const lastDayOfMonth = new Date(year, month + 1, 0).getDate();
+              const finalDate = expectedDate > lastDayOfMonth ? expectedDate - 7 : expectedDate;
+
+              nextStart = new Date(year, month, finalDate, hoursS, minutesS, 0, 0);
+              nextEnd = new Date(year, month, finalDate, hoursE, minutesE, 0, 0);
+            } else {
+              nextStart.setMonth(start.getMonth() + i);
+              nextEnd.setMonth(end.getMonth() + i);
+            }
+
             expandedEvents.push({
               id: `${baseId}-m-${i}`,
               title: event.title,
