@@ -51,6 +51,7 @@ const VisitModal = ({
     const [isPersonal, setIsPersonal] = useState(false);
     const [allDay, setAllDay] = useState(false);
     const [isContinuous, setIsContinuous] = useState(false);
+    const [selectedClinicId, setSelectedClinicId] = useState<string>('');
     const isFirstOpen = React.useRef(true);
 
     useEffect(() => {
@@ -63,24 +64,31 @@ const VisitModal = ({
         if (isOpen) {
             if (editingEvent) {
                 // Editing mode
-                setClientId(editingEvent.clientId || '');
-                setType(editingEvent.type || '');
-                setStartTime(editingEvent.startTime || '10:00');
-                setEndTime(editingEvent.endTime || '11:00');
-                setNotes(editingEvent.notes || '');
-                setIsPersonal(editingEvent.isPersonal || false);
+                const props = editingEvent.extendedProps || {};
+                
+                // Set form state from either top level or extendedProps
+                setClientId(props.clientId || editingEvent.clientId || '');
+                setType(props.type || editingEvent.type || '');
+                setStartTime(props.startTime || editingEvent.startTime || '10:00');
+                setEndTime(props.endTime || editingEvent.endTime || '11:00');
+                setNotes(props.notes || editingEvent.notes || '');
+                setIsPersonal(props.isPersonal ?? editingEvent.isPersonal ?? false);
                 setAllDay(editingEvent.allDay || false);
 
-                if (editingEvent.recurrenceType) {
-                    setRecurrenceType(editingEvent.recurrenceType);
+                const recType = props.recurrenceType || editingEvent.recurrenceType;
+                if (recType) {
+                    setRecurrenceType(recType);
                 } else {
                     setRecurrenceType('none');
                 }
-                setWeeklyDays(editingEvent.weeklyDays || []);
-                const mWeeks = editingEvent.monthlyRecur?.weeks || (editingEvent.monthlyRecur?.week ? [editingEvent.monthlyRecur.week] : [1]);
+
+                setWeeklyDays(props.weeklyDays || editingEvent.weeklyDays || []);
+                
+                const mRecur = props.monthlyRecur || editingEvent.monthlyRecur;
+                const mWeeks = mRecur?.weeks || (mRecur?.week ? [mRecur.week] : [1]);
                 setMonthlyWeeks(mWeeks);
-                setMonthlyDay(editingEvent.monthlyRecur?.day ?? 1);
-                setMonthlyRecurType(editingEvent.monthlyRecur?.type || 'date');
+                setMonthlyDay(mRecur?.day ?? 1);
+                setMonthlyRecurType(mRecur?.type || 'date');
             } else if (selectedDate) {
                 // New event mode
                 if (isFirstOpen.current) {
@@ -96,13 +104,16 @@ const VisitModal = ({
                     setAllDay(false);
                     setRecurrenceType('none');
                     setIsPersonal(false);
+
+                    setWeeklyDays([selectedDate.getDay()]);
+                    const weekNumber = Math.ceil(selectedDate.getDate() / 7);
+                    setMonthlyWeeks([weekNumber > 4 ? 4 : weekNumber]);
+                    setMonthlyDay(selectedDate.getDay());
+                    setMonthlyRecurType('date');
+                    setSelectedClinicId('');
+
                     isFirstOpen.current = false;
                 }
-                setWeeklyDays([selectedDate.getDay()]);
-                const weekNumber = Math.ceil(selectedDate.getDate() / 7);
-                setMonthlyWeeks([weekNumber > 4 ? 4 : weekNumber]);
-                setMonthlyDay(selectedDate.getDay());
-                setMonthlyRecurType('date');
             }
         }
     }, [isOpen, selectedDate, editingEvent, clients, scheduleTypes, defaultClientId]);
@@ -249,8 +260,11 @@ const VisitModal = ({
         setEndTime(clinic.endTime);
         setRecurrenceType('monthly');
         setMonthlyRecurType('weekday');
-        setMonthlyWeeks(clinic.monthlyWeeks);
+        setMonthlyWeeks([...clinic.monthlyWeeks]); // Use spread to ensure fresh array
         setMonthlyDay(clinic.dayOfWeek);
+        setIsPersonal(false); // Clinics are not personal events
+        setAllDay(false);      // Clinics usually have times
+        setSelectedClinicId(clinicId);
     };
 
     return (
@@ -276,7 +290,7 @@ const VisitModal = ({
                         <input
                             type="date"
                             className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-                            value={selectedDate ? selectedDate.toISOString().split('T')[0] : ''}
+                            value={selectedDate ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` : ''}
                             onChange={(e) => {
                                 const newDate = new Date(e.target.value);
                                 if (!isNaN(newDate.getTime()) && onDateChange) onDateChange(newDate);
@@ -407,32 +421,54 @@ const VisitModal = ({
                         </div>
                     )}
                     {recurrenceType === 'monthly' && (
-                        <div className="mt-3 flex flex-col gap-2">
-                            <label className="flex items-center gap-1.5 cursor-pointer">
-                                <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'date'} onChange={() => setMonthlyRecurType('date')} />
-                                <span className="text-[11px] font-bold text-slate-600">毎月同じ日 ({selectedDate?.getDate()}日)</span>
-                            </label>
-
-                            <div className="flex flex-col gap-1.5">
+                        <>
+                            <div className="mt-3 flex flex-col gap-2">
                                 <label className="flex items-center gap-1.5 cursor-pointer">
-                                    <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'weekday'} onChange={() => setMonthlyRecurType('weekday')} />
-                                    <span className="text-[11px] font-bold text-slate-600">毎月指定の{weekDays.find(d => d.value === monthlyDay)?.label}曜日</span>
+                                    <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'date'} onChange={() => setMonthlyRecurType('date')} />
+                                    <span className="text-[11px] font-bold text-slate-600">毎月同じ日 ({selectedDate?.getDate()}日)</span>
                                 </label>
-                                {monthlyRecurType === 'weekday' && (
-                                    <div className="flex gap-1.5 ml-5">
-                                        {[1, 2, 3, 4, 5].map(w => (
-                                            <button
-                                                key={w}
-                                                onClick={() => toggleMonthlyWeek(w)}
-                                                className={`w-7 h-7 rounded text-xs font-bold ${monthlyWeeks.includes(w) ? 'bg-sky-500 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
-                                            >
-                                                {w}
-                                            </button>
-                                        ))}
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="flex items-center gap-1.5 cursor-pointer">
+                                        <input type="radio" className="w-3.5 h-3.5 text-sky-500" checked={monthlyRecurType === 'weekday'} onChange={() => setMonthlyRecurType('weekday')} />
+                                        <span className="text-[11px] font-bold text-slate-600">毎月指定の{weekDays.find(d => d.value === monthlyDay)?.label}曜日</span>
+                                    </label>
+                                    {monthlyRecurType === 'weekday' && (
+                                        <div className="flex gap-1.5 ml-5">
+                                            {[1, 2, 3, 4, 5].map(w => (
+                                                <button
+                                                    key={w}
+                                                    onClick={() => toggleMonthlyWeek(w)}
+                                                    className={`w-7 h-7 rounded text-xs font-bold ${monthlyWeeks.includes(w) ? 'bg-sky-500 text-white' : 'bg-slate-50 text-slate-400 border border-slate-200'}`}
+                                                >
+                                                    {w}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Recurrence Rule Preview */}
+                            <div className="mt-4 p-3 bg-sky-50 rounded-xl border border-sky-100 shadow-sm transition-all animate-in fade-in slide-in-from-top-1">
+                                <div className="text-[10px] font-bold text-sky-600 mb-1 flex items-center gap-1 uppercase tracking-wider">
+                                    <CalendarIcon size={12} />
+                                    適用されるスケジュール
+                                </div>
+                                <div className="text-sm font-bold text-slate-700">
+                                    {monthlyRecurType === 'date' ? (
+                                        `毎月 ${selectedDate?.getDate()}日`
+                                    ) : (
+                                        `毎月 ${monthlyWeeks.length > 0 ? monthlyWeeks.sort().map(w => `第${w}`).join('・') : '未指定'} ${weekDays.find(d => d.value === monthlyDay)?.label || ''}曜日`
+                                    )}
+                                </div>
+                                {selectedClinicId && (
+                                    <div className="mt-1 text-[10px] text-sky-500 font-medium italic animate-pulse">
+                                        ※ 往診テンプレート適用中
                                     </div>
                                 )}
                             </div>
-                        </div>
+                        </>
                     )}
                 </div>
 

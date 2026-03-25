@@ -112,14 +112,13 @@ export default function Home() {
     const raw = info.event || info;
     const isFC = !!info.jsEvent;
 
-    const extended = isFC ? raw.extendedProps : (raw.extendedProps || raw);
+    const planeObject = isFC ? raw.toJSON() : raw;
+    const extended = planeObject.extendedProps || planeObject;
+    
     const prepared = {
-      id: raw.id,
-      title: raw.title,
-      start: isFC ? (raw.startStr || raw.start?.toISOString()) : raw.start,
-      end: isFC ? (raw.endStr || raw.end?.toISOString()) : raw.end,
-      allDay: raw.allDay,
-      ...extended
+      ...planeObject,
+      ...extended,
+      extendedProps: extended // Ensure it's available both ways
     };
 
     isHandlingEventRef.current = true;
@@ -128,7 +127,7 @@ export default function Home() {
     setEditingEvent(prepared);
     setSelectedDate(new Date(prepared.start));
 
-    if (prepared.baseEventId) {
+    if (prepared.baseEventId && prepared.recurrenceType && prepared.recurrenceType !== 'none') {
       setIsEditChoiceModalOpen(true);
     } else {
       setIsModalOpen(true);
@@ -177,7 +176,7 @@ export default function Home() {
   };
 
   const handleDeleteEvent = async (eventInfo: any) => {
-    if (eventInfo.baseEventId) {
+    if (eventInfo.baseEventId && eventInfo.recurrenceType && eventInfo.recurrenceType !== 'none') {
       setEventToDelete(eventInfo);
       setIsDeletionModalOpen(true);
       return;

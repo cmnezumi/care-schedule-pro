@@ -74,6 +74,12 @@ const ScheduleCalendar = ({
     return iso.includes('+') || iso.endsWith('Z') ? iso : `${iso}+09:00`;
   };
 
+  const getJSTDateStr = (iso: string | Date) => {
+    if (!iso) return '';
+    const date = typeof iso === 'string' ? new Date(ensureJst(iso)) : iso;
+    return date.toLocaleDateString('sv-SE', { timeZone: 'Asia/Tokyo' });
+  };
+
   const isWeekOrDayView = currentView === 'timeGridWeek' || currentView === 'timeGridDay';
 
   const filteredEvents = (selectedClientId
@@ -233,7 +239,7 @@ const ScheduleCalendar = ({
 
               // Check single instance or monthly manually-created instances
               if (e.start) {
-                const startStr = typeof e.start === 'string' ? e.start.split('T')[0] : e.start.toLocaleDateString('sv-SE');
+                const startStr = getJSTDateStr(e.start);
                 if (startStr === dateStr) return true;
               }
 
