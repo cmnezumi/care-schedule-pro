@@ -259,6 +259,24 @@ export default function Home() {
       alert("登録に失敗しました。SQLの実行（テーブル作成）が完了しているか確認してください。");
     }
   };
+  const handleUpdateClinic = async (id: string, data: any) => {
+    try {
+      const res = await fetch('/api/clinics', {
+        method: 'PUT',
+        body: JSON.stringify({ ...data, id }),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error('Update failed');
+
+      const refreshRes = await fetch('/api/clinics');
+      if (refreshRes.ok) {
+        setClinics(await refreshRes.json());
+      }
+    } catch (e) {
+      console.error(e);
+      alert("更新に失敗しました。");
+    }
+  };
   const handleDeleteClinic = async (id: string) => {
     try {
       const res = await fetch(`/api/clinics?id=${id}`, { method: 'DELETE' });
@@ -395,6 +413,7 @@ export default function Home() {
               onDeleteScheduleType={handleDeleteScheduleType}
               clinics={clinics}
               onAddClinic={handleAddClinic}
+              onUpdateClinic={handleUpdateClinic}
               onDeleteClinic={handleDeleteClinic}
               careManagerId={selectedCareManagerId}
             />

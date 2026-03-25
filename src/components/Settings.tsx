@@ -14,6 +14,7 @@ interface SettingsProps {
     onDeleteScheduleType: (id: string) => void;
     clinics: Clinic[];
     onAddClinic: (data: any) => void;
+    onUpdateClinic: (id: string, data: any) => void;
     onDeleteClinic: (id: string) => void;
     careManagerId: string;
 }
@@ -21,7 +22,7 @@ interface SettingsProps {
 const Settings = ({
     clients: allClients, onAddClient, onUpdateClient, onDeleteClient,
     scheduleTypes, onAddScheduleType, onDeleteScheduleType,
-    clinics, onAddClinic, onDeleteClinic,
+    clinics, onAddClinic, onUpdateClinic, onDeleteClinic,
     careManagerId
 }: SettingsProps) => {
     const clients = allClients.filter(c => c.careManagerId === careManagerId);
@@ -36,11 +37,31 @@ const Settings = ({
     const [newTypeEndTime, setNewTypeEndTime] = useState('');
 
     // Clinic Master State
+    const [editingClinicId, setEditingClinicId] = useState<string | null>(null);
     const [newClinicName, setNewClinicName] = useState('');
     const [newClinicWeeks, setNewClinicWeeks] = useState<number[]>([]);
     const [newClinicDay, setNewClinicDay] = useState<number>(1); // Monday default
     const [newClinicStartTime, setNewClinicStartTime] = useState('10:00');
     const [newClinicEndTime, setNewClinicEndTime] = useState('11:00');
+
+    const handleEditClinic = (clinic: Clinic) => {
+        setNewClinicName(clinic.name);
+        setNewClinicWeeks([...clinic.monthlyWeeks]);
+        setNewClinicDay(clinic.dayOfWeek);
+        setNewClinicStartTime(clinic.startTime);
+        setNewClinicEndTime(clinic.endTime);
+        setEditingClinicId(clinic.id);
+        setActiveTab('clinics');
+    };
+
+    const handleCancelEditClinic = () => {
+        setEditingClinicId(null);
+        setNewClinicName('');
+        setNewClinicWeeks([]);
+        setNewClinicDay(1);
+        setNewClinicStartTime('10:00');
+        setNewClinicEndTime('11:00');
+    };
 
     const handleEditClient = (client: Client) => {
         setEditingClient(client);
@@ -82,16 +103,26 @@ const Settings = ({
 
     const handleAddClinic = () => {
         if (!newClinicName) return;
-        onAddClinic({
+        const clinicData = {
             name: newClinicName,
             monthlyWeeks: newClinicWeeks,
             dayOfWeek: newClinicDay,
             startTime: newClinicStartTime,
             endTime: newClinicEndTime
-        });
+        };
+
+        if (editingClinicId) {
+            onUpdateClinic(editingClinicId, clinicData);
+            setEditingClinicId(null);
+        } else {
+            onAddClinic(clinicData);
+        }
+
         setNewClinicName('');
         setNewClinicWeeks([]);
         setNewClinicDay(1);
+        setNewClinicStartTime('10:00');
+        setNewClinicEndTime('11:00');
     };
 
     const toggleClinicWeek = (week: number) => {
@@ -228,8 +259,8 @@ const Settings = ({
                 <div className="p-6 flex flex-col h-full bg-slate-50/30">
                     <div className="mb-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
                         <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
-                            新しい往診クリニックを追加
+                            <span className={`w-1.5 h-1.5 rounded-full ${editingClinicId ? 'bg-amber-500' : 'bg-sky-500'}`} />
+                            {editingClinicId ? '往診クリニックの編集' : '新しい往診クリニックを追加'}
                         </h3>
                         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                             <div className="md:col-span-4">
@@ -286,13 +317,21 @@ const Settings = ({
                                     className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none"
                                 />
                             </div>
-                            <div className="md:col-span-2 flex items-end">
+                            <div className="md:col-span-2 flex items-end gap-2">
+                                {editingClinicId && (
+                                    <button
+                                        onClick={handleCancelEditClinic}
+                                        className="w-1/3 p-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all font-bold text-sm"
+                                    >
+                                        取消
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleAddClinic}
                                     disabled={!newClinicName || newClinicWeeks.length === 0}
-                                    className="w-full p-3 bg-slate-800 text-white rounded-xl hover:bg-slate-900 disabled:opacity-30 transition-all font-bold text-sm shadow-lg shadow-slate-100 active:scale-95"
+                                    className={`${editingClinicId ? 'w-2/3 bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'w-full bg-slate-800 hover:bg-slate-900 shadow-slate-100'} text-white rounded-xl disabled:opacity-30 transition-all font-bold text-sm shadow-lg active:scale-95 p-3`}
                                 >
-                                    登録
+                                    {editingClinicId ? '更新' : '登録'}
                                 </button>
                             </div>
                         </div>
@@ -311,12 +350,22 @@ const Settings = ({
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {clinics.map(clinic => (
                                     <div key={clinic.id} className="group bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all relative">
-                                        <button
-                                            onClick={() => onDeleteClinic(clinic.id)}
-                                            className="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
-                                        >
-                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
+                                        <div className="absolute top-3 right-3 flex gap-1">
+                                            <button
+                                                onClick={() => handleEditClinic(clinic)}
+                                                className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="編集"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => onDeleteClinic(clinic.id)}
+                                                className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="削除"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
                                         <div className="font-bold text-slate-800 mb-3">{clinic.name}</div>
                                         <div className="flex flex-wrap gap-1.5 mb-3">
                                             {clinic.monthlyWeeks.sort().map(w => (
