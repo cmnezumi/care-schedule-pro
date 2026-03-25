@@ -416,6 +416,7 @@ export default function Home() {
         onSave={handleSaveVisit}
         onDelete={handleDeleteEvent}
         selectedDate={selectedDate}
+        onDateChange={setSelectedDate}
         editingEvent={editingEvent}
         clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
         scheduleTypes={scheduleTypes}
