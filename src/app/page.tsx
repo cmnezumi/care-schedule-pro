@@ -14,6 +14,14 @@ import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsI
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift';
 
+const sortClients50On = (clientList: any[]) => {
+  return [...clientList].sort((a, b) => {
+    const textA = a.kana || a.name || '';
+    const textB = b.kana || b.name || '';
+    return textA.localeCompare(textB, 'ja');
+  });
+};
+
 export default function Home() {
   const [hasMounted, setHasMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('schedule');
@@ -74,7 +82,7 @@ export default function Home() {
           console.error("Failed to parse clinics data", e);
         }
 
-        setClients(Array.isArray(usersData) ? usersData : []);
+        setClients(Array.isArray(usersData) ? sortClients50On(usersData) : []);
         setClinics(Array.isArray(clinicsData) ? clinicsData : []);
 
         let loadedTypes = Array.isArray(typesData) ? typesData : [];
@@ -218,17 +226,17 @@ export default function Home() {
   const handleAddClient = async (data: any) => {
     await fetch('/api/users', { method: 'POST', body: JSON.stringify(data) });
     const res = await fetch('/api/users');
-    setClients(await res.json());
+    setClients(sortClients50On(await res.json()));
   };
   const handleUpdateClient = async (id: string, data: any) => {
     await fetch('/api/users', { method: 'PUT', body: JSON.stringify({ ...data, id }) });
     const res = await fetch('/api/users');
-    setClients(await res.json());
+    setClients(sortClients50On(await res.json()));
   };
   const handleDeleteClient = async (id: string) => {
     await fetch(`/api/users?id=${id}`, { method: 'DELETE' });
     const res = await fetch('/api/users');
-    setClients(await res.json());
+    setClients(sortClients50On(await res.json()));
   };
   const handleAddScheduleType = async (data: any) => {
     await fetch('/api/schedule-types', { method: 'POST', body: JSON.stringify(data) });

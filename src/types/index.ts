@@ -17,6 +17,7 @@ export interface CareManager {
 export interface Client {
     id: string;
     name: string;
+    kana?: string;
     address: string;
     careLevel: string; // e.g., "要介護1"
     careManagerId?: string; // Assigned caretaker (optional for backward compatibility)

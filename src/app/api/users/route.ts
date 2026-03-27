@@ -15,6 +15,7 @@ export async function GET() {
     const formattedUsers = data.map((u: any) => ({
       id: u.id,
       name: u.name,
+      kana: u.kana || '',
       careLevel: u.care_level,
       address: u.address,
       notes: u.notes,
@@ -40,6 +41,7 @@ export async function POST(request: Request) {
     const userWithId = {
       id: newUser.id || Math.random().toString(36).substr(2, 9),
       name: newUser.name,
+      kana: newUser.kana || '',
       care_level: newUser.careLevel,
       address: newUser.address,
       notes: newUser.notes,
@@ -72,6 +74,7 @@ export async function PUT(request: Request) {
     const formattedUser = {
       id: updatedUser.id,
       name: updatedUser.name,
+      kana: updatedUser.kana || '',
       care_level: updatedUser.careLevel,
       address: updatedUser.address,
       notes: updatedUser.notes,

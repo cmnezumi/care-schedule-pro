@@ -13,6 +13,7 @@ interface UserModalProps {
 
 const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => {
     const [name, setName] = useState('');
+    const [kana, setKana] = useState('');
     const [careLevel, setCareLevel] = useState('要介護1');
     const [address, setAddress] = useState('');
     const [notes, setNotes] = useState('');
@@ -21,11 +22,13 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
         if (isOpen) {
             if (initialData) {
                 setName(initialData.name);
+                setKana(initialData.kana || '');
                 setCareLevel(initialData.careLevel);
                 setAddress(initialData.address || '');
-                setNotes(initialData.notes || ''); // Assuming Client has notes, if not, check type
+                setNotes(initialData.notes || '');
             } else {
                 setName('');
+                setKana('');
                 setCareLevel('要介護1');
                 setAddress('');
                 setNotes('');
@@ -41,7 +44,7 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
             return;
         }
 
-        onSave({ name, careLevel, address, notes });
+        onSave({ name, kana, careLevel, address, notes });
         onClose();
     };
 
@@ -65,6 +68,17 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
                         placeholder="例: 山田 太郎"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">フリガナ</label>
+                    <input
+                        type="text"
+                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                        placeholder="例: ヤマダ タロウ"
+                        value={kana}
+                        onChange={(e) => setKana(e.target.value)}
                     />
                 </div>
 
