@@ -189,20 +189,70 @@ const ShiftAutomation = () => {
             const totalToAssign = totalHolidaysNeeded - assignedCount;
             let currentAssigned = 0;
 
-            // Pass 1: Break long work streaks
+            // Pass 1: Break long work streaks (Max 3 consecutive work days)
+            let currentWorkStreak = 0;
             for (let d = 0; d < days.length && currentAssigned < totalToAssign; d++) {
-                if (newShiftState[`${sIdx}-${d}`]) continue;
-                let workStreak = 0;
-                for (let k = d - 1; k >= 0; k--) {
-                    if (!getIsHol(sIdx, k, newShiftState)) workStreak++; else break;
+                if (getIsHol(sIdx, d, newShiftState)) {
+                    currentWorkStreak = 0;
+                } else {
+                    currentWorkStreak++;
                 }
-                if (workStreak >= 3) {
-                    const isWeekend = days[d].getDay() === 0 || days[d].getDay() === 6;
-                    const maxOff = isWeekend ? 2 : 1;
-                    if (dailyOffCount[d] < maxOff && canAssignHoliday(sIdx, d, newShiftState, true)) {
-                        newShiftState[`${sIdx}-${d}`] = 'auto_holiday';
-                        currentAssigned++;
-                        dailyOffCount[d]++;
+
+                if (currentWorkStreak >= 4) {
+                    let assigned = false;
+                    
+                    // Attempt 1: Strict constraints + maxOff limits
+                    for (let step = 0; step < 4; step++) {
+                        const targetD = d - step;
+                        if (newShiftState[`${sIdx}-${targetD}`]) continue;
+                        
+                        const isWeekend = days[targetD].getDay() === 0 || days[targetD].getDay() === 6;
+                        const maxOff = isWeekend ? 2 : 1;
+                        if (dailyOffCount[targetD] < maxOff && canAssignHoliday(sIdx, targetD, newShiftState, true)) {
+                            newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                            currentAssigned++;
+                            dailyOffCount[targetD]++;
+                            assigned = true;
+                            break;
+                        }
+                    }
+                    
+                    // Attempt 2: Ignore maxOff but keep strict holiday placement rules
+                    if (!assigned) {
+                        for (let step = 0; step < 4; step++) {
+                            const targetD = d - step;
+                            if (newShiftState[`${sIdx}-${targetD}`]) continue;
+                            
+                            if (canAssignHoliday(sIdx, targetD, newShiftState, true)) {
+                                newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                                currentAssigned++;
+                                dailyOffCount[targetD]++;
+                                assigned = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Attempt 3: Force assignment entirely to break rule
+                    if (!assigned) {
+                        for (let step = 0; step < 4; step++) {
+                            const targetD = d - step;
+                            if (newShiftState[`${sIdx}-${targetD}`]) continue;
+                            
+                            newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                            currentAssigned++;
+                            dailyOffCount[targetD]++;
+                            assigned = true;
+                            break;
+                        }
+                    }
+                    
+                    if (assigned) {
+                        currentWorkStreak = 0;
+                        for (let k = d; k >= 0; k--) {
+                            if (!getIsHol(sIdx, k, newShiftState)) currentWorkStreak++;
+                            else break;
+                        }
                     }
                 }
             }
