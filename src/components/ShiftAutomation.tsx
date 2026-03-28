@@ -128,6 +128,27 @@ const ShiftAutomation = () => {
             return type && (type.includes('holiday') || type === 'paid_leave' || type === 'hope_holiday');
         };
 
+        const canAssignHoliday = (sIdx: number, dIdx: number, state: Record<string, string>, strict: boolean) => {
+            const dayOfMonth = dIdx + 1;
+            const prevIsHol = dIdx > 0 && getIsHol(sIdx, dIdx - 1, state);
+            const nextIsHol = dIdx < days.length - 1 && getIsHol(sIdx, dIdx + 1, state);
+            
+            if (prevIsHol || nextIsHol) {
+                if (strict) {
+                    let invalidConsecutive = false;
+                    if (prevIsHol && (dayOfMonth - 1 < 6 || dayOfMonth > 21)) invalidConsecutive = true;
+                    if (nextIsHol && (dayOfMonth < 6 || dayOfMonth + 1 > 21)) invalidConsecutive = true;
+                    if (invalidConsecutive) return false;
+                }
+                const prevPrevIsHol = dIdx > 1 && getIsHol(sIdx, dIdx - 2, state);
+                const nextNextIsHol = dIdx < days.length - 2 && getIsHol(sIdx, dIdx + 2, state);
+                if ((prevIsHol && prevPrevIsHol) || (nextIsHol && nextNextIsHol) || (prevIsHol && nextIsHol)) {
+                    return false;
+                }
+            }
+            return true;
+        };
+
         staffList.forEach((_, sIdx) => {
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
@@ -168,6 +189,7 @@ const ShiftAutomation = () => {
             const totalToAssign = totalHolidaysNeeded - assignedCount;
             let currentAssigned = 0;
 
+            // Pass 1: Break long work streaks
             for (let d = 0; d < days.length && currentAssigned < totalToAssign; d++) {
                 if (newShiftState[`${sIdx}-${d}`]) continue;
                 let workStreak = 0;
@@ -177,7 +199,7 @@ const ShiftAutomation = () => {
                 if (workStreak >= 3) {
                     const isWeekend = days[d].getDay() === 0 || days[d].getDay() === 6;
                     const maxOff = isWeekend ? 2 : 1;
-                    if (dailyOffCount[d] < maxOff) {
+                    if (dailyOffCount[d] < maxOff && canAssignHoliday(sIdx, d, newShiftState, true)) {
                         newShiftState[`${sIdx}-${d}`] = 'auto_holiday';
                         currentAssigned++;
                         dailyOffCount[d]++;
@@ -185,28 +207,56 @@ const ShiftAutomation = () => {
                 }
             }
 
+            // Pass 2: Assign consecutive holidays (Strict)
             availableIndices.forEach(dIdx => {
                 if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
                 const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
                 const maxOff = isWeekend ? 2 : 1;
                 if (dailyOffCount[dIdx] >= maxOff) return;
+                
                 const prevIsHol = dIdx > 0 && getIsHol(sIdx, dIdx - 1, newShiftState);
                 const nextIsHol = dIdx < days.length - 1 && getIsHol(sIdx, dIdx + 1, newShiftState);
                 if (prevIsHol || nextIsHol) {
-                    if (consecutiveHolidaysCount < 1) {
-                        const prevPrevIsHol = dIdx > 1 && getIsHol(sIdx, dIdx - 2, newShiftState);
-                        const nextNextIsHol = dIdx < days.length - 2 && getIsHol(sIdx, dIdx + 2, newShiftState);
-                        if (prevPrevIsHol || nextNextIsHol) return;
+                    if (consecutiveHolidaysCount < 1 && canAssignHoliday(sIdx, dIdx, newShiftState, true)) {
+                        newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
+                        currentAssigned++;
+                        dailyOffCount[dIdx]++;
                         consecutiveHolidaysCount++;
-                    } else {
-                        return;
                     }
                 }
-                newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
-                currentAssigned++;
-                dailyOffCount[dIdx]++;
             });
 
+            // Pass 3: Backfill Singles (Strict)
+            availableIndices.forEach(dIdx => {
+                if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
+                const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
+                const maxOff = isWeekend ? 2 : 1;
+                if (dailyOffCount[dIdx] >= maxOff) return;
+                
+                if (canAssignHoliday(sIdx, dIdx, newShiftState, true)) {
+                    const prevIsHol = dIdx > 0 && getIsHol(sIdx, dIdx - 1, newShiftState);
+                    const nextIsHol = dIdx < days.length - 1 && getIsHol(sIdx, dIdx + 1, newShiftState);
+                    if (prevIsHol || nextIsHol) {
+                        if (consecutiveHolidaysCount < 1) consecutiveHolidaysCount++;
+                        else return; // Don't create new consecutives if limit reached
+                    }
+                    newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
+                    currentAssigned++;
+                    dailyOffCount[dIdx]++;
+                }
+            });
+
+            // Pass 4: Fallback (Lenient: ignore 6-21 rule to meet quota, but still prevent 3-day consecutives)
+            availableIndices.forEach(dIdx => {
+                if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
+                if (canAssignHoliday(sIdx, dIdx, newShiftState, false)) {
+                    newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
+                    currentAssigned++;
+                    dailyOffCount[dIdx]++;
+                }
+            });
+
+            // Pass 5: Ultimate Fallback (Ignore all rules to meet quota)
             availableIndices.forEach(dIdx => {
                 if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
                 newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
