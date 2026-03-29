@@ -162,8 +162,8 @@ export default function Home() {
         setIsModalOpen(false);
         setEditingEvent(null);
       } else {
-        // Keep it open, maybe clear the editing event if it was a new continuous entry
         setEditingEvent(null);
+        setSelectedDate(null); // Prevent date carry-over for subsequent continuous entries
       }
     } catch (e) {
       console.error(e);

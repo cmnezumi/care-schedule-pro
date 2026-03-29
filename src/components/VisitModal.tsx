@@ -119,7 +119,10 @@ const VisitModal = ({
     }, [isOpen, selectedDate, editingEvent, clients, scheduleTypes, defaultClientId]);
 
     const handleSave = () => {
-        if (!selectedDate) return;
+        if (!selectedDate) {
+            alert('日付を選択してください');
+            return;
+        }
 
         const year = selectedDate.getFullYear();
         const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
