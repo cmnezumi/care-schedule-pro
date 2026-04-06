@@ -1,0 +1,289 @@
+"use client";
+
+import React, { useState, useMemo } from 'react';
+import { Client, CareManager } from '@/types';
+import { Calendar as CalendarIcon, CheckCircle2, Circle, Sparkles, Loader2, User, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { generateMonitoringSchedule } from '@/lib/scheduling';
+
+interface MonitoringViewProps {
+  clients: Client[];
+  events: any[];
+  setEvents: (events: any[]) => void;
+  careManagers: CareManager[];
+  selectedCareManagerId: string;
+}
+
+export default function MonitoringView({ clients, events, setEvents, careManagers, selectedCareManagerId }: MonitoringViewProps) {
+  const [dateTracker, setDateTracker] = useState(new Date());
+  const [isSaving, setIsSaving] = useState(false);
+
+  const targetMonthStr = `${dateTracker.getFullYear()}-${String(dateTracker.getMonth() + 1).padStart(2, '0')}`;
+
+  const handlePrevMonth = () => {
+    const newDate = new Date(dateTracker);
+    newDate.setMonth(dateTracker.getMonth() - 1);
+    setDateTracker(newDate);
+  };
+
+  const handleNextMonth = () => {
+    const newDate = new Date(dateTracker);
+    newDate.setMonth(dateTracker.getMonth() + 1);
+    setDateTracker(newDate);
+  };
+
+  const currentCareManager = careManagers.find(cm => cm.id === selectedCareManagerId);
+
+  const renewalClients = clients.filter(c => c.planRenewalDate === targetMonthStr);
+
+  const monitoringEvents = useMemo(() => {
+    return events.filter(e => {
+        const title = e.title || '';
+        const type = e.extendedProps?.type || '';
+        const isMon = title.includes('モニタリング') || type.includes('モニタリング');
+        if (!isMon) return false;
+        
+        let start = e.start;
+        // In local state, start might be a Date object or ISO string
+        if (start && typeof start.toISOString === 'function') {
+            start = start.toISOString();
+        }
+        const eMonth = start?.substring(0, 7);
+        return eMonth === targetMonthStr;
+    }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [events, targetMonthStr]);
+
+  const handleToggleStatus = async (evt: any) => {
+    const isPersonal = evt.extendedProps?.isPersonal || evt.isPersonal;
+    if (isPersonal) return;
+
+    const isCompleted = evt.extendedProps?.status === 'completed';
+    const newStatus = isCompleted ? 'scheduled' : 'completed';
+    
+    // Find the original client ID just in case
+    const clientId = evt.extendedProps?.clientId || evt.clientId;
+
+    const updatedPayload = {
+      id: evt.id,
+      title: evt.title,
+      start: evt.start,
+      end: evt.end || evt.start,
+      allDay: evt.allDay,
+      backgroundColor: evt.backgroundColor,
+      extendedProps: {
+        ...(evt.extendedProps || {}),
+        status: newStatus,
+        clientId
+      }
+    };
+
+    try {
+      await fetch('/api/events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPayload)
+      });
+      const res = await fetch('/api/events');
+      setEvents(await res.json());
+    } catch(err) {
+      console.error(err);
+      alert("通信に失敗しました");
+    }
+  };
+
+  const handleAutoSchedule = async () => {
+    if (!confirm(`${targetMonthStr} のモニタリング予定を自動生成しますか？\n（既にこの月に自動作成された「未完了」の予定がある場合、それらは一度白紙に戻して組み直します）`)) return;
+
+    setIsSaving(true);
+    try {
+      const res = await fetch('/api/shifts');
+      const shiftsObj = await res.json();
+      const monthShifts = shiftsObj[targetMonthStr]?.shifts || {};
+      
+      // 当月のモニタリングイベントを抽出
+      const currentMonthMonitoring = events.filter(e => {
+        let s = e.start;
+        if (s && typeof s.toISOString === 'function') s = s.toISOString();
+        return s?.startsWith(targetMonthStr) && 
+               (e.extendedProps?.type === 'monitoring' || (e.title && e.title.includes('モニタリング')));
+      });
+
+      // すでに完了済みの利用者は自動生成の対象から外す
+      const completedClientIds = currentMonthMonitoring
+        .filter(e => e.extendedProps?.status === 'completed')
+        .map(e => String(e.extendedProps?.clientId));
+      
+      const targetClients = clients.filter(c => !completedClientIds.includes(String(c.id)));
+
+      // 未完了の当月モニタリングイベントを抽出して削除
+      const existingUncompletedEvents = currentMonthMonitoring.filter(e => e.extendedProps?.status !== 'completed');
+      if (existingUncompletedEvents.length > 0) {
+        await Promise.all(existingUncompletedEvents.map(evt => 
+            fetch(`/api/events?id=${evt.id}`, { method: 'DELETE' })
+        ));
+      }
+      
+      // 自動生成時、既存の（削除対象でない）カレンダーイベント全てを渡して被りを防ぐ
+      const currentMonthDbEvents = events.filter(e => {
+          let s = e.start;
+          if (s && typeof s.toISOString === 'function') s = s.toISOString();
+          return s?.startsWith(targetMonthStr) && !existingUncompletedEvents.some(del => del.id === e.id);
+      });
+      
+      const newEvents = generateMonitoringSchedule(targetClients, targetMonthStr, monthShifts, currentMonthDbEvents);
+      
+      if (newEvents.length === 0) {
+        alert("自動配置できる対象者がいませんでした。");
+        // API 再取得してリセット結果は反映する
+        const evRes = await fetch('/api/events');
+        setEvents(await evRes.json());
+        return;
+      }
+
+      await fetch('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newEvents)
+      });
+      
+      const evRes = await fetch('/api/events');
+      setEvents(await evRes.json());
+      alert("モニタリング予定を自動配置（組み直し）しました！");
+    } catch(e) {
+      console.error(e);
+      alert("自動作成に失敗しました");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const formatDateLabel = (isoDateString: string) => {
+      if (!isoDateString) return '';
+      const d = new Date(isoDateString);
+      const days = ['日', '月', '火', '水', '木', '金', '土'];
+      return `${d.getDate()}日 (${days[d.getDay()]})`;
+  };
+
+  const formatTimeLabel = (isoDateString: string) => {
+      if (!isoDateString) return '';
+      const d = new Date(isoDateString);
+      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  return (
+    <div className="flex flex-col lg:flex-row gap-4 h-full">
+      {/* 左サイドバー */}
+      <div className="w-full lg:w-72 flex-none flex flex-col gap-4">
+        {/* 月切り替えと自動作成 */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+                <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-500"><ChevronLeft size={20} /></button>
+                <div className="text-lg font-bold text-slate-700">{dateTracker.getFullYear()}年 {dateTracker.getMonth() + 1}月</div>
+                <button onClick={handleNextMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-500"><ChevronRight size={20} /></button>
+            </div>
+            
+            <button 
+                onClick={handleAutoSchedule} 
+                disabled={isSaving} 
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold text-white shadow-md hover:shadow-lg transition-all"
+            >
+                {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                自動作成を実行
+            </button>
+        </div>
+
+        {/* 今月の更新対象者 */}
+        <div className="bg-white rounded-2xl border border-slate-200 flex-1 flex flex-col shadow-sm overflow-hidden hidden lg:flex">
+            <h3 className="text-sm font-bold text-sky-700 p-3 border-b border-sky-100 bg-sky-50/50 flex items-center gap-2">
+                <CalendarIcon size={16} /> 【今月】プラン更新対象
+            </h3>
+            <div className="overflow-y-auto custom-scrollbar flex-1 p-2">
+                {renewalClients.length > 0 ? renewalClients.map(c => (
+                    <div key={c.id} className="p-2 border-b border-slate-100 last:border-0 rounded-lg">
+                        <div className="font-bold text-sm text-slate-700 flex items-center gap-2">
+                            <User size={14} className="text-sky-500" />
+                            {c.name} 様
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1 ml-6 flex gap-2">
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{c.careLevel}</span>
+                        </div>
+                    </div>
+                )) : (
+                    <div className="text-center p-4 text-xs text-slate-400">対象者はいません</div>
+                )}
+            </div>
+        </div>
+      </div>
+
+      {/* 右メイン領域：モニタリング一覧 */}
+      <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <CheckCircle2 size={20} className="text-emerald-500" />
+                モニタリング一覧 <span className="text-sm text-slate-500 font-medium">({monitoringEvents.length}件)</span>
+            </h2>
+            <div className="text-sm font-medium text-slate-600 bg-white px-3 py-1 rounded-full border border-slate-200">
+                完了: {monitoringEvents.filter(e => e.extendedProps?.status === 'completed').length} / {monitoringEvents.length}
+            </div>
+        </div>
+        
+        <div className="p-2 overflow-y-auto custom-scrollbar h-full bg-slate-50/30">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+                {monitoringEvents.map((evt, idx) => {
+                    const isCompleted = evt.extendedProps?.status === 'completed';
+                    const cId = evt.extendedProps?.clientId;
+                    const cInfo = clients.find(c => c.id === cId);
+                    
+                    return (
+                        <div 
+                            key={idx} 
+                            onClick={() => handleToggleStatus(evt)}
+                            className={`p-3 rounded-2xl border transition-all cursor-pointer relative overflow-hidden group ${
+                                isCompleted 
+                                ? 'bg-slate-100 border-slate-200 opacity-60' 
+                                : 'bg-white border-sky-100 shadow-sm hover:shadow-md hover:border-sky-300'
+                            }`}
+                        >
+                            <div className="flex items-center gap-3">
+                                <div className={`flex-none w-6 h-6 flex items-center justify-center rounded-full border-2 transition-colors ${
+                                    isCompleted ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 text-transparent group-hover:border-emerald-400'
+                                }`}>
+                                    <CheckCircle2 size={16} />
+                                </div>
+                                
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className={`text-sm font-bold truncate ${isCompleted ? 'text-slate-500 line-through' : 'text-slate-800'}`}>
+                                            {evt.title}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                                        <div className="flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded">
+                                            <CalendarIcon size={12} />
+                                            {formatDateLabel(evt.start)}
+                                        </div>
+                                        {!evt.allDay && (
+                                            <div className="flex items-center gap-1">
+                                                <Clock size={12} />
+                                                {formatTimeLabel(evt.start)}〜
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+                
+                {monitoringEvents.length === 0 && (
+                    <div className="col-span-full py-16 text-center flex flex-col items-center">
+                        <CalendarIcon size={48} className="text-slate-200 mb-4" />
+                        <p className="text-slate-500 font-medium font-bold">この月のモニタリング予定はありません</p>
+                        <p className="text-slate-400 text-sm mt-1">「自動作成を実行」ボタンから生成するか、<br/>カレンダーから手動で登録してください。</p>
+                    </div>
+                )}
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}

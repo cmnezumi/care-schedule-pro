@@ -17,6 +17,7 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
     const [careLevel, setCareLevel] = useState('要介護1');
     const [address, setAddress] = useState('');
     const [notes, setNotes] = useState('');
+    const [planRenewalDate, setPlanRenewalDate] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -26,12 +27,14 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
                 setCareLevel(initialData.careLevel);
                 setAddress(initialData.address || '');
                 setNotes(initialData.notes || '');
+                setPlanRenewalDate(initialData.planRenewalDate || '');
             } else {
                 setName('');
                 setKana('');
                 setCareLevel('要介護1');
                 setAddress('');
                 setNotes('');
+                setPlanRenewalDate('');
             }
         }
     }, [isOpen, initialData]);
@@ -44,7 +47,7 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
             return;
         }
 
-        onSave({ name, kana, careLevel, address, notes });
+        onSave({ name, kana, careLevel, address, notes, planRenewalDate });
         onClose();
     };
 
@@ -113,6 +116,16 @@ const UserModal = ({ isOpen, onClose, onSave, initialData }: UserModalProps) => 
                         placeholder="特記事項があれば入力..."
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-medium text-slate-600 mb-1">次回プラン更新月</label>
+                    <input
+                        type="month"
+                        className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-sky-500 outline-none"
+                        value={planRenewalDate}
+                        onChange={(e) => setPlanRenewalDate(e.target.value)}
                     />
                 </div>
             </div>

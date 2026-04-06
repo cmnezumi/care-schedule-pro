@@ -50,6 +50,7 @@ const VisitModal = ({
     const [monthlyRecurType, setMonthlyRecurType] = useState<'date' | 'weekday'>('date');
     const [isPersonal, setIsPersonal] = useState(false);
     const [allDay, setAllDay] = useState(false);
+    const [status, setStatus] = useState('scheduled');
     const [isContinuous, setIsContinuous] = useState(false);
     const [selectedClinicId, setSelectedClinicId] = useState<string>('');
     const isFirstOpen = React.useRef(true);
@@ -74,6 +75,7 @@ const VisitModal = ({
                 setNotes(props.notes || editingEvent.notes || '');
                 setIsPersonal(props.isPersonal ?? editingEvent.isPersonal ?? false);
                 setAllDay(editingEvent.allDay || false);
+                setStatus(props.status || editingEvent.status || 'scheduled');
 
                 const recType = props.recurrenceType || editingEvent.recurrenceType;
                 if (recType) {
@@ -104,6 +106,7 @@ const VisitModal = ({
                     setAllDay(false);
                     setRecurrenceType('none');
                     setIsPersonal(false);
+                    setStatus('scheduled');
 
                     setWeeklyDays([selectedDate.getDay()]);
                     const weekNumber = Math.ceil(selectedDate.getDate() / 7);
@@ -160,7 +163,8 @@ const VisitModal = ({
                 recurrenceType,
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
                 monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
-                baseEventId: editingEvent?.baseEventId
+                baseEventId: editingEvent?.baseEventId,
+                status
             },
             isContinuous
         };
@@ -220,7 +224,8 @@ const VisitModal = ({
                 recurrenceType,
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
                 monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
-                baseEventId: undefined // Strip baseEventId
+                baseEventId: undefined, // Strip baseEventId
+                status
             }
         };
         onCopy(copyData);
@@ -317,6 +322,15 @@ const VisitModal = ({
                                 </label>
                             </div>
                         </div>
+
+                        {!isPersonal && (
+                            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between mb-1">
+                                <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
+                                    <input type="checkbox" className="w-4 h-4 text-emerald-500 rounded border-slate-300" checked={status === 'completed'} onChange={(e) => setStatus(e.target.checked ? 'completed' : 'scheduled')} />
+                                    訪問済（実績）
+                                </label>
+                            </div>
+                        )}
 
                         {!isPersonal && (
                             <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-3">

@@ -198,6 +198,30 @@ const ScheduleCalendar = ({
         
         /* Hide original event bars for personal events */
         .hidden-personal-event { display: none !important; }
+        
+        /* Custom scroll for day cells */
+        .fc-daygrid-day-events {
+          max-height: 120px !important;
+          overflow-y: auto !important;
+          margin-bottom: 2px !important;
+        }
+        /* Only apply to dayGridMonth view to avoid messing up timeGrid */
+        .fc-dayGridMonth-view .fc-daygrid-day-events {
+          max-height: calc(100vh / 6 - 40px) !important;
+        }
+        .fc-daygrid-day-events::-webkit-scrollbar {
+          width: 4px;
+        }
+        .fc-daygrid-day-events::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .fc-daygrid-day-events::-webkit-scrollbar-thumb {
+          background-color: #cbd5e1;
+          border-radius: 4px;
+        }
+        .fc-daygrid-day-events::-webkit-scrollbar-thumb:hover {
+          background-color: #94a3b8;
+        }
       `}</style>
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
@@ -214,7 +238,7 @@ const ScheduleCalendar = ({
           editable={true}
           selectable={true}
           selectMirror={true}
-          dayMaxEvents={true}
+          dayMaxEvents={false}
           locale="ja"
           buttonText={{
             today: '今',
@@ -319,9 +343,56 @@ const ScheduleCalendar = ({
             const isPersonal = arg.event.extendedProps?.isPersonal;
             if (isPersonal && arg.view.type === 'dayGridMonth') return null; // Handled by dayCellContent
 
+            const isCompleted = arg.event.extendedProps?.status === 'completed';
+
+            const handleToggleComplete = async (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const newStatus = isCompleted ? 'scheduled' : 'completed';
+                
+                // Construct the updated event payload
+                const updatedPayload = {
+                    id: arg.event.id,
+                    title: arg.event.title,
+                    allDay: arg.event.allDay,
+                    start: arg.event.startStr,
+                    end: arg.event.endStr || arg.event.startStr,
+                    backgroundColor: arg.event.backgroundColor,
+                    extendedProps: {
+                        ...arg.event.extendedProps,
+                        status: newStatus
+                    }
+                };
+
+                try {
+                    await fetch('/api/events', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedPayload)
+                    });
+                    
+                    if (setEvents) {
+                        const res = await fetch('/api/events');
+                        setEvents(await res.json());
+                    }
+                } catch(err) {
+                    console.error("Failed to update status", err);
+                }
+            };
+
             return (
-              <div className="fc-event-main-frame flex items-center px-1 overflow-hidden">
-                <div className="fc-event-title-container overflow-hidden">
+              <div className={`fc-event-main-frame flex items-center px-1 overflow-hidden gap-1 transition-opacity ${isCompleted ? 'opacity-50' : ''}`}>
+                {!isPersonal && (
+                    <div 
+                       onClick={handleToggleComplete}
+                       className={`flex-none w-[10px] h-[10px] mt-[1px] rounded flex items-center justify-center cursor-pointer transition-colors ${isCompleted ? 'bg-emerald-500 border-none' : 'bg-transparent border border-white/70 hover:bg-white/30'}`}
+                       title={isCompleted ? "実績あり (クリックで解除)" : "実績なし (クリックで実績に変更)"}
+                    >
+                       {isCompleted && <svg className="w-2 h-2 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
+                    </div>
+                )}
+                <div className={`fc-event-title-container overflow-hidden ${isCompleted ? 'line-through' : ''}`}>
                   <div className="fc-event-title fc-sticky text-[10px] leading-tight truncate">{arg.event.title}</div>
                 </div>
               </div>

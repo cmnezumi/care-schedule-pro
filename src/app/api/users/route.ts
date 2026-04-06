@@ -19,7 +19,8 @@ export async function GET() {
       careLevel: u.care_level,
       address: u.address,
       notes: u.notes,
-      careManagerId: u.care_manager_id
+      careManagerId: u.care_manager_id,
+      planRenewalDate: u.plan_renewal_date
     }));
 
     return NextResponse.json(formattedUsers);
@@ -45,7 +46,8 @@ export async function POST(request: Request) {
       care_level: newUser.careLevel,
       address: newUser.address,
       notes: newUser.notes,
-      care_manager_id: newUser.careManagerId
+      care_manager_id: newUser.careManagerId,
+      plan_renewal_date: newUser.planRenewalDate
     };
 
     const { data, error } = await supabase
@@ -78,7 +80,8 @@ export async function PUT(request: Request) {
       care_level: updatedUser.careLevel,
       address: updatedUser.address,
       notes: updatedUser.notes,
-      care_manager_id: updatedUser.careManagerId
+      care_manager_id: updatedUser.careManagerId,
+      plan_renewal_date: updatedUser.planRenewalDate
     };
 
     const { data, error } = await supabase

@@ -23,7 +23,8 @@ export interface Client {
     careManagerId?: string; // Assigned caretaker (optional for backward compatibility)
     notes?: string;
     locationType?: 'same_bldg' | 'home' | 'attached_bldg'; // 丸, 星, その他
-    planUpdateMonth?: number; // 1-12
+    planUpdateMonth?: number; // 1-12 (Legacy, keeping for backward compatibility if any)
+    planRenewalDate?: string; // YYYY-MM
 }
 
 export interface Visit {
