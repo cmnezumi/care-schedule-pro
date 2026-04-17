@@ -6,6 +6,12 @@ const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 // If running on the server and a service role key is provided, use it (bypasses RLS).
 // Otherwise, fallback to the anon key.
-export const supabase = (typeof window === 'undefined' && supabaseServiceRoleKey)
-    ? createClient(supabaseUrl, supabaseServiceRoleKey)
-    : createClient(supabaseUrl, supabaseAnonKey);
+let clientOpts = null;
+if (supabaseUrl) {
+    if (typeof window === 'undefined' && supabaseServiceRoleKey) {
+        clientOpts = createClient(supabaseUrl, supabaseServiceRoleKey);
+    } else if (supabaseAnonKey) {
+        clientOpts = createClient(supabaseUrl, supabaseAnonKey);
+    }
+}
+export const supabase = clientOpts as any;
