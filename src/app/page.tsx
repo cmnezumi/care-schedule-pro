@@ -9,6 +9,7 @@ import Settings from "@/components/Settings";
 import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
 import MonitoringView from "@/components/MonitoringView";
+import EventPreviewModal from "@/components/EventPreviewModal";
 import { supabase } from "@/lib/supabase";
 import { Client, ScheduleType, CareManager, Clinic } from "@/types";
 import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsIcon, CheckSquare } from "lucide-react";
@@ -37,6 +38,7 @@ export default function Home() {
   const isHandlingEventRef = React.useRef(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isEditChoiceModalOpen, setIsEditChoiceModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all'>('single');
@@ -136,7 +138,12 @@ export default function Home() {
     setEditingEvent(prepared);
     setSelectedDate(new Date(prepared.start));
 
-    if (prepared.baseEventId && prepared.recurrenceType && prepared.recurrenceType !== 'none') {
+    setIsPreviewModalOpen(true);
+  };
+
+  const handleEditFromPreview = () => {
+    setIsPreviewModalOpen(false);
+    if (editingEvent?.baseEventId && editingEvent?.recurrenceType && editingEvent?.recurrenceType !== 'none') {
       setIsEditChoiceModalOpen(true);
     } else {
       setIsModalOpen(true);
@@ -455,6 +462,14 @@ export default function Home() {
         editTargetChoice={editTargetChoice}
         isSaving={isSaving}
         onCopy={handleCopyEvent}
+      />
+
+      <EventPreviewModal
+        isOpen={isPreviewModalOpen}
+        onClose={() => { setIsPreviewModalOpen(false); setEditingEvent(null); }}
+        event={editingEvent}
+        clients={clients}
+        onEdit={handleEditFromPreview}
       />
 
       <EditChoiceModal

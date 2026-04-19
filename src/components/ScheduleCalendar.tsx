@@ -100,7 +100,7 @@ const ScheduleCalendar = ({
   return (
     <div className="h-full w-full flex flex-col calendar-wrapper relative bg-white rounded-xl">
       {isWeekOrDayView && clients.length > 0 && (
-        <div className="w-full flex justify-end px-4 pt-2 -mb-2 z-10 relative">
+        <div className="w-full flex items-center justify-center pt-3 pb-1 z-10 relative">
           <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.05)] text-sm">
             <span className="text-[11px] font-bold text-sky-600/80">週の予定表示:</span>
             <select
