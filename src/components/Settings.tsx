@@ -255,6 +255,102 @@ const Settings = ({
                 </>
             )}
 
+            {activeTab === 'scheduleTypes' && (
+                <div className="p-6 flex flex-col h-full bg-slate-50/30">
+                    <div className="mb-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                            新しい予定種別を追加
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div className="md:col-span-3">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">種別名</label>
+                                <input
+                                    type="text"
+                                    value={newTypeName}
+                                    onChange={(e) => setNewTypeName(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
+                                    placeholder="例: モニタリング..."
+                                />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">カラー</label>
+                                <input
+                                    type="color"
+                                    value={newTypeColor}
+                                    onChange={(e) => setNewTypeColor(e.target.value)}
+                                    className="w-full h-[42px] p-1 bg-white border border-slate-200 rounded-xl cursor-pointer"
+                                />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">デフォルト開始</label>
+                                <input
+                                    type="time"
+                                    value={newTypeStartTime}
+                                    onChange={(e) => setNewTypeStartTime(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none"
+                                />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">デフォルト終了</label>
+                                <input
+                                    type="time"
+                                    value={newTypeEndTime}
+                                    onChange={(e) => setNewTypeEndTime(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none"
+                                />
+                            </div>
+                            <div className="md:col-span-3 flex items-end">
+                                <button
+                                    onClick={handleAddType}
+                                    disabled={!newTypeName}
+                                    className="w-full p-3 bg-slate-800 text-white rounded-xl disabled:opacity-30 hover:bg-slate-900 transition-all font-bold text-sm shadow-lg shadow-slate-100 active:scale-95"
+                                >
+                                    登録
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-grow overflow-auto">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            登録済みの予定種別一覧
+                        </h3>
+                        {scheduleTypes.length === 0 ? (
+                            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
+                                まだ予定種別が登録されていません
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                                {scheduleTypes.map(type => (
+                                    <div key={type.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex items-center justify-between gap-3 group">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-3 h-3 rounded-full flex-none" style={{ backgroundColor: type.color }} />
+                                            <div>
+                                                <div className="font-bold text-slate-700 text-sm truncate max-w-[80px] sm:max-w-[120px]">{type.name}</div>
+                                                {(type.defaultStartTime || type.defaultEndTime) && (
+                                                    <div className="text-[10px] font-bold text-slate-400">
+                                                        {type.defaultStartTime || '--:--'} 〜 {type.defaultEndTime || '--:--'}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <button
+                                            onClick={() => { if (confirm(`「${type.name}」を削除しますか？`)) onDeleteScheduleType(type.id); }}
+                                            className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100 flex-none"
+                                            title="削除"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'clinics' && (
                 <div className="p-6 flex flex-col h-full bg-slate-50/30">
                     <div className="mb-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
