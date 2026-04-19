@@ -183,11 +183,11 @@ export default function MonitoringView({ clients, events, setEvents, careManager
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-4 h-full">
+    <div className="flex flex-col lg:flex-row gap-2 lg:gap-4 h-full">
       {/* 左サイドバー */}
-      <div className="w-full lg:w-72 flex-none flex flex-col gap-4">
+      <div className="w-full lg:w-72 flex-none flex flex-col gap-2 lg:gap-4">
         {/* 月切り替えと自動作成 */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col gap-4">
+        <div className="bg-white rounded-xl lg:rounded-2xl border border-slate-200 p-2 lg:p-4 shadow-sm flex flex-col gap-2 lg:gap-4">
             <div className="flex items-center justify-between">
                 <button onClick={handlePrevMonth} className="p-1 hover:bg-slate-100 rounded-lg text-slate-500"><ChevronLeft size={20} /></button>
                 <div className="text-lg font-bold text-slate-700">{dateTracker.getFullYear()}年 {dateTracker.getMonth() + 1}月</div>
@@ -197,7 +197,7 @@ export default function MonitoringView({ clients, events, setEvents, careManager
             <button 
                 onClick={handleAutoSchedule} 
                 disabled={isSaving} 
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold text-white shadow-md hover:shadow-lg transition-all"
+                className="w-full flex items-center justify-center gap-2 py-2 lg:py-2.5 rounded-xl bg-gradient-to-r from-sky-500 to-blue-600 font-bold text-white shadow-[0_2px_8px_-2px_rgba(14,165,233,0.4)] hover:shadow-lg transition-all"
             >
                 {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 自動作成を実行
@@ -228,11 +228,11 @@ export default function MonitoringView({ clients, events, setEvents, careManager
       </div>
 
       {/* 右メイン領域：モニタリング一覧 */}
-      <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-            <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                <CheckCircle2 size={20} className="text-emerald-500" />
-                モニタリング一覧 <span className="text-sm text-slate-500 font-medium">({monitoringEvents.length}件)</span>
+      <div className="flex-1 bg-white rounded-xl lg:rounded-2xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+        <div className="p-3 lg:p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <h2 className="text-base lg:text-lg font-bold text-slate-800 flex items-center gap-1.5 lg:gap-2">
+                <CheckCircle2 size={18} className="text-emerald-500" />
+                モニタリング一覧 <span className="text-xs lg:text-sm text-slate-500 font-medium">({monitoringEvents.length}件)</span>
             </h2>
             <div className="text-sm font-medium text-slate-600 bg-white px-3 py-1 rounded-full border border-slate-200">
                 完了: {monitoringEvents.filter(e => e.extendedProps?.status === 'completed').length} / {monitoringEvents.length}

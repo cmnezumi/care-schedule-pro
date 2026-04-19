@@ -236,9 +236,10 @@ const ScheduleCalendar = ({
           dateClick={handleDateClick}
           height="100%"
           editable={true}
-          selectable={true}
           selectMirror={true}
           dayMaxEvents={false}
+          slotMinTime="07:00:00"
+          slotMaxTime="20:00:00"
           locale="ja"
           buttonText={{
             today: '今',

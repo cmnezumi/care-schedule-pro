@@ -356,12 +356,6 @@ export default function Home() {
             </nav>
 
             <div className="flex items-center gap-2 md:gap-4">
-              <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 shadow-sm">
-                <div className="h-2 w-2 rounded-full bg-emerald-500"></div>
-                <span className="text-[10px] md:text-xs font-semibold text-slate-600">
-                  {careManagers.find(cm => cm.id === selectedCareManagerId)?.name || '管理者'}
-                </span>
-              </div>
               {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={16} />}
             </div>
           </div>
@@ -374,14 +368,6 @@ export default function Home() {
                 <div className="flex items-center gap-4">
                   <h2 className="text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
                 </div>
-                <select
-                  value={selectedCareManagerId}
-                  onChange={(e) => setSelectedCareManagerId(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-white px-2 md:px-4 py-1.5 text-xs md:text-sm font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                >
-                  {careManagers.map(cm => <option key={cm.id} value={cm.id}>{cm.name}</option>)}
-                  <option value="all">すべて表示</option>
-                </select>
               </div>
               <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[300px] w-full rounded-2xl md:rounded-3xl border border-slate-200 bg-white p-2 md:p-4 shadow-xl overflow-hidden">
                 <ScheduleCalendar
