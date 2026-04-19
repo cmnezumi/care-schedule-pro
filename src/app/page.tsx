@@ -199,7 +199,8 @@ export default function Home() {
     }
     setIsSaving(true);
     try {
-      await fetch(`/api/events?id=${eventInfo.id}`, { method: 'DELETE' });
+      const realId = eventInfo.baseEventId || eventInfo.id;
+      await fetch(`/api/events?id=${realId}`, { method: 'DELETE' });
       const res = await fetch('/api/events');
       setEvents(await res.json());
       setIsModalOpen(false);
@@ -215,7 +216,19 @@ export default function Home() {
     if (!eventToDelete) return;
     setIsSaving(true);
     try {
-      await fetch(`/api/events?id=${eventToDelete.id}${choice !== 'this' ? `&choice=${choice}` : ''}`, {
+      const realId = eventToDelete.baseEventId || eventToDelete.id;
+      const queryParams = new URLSearchParams();
+      queryParams.append('id', realId);
+
+      if (choice !== 'this') {
+          queryParams.append('choice', choice);
+          if (choice === 'following') queryParams.append('date', eventToDelete.start);
+      } else if (eventToDelete.baseEventId) {
+          queryParams.append('choice', 'this_instance');
+          queryParams.append('date', eventToDelete.start);
+      }
+
+      await fetch(`/api/events?${queryParams.toString()}`, {
         method: 'DELETE'
       });
       const res = await fetch('/api/events');

@@ -318,34 +318,49 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
     const choice = searchParams.get('choice');
+    const dateQuery = searchParams.get('date');
 
     if (!id) {
       return NextResponse.json({ message: 'ID is required' }, { status: 400 });
     }
 
-    if (choice === 'all' || choice === 'following') {
-      // First, get the event to find its baseEventId and start_time
-      const { data: eventData } = await supabase
-        .from('events')
-        .select('start_time, extended_props')
-        .eq('id', id)
-        .single();
-
-      const baseEventId = eventData?.extended_props?.baseEventId;
-
-      if (baseEventId) {
-        let query = supabase
-          .from('events')
-          .delete()
-          .filter('extended_props->>baseEventId', 'eq', baseEventId);
-
-        if (choice === 'following') {
-          query = query.gte('start_time', eventData.start_time);
+    if (choice === 'this_instance' && dateQuery) {
+        // Find the base event
+        const { data: eventData } = await supabase.from('events').select('extended_props').eq('id', id).single();
+        if (eventData) {
+            const dateStr = dateQuery.split('T')[0];
+            const currentExcluded = eventData.extended_props?.excludedDates || [];
+            if (!currentExcluded.includes(dateStr)) {
+                currentExcluded.push(dateStr);
+            }
+            await supabase.from('events').update({
+                extended_props: {
+                    ...eventData.extended_props,
+                    excludedDates: currentExcluded
+                }
+            }).eq('id', id);
+            return NextResponse.json({ message: 'Instance excluded successfully' });
         }
+    }
 
-        const { error } = await query;
-        if (error) throw error;
-        return NextResponse.json({ message: choice === 'all' ? 'Series deleted successfully' : 'Upcoming events deleted successfully' });
+    if (choice === 'all' || choice === 'following') {
+      if (choice === 'all') {
+         await supabase.from('events').delete().eq('id', id);
+         return NextResponse.json({ message: 'Series deleted successfully' });
+      }
+
+      if (choice === 'following' && dateQuery) {
+         const { data: eventData } = await supabase.from('events').select('extended_props').eq('id', id).single();
+         if (eventData) {
+             const dateStr = dateQuery.split('T')[0];
+             await supabase.from('events').update({
+                 extended_props: {
+                     ...eventData.extended_props,
+                     endRecur: dateStr
+                 }
+             }).eq('id', id);
+             return NextResponse.json({ message: 'Upcoming events removed' });
+         }
       }
     }
 
