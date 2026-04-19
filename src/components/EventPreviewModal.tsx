@@ -87,7 +87,7 @@ export default function EventPreviewModal({ isOpen, onClose, event, clients, onE
                     閉じる
                 </button>
                 <button 
-                    onClick={() => { onClose(); onEdit(); }}
+                    onClick={onEdit}
                     className="flex items-center justify-center gap-2 px-5 py-2 text-sm font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md transition-colors"
                 >
                     <Edit2 size={16} /> 編集する
