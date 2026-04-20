@@ -19,19 +19,33 @@ export function generateMonitoringSchedule(
 
     // 1. Extract valid working days for the month
     const availableDays: number[] = [];
+    const todayDate = new Date();
+    const currentYear = todayDate.getFullYear();
+    const currentMonth = todayDate.getMonth() + 1;
+    const currentDay = todayDate.getDate();
+
+    const isCurrentMonth = (year === currentYear && month === currentMonth);
+
     for (let i = 0; i < lastDay; i++) {
+        const dayOfMonth = i + 1;
+        
+        // 当月の場合は、今日より前の日付（過去日）を除外する
+        if (isCurrentMonth && dayOfMonth < currentDay) {
+            continue;
+        }
+
         // Shift format assumes '0-{dayIndex}' where 0 is the care manager
         const shiftStatus = shifts[`0-${i}`]; 
         const isHoliday = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus || '');
         
-        const dateObj = new Date(year, month - 1, i + 1);
+        const dateObj = new Date(year, month - 1, dayOfMonth);
         const dayOfWeek = dateObj.getDay();
         
         if (shiftStatus) {
-            if (!isHoliday) availableDays.push(i + 1);
+            if (!isHoliday) availableDays.push(dayOfMonth);
         } else {
             // fallback: not weekend
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) availableDays.push(i + 1);
+            if (dayOfWeek !== 0 && dayOfWeek !== 6) availableDays.push(dayOfMonth);
         }
     }
     const events: any[] = [];

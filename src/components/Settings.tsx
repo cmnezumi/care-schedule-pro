@@ -1,6 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
+
+const PRESET_COLORS = [
+    '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e',
+    '#ec4899', '#f97316', '#f59e0b', '#eab308', '#22c55e', '#10b981',
+    '#14b8a6', '#64748b'
+];
 import { Client, ScheduleType, Clinic } from '@/types';
 import UserModal from './UserModal';
 
@@ -32,7 +38,7 @@ const Settings = ({
 
     // Schedule Type State
     const [newTypeName, setNewTypeName] = useState('');
-    const [newTypeColor, setNewTypeColor] = useState('#cbd5e1');
+    const [newTypeColor, setNewTypeColor] = useState(PRESET_COLORS[0]);
     const [newTypeStartTime, setNewTypeStartTime] = useState('');
     const [newTypeEndTime, setNewTypeEndTime] = useState('');
 
@@ -96,7 +102,7 @@ const Settings = ({
             defaultEndTime: newTypeEndTime || undefined
         });
         setNewTypeName('');
-        setNewTypeColor('#cbd5e1'); // Reset to default slate-300
+        setNewTypeColor(PRESET_COLORS[0]); // Reset to first preset
         setNewTypeStartTime('');
         setNewTypeEndTime('');
     };
@@ -273,14 +279,19 @@ const Settings = ({
                                     placeholder="例: モニタリング..."
                                 />
                             </div>
-                            <div className="md:col-span-2">
-                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">カラー</label>
-                                <input
-                                    type="color"
-                                    value={newTypeColor}
-                                    onChange={(e) => setNewTypeColor(e.target.value)}
-                                    className="w-full h-[42px] p-1 bg-white border border-slate-200 rounded-xl cursor-pointer"
-                                />
+                            <div className="md:col-span-12">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">カラー選択</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {PRESET_COLORS.map(color => (
+                                        <button
+                                            key={color}
+                                            onClick={() => setNewTypeColor(color)}
+                                            style={{ backgroundColor: color }}
+                                            className={`w-8 h-8 rounded-full transition-all ${newTypeColor === color ? 'ring-2 ring-offset-2 ring-sky-500 scale-110' : 'hover:scale-110 shadow-sm border border-black/10'}`}
+                                            title="色を選択"
+                                        />
+                                    ))}
+                                </div>
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">デフォルト開始</label>
