@@ -41,6 +41,7 @@ export default function Home() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [isEditChoiceModalOpen, setIsEditChoiceModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
+  const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(false);
   const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all'>('single');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
@@ -329,6 +330,21 @@ export default function Home() {
   );
   const clientIdsOfSelectedCM = new Set(filteredClients.map(c => c.id));
   const filteredEvents = events.filter(e => {
+    // If "My Schedule Only" is ON, filter out routine client events
+    if (showOnlyMySchedule) {
+       const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
+       const type = e.extendedProps?.type || '';
+       const title = e.title || '';
+       const isEngagingEvent = isPersonal || 
+          type === 'monitoring' || 
+          type === 'office_work' ||
+          type === 'conference' || title.includes('担当者会議') ||
+          type === 'office_meeting' || title.includes('会議') ||
+          type === 'clinic' || title.includes('往診');
+       
+       if (!isEngagingEvent) return false;
+    }
+
     if (selectedCareManagerId === 'all') return true;
     if (e.extendedProps?.isPersonal) {
       return e.extendedProps?.careManagerId === selectedCareManagerId || (!e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1');
@@ -387,6 +403,18 @@ export default function Home() {
               <div className="flex items-center justify-between px-2 landscape:hidden md:landscape:flex">
                 <div className="flex items-center gap-4">
                   <h2 className="text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
+                  <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
+                     <span className="text-xs md:text-sm font-bold text-slate-600">自分の予定のみ</span>
+                     <div className={`w-8 h-4 rounded-full relative transition-colors border shadow-inner ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}>
+                        <div className={`w-3 h-3 bg-white rounded-full absolute top-[1px] left-[1px] transition-transform shadow-sm ${showOnlyMySchedule ? 'translate-x-[16px]' : ''}`} />
+                     </div>
+                     <input 
+                         type="checkbox" 
+                         className="hidden" 
+                         checked={showOnlyMySchedule} 
+                         onChange={(e) => setShowOnlyMySchedule(e.target.checked)} 
+                     />
+                  </label>
                 </div>
               </div>
               <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[300px] w-full rounded-2xl md:rounded-3xl border border-slate-200 bg-white p-2 md:p-4 shadow-xl overflow-hidden">
