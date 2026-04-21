@@ -366,6 +366,15 @@ const ScheduleCalendar = ({
                     }
                 };
 
+                // Optimistic UI Update for instant feedback
+                if (setEvents) {
+                    const optimisticEvents = filteredEvents.map(e => e.id === arg.event.id ? {
+                        ...e,
+                        extendedProps: { ...e.extendedProps, status: newStatus }
+                    } : e);
+                    setEvents(optimisticEvents);
+                }
+
                 try {
                     await fetch('/api/events', {
                         method: 'PUT',
@@ -374,11 +383,11 @@ const ScheduleCalendar = ({
                     });
                     
                     if (setEvents) {
-                        const res = await fetch('/api/events');
-                        setEvents(await res.json());
+                        fetch('/api/events').then(res => res.json()).then(data => setEvents(data));
                     }
                 } catch(err) {
                     console.error("Failed to update status", err);
+                    if (setEvents) setEvents(filteredEvents); // Revert on fail
                 }
             };
 

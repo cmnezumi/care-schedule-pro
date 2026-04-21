@@ -76,16 +76,25 @@ export default function MonitoringView({ clients, events, setEvents, careManager
       }
     };
 
+    // Optimistic UI Update: 画面上ですぐにチェックを切り替える
+    const optimisticEvents = events.map(e => e.id === evt.id ? {
+      ...e,
+      extendedProps: { ...e.extendedProps, status: newStatus }
+    } : e);
+    setEvents(optimisticEvents);
+
     try {
       await fetch('/api/events', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPayload)
       });
-      const res = await fetch('/api/events');
-      setEvents(await res.json());
+      // Background refetch is optional now, but kept for sync
+      fetch('/api/events').then(res => res.json()).then(data => setEvents(data));
     } catch(err) {
       console.error(err);
+      // Revert on fail
+      setEvents(events);
       alert("通信に失敗しました");
     }
   };
