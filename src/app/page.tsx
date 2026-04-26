@@ -245,6 +245,35 @@ export default function Home() {
     }
   };
 
+  const handleEventDrop = async (event: any) => {
+    setIsSaving(true);
+    const updatedPayload = {
+      id: event.id,
+      title: event.title,
+      allDay: event.allDay,
+      start: event.startStr,
+      end: event.endStr || event.startStr,
+      backgroundColor: event.backgroundColor,
+      extendedProps: event.extendedProps
+    };
+
+    try {
+      await fetch('/api/events', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedPayload)
+      });
+      const res = await fetch('/api/events');
+      setEvents(await res.json());
+    } catch (e) {
+      console.error(e);
+      alert('予定の移動に失敗しました。');
+      if (typeof event.revert === 'function') event.revert();
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleAddClient = async (data: any) => {
     await fetch('/api/users', { method: 'POST', body: JSON.stringify(data) });
     const res = await fetch('/api/users');
@@ -426,6 +455,7 @@ export default function Home() {
                   scheduleTypes={scheduleTypes}
                   onDateClick={handleDateClick}
                   onEventClick={handleEditEvent}
+                  onEventDrop={handleEventDrop}
                 />
               </div>
             </div>

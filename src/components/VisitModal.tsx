@@ -284,28 +284,26 @@ const VisitModal = ({
             isModeless={isContinuous}
         >
             <div className="flex flex-col gap-6 max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
-                {!editingEvent && (
-                    <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100 flex items-center justify-between gap-4">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white">
-                                <CalendarIcon size={16} />
-                            </div>
-                            <div>
-                                <div className="text-[10px] font-bold text-sky-600 uppercase">日付の選択</div>
-                                <div className="text-sm font-bold text-slate-700">{displayDate}</div>
-                            </div>
+                <div className="bg-sky-50/50 p-3 rounded-xl border border-sky-100 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white">
+                            <CalendarIcon size={16} />
                         </div>
-                        <input
-                            type="date"
-                            className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
-                            value={selectedDate ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` : ''}
-                            onChange={(e) => {
-                                const newDate = new Date(e.target.value);
-                                if (!isNaN(newDate.getTime()) && onDateChange) onDateChange(newDate);
-                            }}
-                        />
+                        <div>
+                            <div className="text-[10px] font-bold text-sky-600 uppercase">日付の選択</div>
+                            <div className="text-sm font-bold text-slate-700">{displayDate}</div>
+                        </div>
                     </div>
-                )}
+                    <input
+                        type="date"
+                        className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-sky-500/20"
+                        value={selectedDate ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}` : ''}
+                        onChange={(e) => {
+                            const newDate = new Date(e.target.value);
+                            if (!isNaN(newDate.getTime()) && onDateChange) onDateChange(newDate);
+                        }}
+                    />
+                </div>
                 <div className="flex flex-col gap-4">
                     <div className="space-y-3">
                         <div className="flex gap-2">
