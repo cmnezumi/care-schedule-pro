@@ -39,7 +39,7 @@ export default function MonitoringView({ clients, events, setEvents, careManager
     return events.filter(e => {
         const title = e.title || '';
         const type = e.extendedProps?.type || '';
-        const isMon = title.includes('モニタリング') || type.includes('モニタリング');
+        const isMon = title.includes('モニタリング') || type.includes('モニタリング') || type === 'monitoring';
         if (!isMon) return false;
         
         let start = e.start;
