@@ -144,18 +144,22 @@ const VisitModal = ({
 
         const selectedType = effectiveScheduleTypes.find(t => t.name === type || t.id === type);
         const backgroundColor = selectedType?.color || '#3b82f6';
+        
+        // Use the Japanese name for the title, and the ID for the type property
+        const typeNameToSave = selectedType ? selectedType.name : type;
+        const typeIdToSave = selectedType ? selectedType.id : type;
 
         const finalData = {
             id: editingEvent?.id,
             editTargetChoice,
-            title: isPersonal ? type : `${clients.find(c => c.id === clientId)?.name || ''}: ${type}`,
+            title: isPersonal ? typeNameToSave : `${clients.find(c => c.id === clientId)?.name || ''}: ${typeNameToSave}`,
             start: startIso,
             end: endIso,
             allDay,
             backgroundColor,
             extendedProps: {
                 clientId: isPersonal ? null : clientId,
-                type,
+                type: typeIdToSave,
                 notes,
                 isPersonal,
                 startTime,
@@ -207,16 +211,19 @@ const VisitModal = ({
         const selectedType = effectiveScheduleTypes.find(t => t.name === type || t.id === type);
         const backgroundColor = selectedType?.color || '#3b82f6';
 
+        const typeNameToSave = selectedType ? selectedType.name : type;
+        const typeIdToSave = selectedType ? selectedType.id : type;
+
         const copyData = {
             id: undefined, // Strip ID to create a new one
-            title: isPersonal ? type : `${clients.find(c => c.id === clientId)?.name || ''}: ${type}`,
+            title: isPersonal ? typeNameToSave : `${clients.find(c => c.id === clientId)?.name || ''}: ${typeNameToSave}`,
             start: startIso,
             end: endIso,
             allDay,
             backgroundColor,
             extendedProps: {
                 clientId: isPersonal ? null : clientId,
-                type,
+                type: typeIdToSave,
                 notes,
                 isPersonal,
                 startTime,

@@ -365,7 +365,7 @@ export default function Home() {
        const type = e.extendedProps?.type || '';
        const title = e.title || '';
        const isEngagingEvent = isPersonal || 
-          type === 'monitoring' || 
+          type === 'monitoring' || title.includes('モニタリング') ||
           type === 'office_work' ||
           type === 'conference' || title.includes('担当者会議') ||
           type === 'office_meeting' || title.includes('会議') ||
