@@ -145,14 +145,20 @@ const VisitModal = ({
         const selectedType = effectiveScheduleTypes.find(t => t.name === type || t.id === type);
         const backgroundColor = selectedType?.color || '#3b82f6';
         
-        // Use the Japanese name for the title, and the ID for the type property
         const typeNameToSave = selectedType ? selectedType.name : type;
         const typeIdToSave = selectedType ? selectedType.id : type;
+        
+        const clientName = clients.find(c => c.id === clientId)?.name || '';
+        const generatedTitle = isPersonal 
+            ? typeNameToSave 
+            : typeIdToSave === 'monitoring' 
+                ? `モニタリング: ${clientName}`
+                : `${clientName}: ${typeNameToSave}`;
 
         const finalData = {
             id: editingEvent?.id,
             editTargetChoice,
-            title: isPersonal ? typeNameToSave : `${clients.find(c => c.id === clientId)?.name || ''}: ${typeNameToSave}`,
+            title: generatedTitle,
             start: startIso,
             end: endIso,
             allDay,
@@ -214,9 +220,16 @@ const VisitModal = ({
         const typeNameToSave = selectedType ? selectedType.name : type;
         const typeIdToSave = selectedType ? selectedType.id : type;
 
+        const clientName = clients.find(c => c.id === clientId)?.name || '';
+        const generatedTitle = isPersonal 
+            ? typeNameToSave 
+            : typeIdToSave === 'monitoring' 
+                ? `モニタリング: ${clientName}`
+                : `${clientName}: ${typeNameToSave}`;
+
         const copyData = {
             id: undefined, // Strip ID to create a new one
-            title: isPersonal ? typeNameToSave : `${clients.find(c => c.id === clientId)?.name || ''}: ${typeNameToSave}`,
+            title: generatedTitle,
             start: startIso,
             end: endIso,
             allDay,
@@ -384,14 +397,14 @@ const VisitModal = ({
                                 ))}
                                 <button
                                     type="button" onClick={() => handleTypeSelect('free')}
-                                    className={`px-2 py-1.5 rounded-lg border text-[12px] font-bold transition-all ${type === '' || !effectiveScheduleTypes.some(t => t.name === type) ? 'bg-slate-700 text-white shadow-md' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
+                                    className={`px-2 py-1.5 rounded-lg border text-[12px] font-bold transition-all ${type === '' || !effectiveScheduleTypes.some(t => t.name === type || t.id === type) ? 'bg-slate-700 text-white shadow-md' : 'border-slate-100 bg-slate-50 text-slate-500'}`}
                                 >
                                     自由記載
                                 </button>
                             </div>
                         </div>
 
-                        {(type === '' || !effectiveScheduleTypes.some(t => t.name === type)) && (
+                        {(type === '' || !effectiveScheduleTypes.some(t => t.name === type || t.id === type)) && (
                             <div className="animate-in fade-in slide-in-from-top-1 duration-200">
                                 <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">カスタム予定名</label>
                                 <input
