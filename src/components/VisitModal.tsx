@@ -135,12 +135,18 @@ const VisitModal = ({
         const startIso = allDay ? dateStr : `${dateStr}T${startTime}:00`;
         const endIso = allDay ? dateStr : `${dateStr}T${endTime}:00`;
 
-        const effectiveScheduleTypes = scheduleTypes.length > 0 ? scheduleTypes : [
+        const defaultTypes = [
             { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
             { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
             { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
             { id: 'other', name: 'その他', color: '#64748b' }
         ];
+        const effectiveScheduleTypes = [...scheduleTypes];
+        defaultTypes.forEach(dt => {
+            if (!effectiveScheduleTypes.some(t => t.id === dt.id)) {
+                effectiveScheduleTypes.push(dt);
+            }
+        });
 
         const selectedType = effectiveScheduleTypes.find(t => t.name === type || t.id === type);
         const backgroundColor = selectedType?.color || '#3b82f6';
@@ -207,12 +213,18 @@ const VisitModal = ({
         const startIso = allDay ? dateStr : `${dateStr}T${startTime}:00`;
         const endIso = allDay ? dateStr : `${dateStr}T${endTime}:00`;
 
-        const effectiveScheduleTypes = scheduleTypes.length > 0 ? scheduleTypes : [
+        const defaultTypes = [
             { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
             { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
             { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
             { id: 'other', name: 'その他', color: '#64748b' }
         ];
+        const effectiveScheduleTypes = [...scheduleTypes];
+        defaultTypes.forEach(dt => {
+            if (!effectiveScheduleTypes.some(t => t.id === dt.id)) {
+                effectiveScheduleTypes.push(dt);
+            }
+        });
 
         const selectedType = effectiveScheduleTypes.find(t => t.name === type || t.id === type);
         const backgroundColor = selectedType?.color || '#3b82f6';
@@ -272,12 +284,18 @@ const VisitModal = ({
         year: 'numeric', month: 'long', day: 'numeric', weekday: 'short'
     }) : '';
 
-    const effectiveScheduleTypes = scheduleTypes.length > 0 ? scheduleTypes : [
+    const defaultTypes = [
         { id: 'monitoring', name: 'モニタリング', color: '#0ea5e9' },
         { id: 'assessment', name: 'アセスメント', color: '#f43f5e' },
         { id: 'conference', name: '担当者会議', color: '#8b5cf6' },
         { id: 'other', name: 'その他', color: '#64748b' }
     ];
+    const effectiveScheduleTypes = [...scheduleTypes];
+    defaultTypes.forEach(dt => {
+        if (!effectiveScheduleTypes.some(t => t.id === dt.id)) {
+            effectiveScheduleTypes.push(dt);
+        }
+    });
 
     const handleClinicSelect = (clinicId: string) => {
         const clinic = clinics.find(c => c.id === clinicId);
