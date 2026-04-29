@@ -7,7 +7,7 @@ const PRESET_COLORS = [
     '#ec4899', '#f97316', '#f59e0b', '#eab308', '#22c55e', '#10b981',
     '#14b8a6', '#64748b'
 ];
-import { Client, ScheduleType, Clinic } from '@/types';
+import { Client, ScheduleType, Clinic, Routine } from '@/types';
 import UserModal from './UserModal';
 
 interface SettingsProps {
@@ -22,6 +22,10 @@ interface SettingsProps {
     onAddClinic: (data: any) => void;
     onUpdateClinic: (id: string, data: any) => void;
     onDeleteClinic: (id: string) => void;
+    routines?: Routine[];
+    onAddRoutine?: (data: Omit<Routine, 'id'>) => void;
+    onUpdateRoutine?: (id: string, data: Omit<Routine, 'id'>) => void;
+    onDeleteRoutine?: (id: string) => void;
     careManagerId: string;
 }
 
@@ -29,10 +33,11 @@ const Settings = ({
     clients: allClients, onAddClient, onUpdateClient, onDeleteClient,
     scheduleTypes, onAddScheduleType, onDeleteScheduleType,
     clinics, onAddClinic, onUpdateClinic, onDeleteClinic,
+    routines = [], onAddRoutine, onUpdateRoutine, onDeleteRoutine,
     careManagerId
 }: SettingsProps) => {
     const clients = allClients.filter(c => c.careManagerId === careManagerId);
-    const [activeTab, setActiveTab] = useState<'users' | 'scheduleTypes' | 'clinics'>('users');
+    const [activeTab, setActiveTab] = useState<'users' | 'scheduleTypes' | 'clinics' | 'routines'>('users');
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
 
@@ -67,6 +72,30 @@ const Settings = ({
         setNewClinicDay(1);
         setNewClinicStartTime('10:00');
         setNewClinicEndTime('11:00');
+    };
+
+    // Routine State
+    const [editingRoutineId, setEditingRoutineId] = useState<string | null>(null);
+    const [newRoutineName, setNewRoutineName] = useState('');
+    const [newRoutineMemo, setNewRoutineMemo] = useState('');
+    const [newRoutineDay, setNewRoutineDay] = useState<number>(1);
+    const [newRoutineColor, setNewRoutineColor] = useState(PRESET_COLORS[0]);
+
+    const handleEditRoutine = (routine: Routine) => {
+        setNewRoutineName(routine.name);
+        setNewRoutineMemo(routine.memo || '');
+        setNewRoutineDay(routine.targetDay);
+        setNewRoutineColor(routine.color);
+        setEditingRoutineId(routine.id);
+        setActiveTab('routines');
+    };
+
+    const handleCancelEditRoutine = () => {
+        setEditingRoutineId(null);
+        setNewRoutineName('');
+        setNewRoutineMemo('');
+        setNewRoutineDay(1);
+        setNewRoutineColor(PRESET_COLORS[0]);
     };
 
     const handleEditClient = (client: Client) => {
@@ -137,6 +166,26 @@ const Settings = ({
         );
     };
 
+    const handleAddRoutine = () => {
+        if (!newRoutineName) return;
+        const data = {
+            name: newRoutineName,
+            memo: newRoutineMemo,
+            targetDay: newRoutineDay,
+            color: newRoutineColor
+        };
+        if (editingRoutineId && onUpdateRoutine) {
+            onUpdateRoutine(editingRoutineId, data);
+            setEditingRoutineId(null);
+        } else if (onAddRoutine) {
+            onAddRoutine(data);
+        }
+        setNewRoutineName('');
+        setNewRoutineMemo('');
+        setNewRoutineDay(1);
+        setNewRoutineColor(PRESET_COLORS[0]);
+    };
+
     return (
         <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
             <div className="flex border-b border-slate-100">
@@ -157,6 +206,12 @@ const Settings = ({
                     className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'clinics' ? 'text-[var(--primary-color)] border-b-2 border-[var(--primary-color)]' : 'text-slate-500 hover:text-slate-700'}`}
                 >
                     往診クリニックマスタ
+                </button>
+                <button
+                    onClick={() => setActiveTab('routines')}
+                    className={`px-6 py-3 text-sm font-medium transition-colors ${activeTab === 'routines' ? 'text-[var(--primary-color)] border-b-2 border-[var(--primary-color)]' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                    ルーティン業務マスタ
                 </button>
                 <button
                     onClick={() => setActiveTab('danger' as any)}
@@ -482,6 +537,129 @@ const Settings = ({
                                         <div className="flex items-center justify-between text-xs font-bold text-slate-400 mt-auto pt-3 border-t border-slate-50">
                                             <span>{['日', '月', '火', '水', '木', '金', '土'][clinic.dayOfWeek]}曜日</span>
                                             <span className="bg-slate-50 px-2 py-0.5 rounded text-slate-500">{clinic.startTime} 〜 {clinic.endTime}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'routines' && (
+                <div className="p-6 flex flex-col h-full bg-slate-50/30">
+                    <div className="mb-6 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 rounded-full ${editingRoutineId ? 'bg-amber-500' : 'bg-sky-500'}`} />
+                            {editingRoutineId ? 'ルーティン業務の編集' : '新しいルーティン業務を追加'}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                            <div className="md:col-span-3">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">表示名（略語）</label>
+                                <input
+                                    type="text"
+                                    value={newRoutineName}
+                                    onChange={(e) => setNewRoutineName(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500/20 outline-none transition-all"
+                                    placeholder="例: 請求, 包括提出..."
+                                />
+                            </div>
+                            <div className="md:col-span-2">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">予定日</label>
+                                <select
+                                    value={newRoutineDay}
+                                    onChange={(e) => setNewRoutineDay(parseInt(e.target.value))}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm outline-none bg-white"
+                                >
+                                    {[...Array(31)].map((_, i) => (
+                                        <option key={i} value={i + 1}>{i + 1}日</option>
+                                    ))}
+                                    <option value={99}>月末</option>
+                                </select>
+                            </div>
+                            <div className="md:col-span-12">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">カラー選択</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {PRESET_COLORS.map(color => (
+                                        <button
+                                            key={color}
+                                            onClick={() => setNewRoutineColor(color)}
+                                            style={{ backgroundColor: color }}
+                                            className={`w-8 h-8 rounded-full transition-all ${newRoutineColor === color ? 'ring-2 ring-offset-2 ring-sky-500 scale-110' : 'hover:scale-110 shadow-sm border border-black/10'}`}
+                                            title="色を選択"
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="md:col-span-12">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider">詳細メモ（手順など）</label>
+                                <textarea
+                                    value={newRoutineMemo}
+                                    onChange={(e) => setNewRoutineMemo(e.target.value)}
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-sky-500/20 outline-none transition-all min-h-[80px]"
+                                    placeholder="例: 1. 伝送データ作成 2. 国保連へ送信..."
+                                />
+                            </div>
+                            <div className="md:col-span-12 flex items-end gap-2 justify-end">
+                                {editingRoutineId && (
+                                    <button
+                                        onClick={handleCancelEditRoutine}
+                                        className="px-6 py-3 bg-slate-100 text-slate-500 rounded-xl hover:bg-slate-200 transition-all font-bold text-sm"
+                                    >
+                                        取消
+                                    </button>
+                                )}
+                                <button
+                                    onClick={handleAddRoutine}
+                                    disabled={!newRoutineName}
+                                    className={`px-8 py-3 ${editingRoutineId ? 'bg-amber-500 hover:bg-amber-600 shadow-amber-100' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-100'} text-white rounded-xl disabled:opacity-30 transition-all font-bold text-sm shadow-lg active:scale-95`}
+                                >
+                                    {editingRoutineId ? '更新' : '登録'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex-grow overflow-auto">
+                        <h3 className="font-bold text-slate-700 mb-4 flex items-center gap-2">
+                            <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                            登録済みのルーティン一覧
+                        </h3>
+                        {routines.length === 0 ? (
+                            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
+                                まだルーティン業務が登録されていません
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {routines.map(routine => (
+                                    <div key={routine.id} className="group bg-white p-5 rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all relative flex flex-col">
+                                        <div className="absolute top-3 right-3 flex gap-1">
+                                            <button
+                                                onClick={() => handleEditRoutine(routine)}
+                                                className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all"
+                                                title="編集"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                            </button>
+                                            <button
+                                                onClick={() => { if (onDeleteRoutine && confirm(`「${routine.name}」を削除しますか？`)) onDeleteRoutine(routine.id); }}
+                                                className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                title="削除"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                        </div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <div className="w-3 h-3 rounded-full flex-none" style={{ backgroundColor: routine.color }} />
+                                            <div className="font-bold text-slate-800 text-lg truncate pr-16">{routine.name}</div>
+                                        </div>
+                                        <div className="flex items-center gap-1.5 mb-3">
+                                            <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold">
+                                                予定日: {routine.targetDay === 99 ? '月末' : `${routine.targetDay}日`}
+                                            </span>
+                                        </div>
+                                        <div className="text-xs text-slate-500 whitespace-pre-wrap flex-grow bg-slate-50 p-2 rounded-lg border border-slate-100">
+                                            {routine.memo || 'メモなし'}
                                         </div>
                                     </div>
                                 ))}

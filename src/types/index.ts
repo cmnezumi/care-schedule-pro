@@ -47,3 +47,11 @@ export interface Clinic {
     startTime: string;      // HH:mm
     endTime: string;        // HH:mm
 }
+
+export interface Routine {
+    id: string;
+    name: string;      // Abbreviated name for the calendar
+    memo: string;      // Detailed description
+    targetDay: number; // 1-31, or 99 for end of month
+    color: string;     // Color code for the badge
+}

@@ -8,9 +8,10 @@ interface EventPreviewModalProps {
   event: any;
   clients: Client[];
   onEdit: () => void;
+  onToggleComplete?: (event: any, newStatus: string) => void;
 }
 
-export default function EventPreviewModal({ isOpen, onClose, event, clients, onEdit }: EventPreviewModalProps) {
+export default function EventPreviewModal({ isOpen, onClose, event, clients, onEdit, onToggleComplete }: EventPreviewModalProps) {
   if (!isOpen || !event) return null;
 
   const isFCEvent = !!event.extendedProps;
@@ -71,9 +72,23 @@ export default function EventPreviewModal({ isOpen, onClose, event, clients, onE
                             <span className="font-medium">{client.name} 様</span>
                         </div>
                     )}
-                    {props.memo && (
+                    {(props.notes || props.memo) && (
                         <div className="flex items-start gap-2 pt-2 border-t border-slate-200 mt-1">
-                            <span className="text-slate-700 whitespace-pre-wrap">{props.memo}</span>
+                            <span className="text-slate-700 whitespace-pre-wrap">{props.notes || props.memo}</span>
+                        </div>
+                    )}
+                    
+                    {onToggleComplete && (
+                        <div 
+                            className="flex items-center gap-2 pt-2 border-t border-slate-200 mt-1 cursor-pointer select-none" 
+                            onClick={() => onToggleComplete(event, isCompleted ? 'scheduled' : 'completed')}
+                        >
+                            <div className={`w-5 h-5 rounded flex items-center justify-center transition-colors ${isCompleted ? 'bg-emerald-500' : 'bg-white border-2 border-slate-300'}`}>
+                                {isCompleted && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={4} d="M5 13l4 4L19 7" /></svg>}
+                            </div>
+                            <span className={`font-bold ${isCompleted ? 'text-emerald-600' : 'text-slate-600'}`}>
+                                {isCompleted ? '実績あり（完了済）' : '未完了'}
+                            </span>
                         </div>
                     )}
                 </div>

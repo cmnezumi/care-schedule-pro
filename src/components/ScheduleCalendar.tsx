@@ -293,14 +293,16 @@ const ScheduleCalendar = ({
                       if (onEventClick) onEventClick({ event: e, isManual: true });
                     };
 
+                    const isCompleted = e.extendedProps?.status === 'completed' || e.status === 'completed';
+
                     if (yellowNames.includes(typeName)) {
-                      return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-yellow">{typeName}</span>;
+                      return <span key={idx} onClick={handleBadgeClick} className={`status-badge status-badge-yellow ${isCompleted ? 'opacity-50 line-through' : ''}`}>{typeName}</span>;
                     }
                     if (typeName === '事業所会議' || typeName === '担当者会議') {
-                      return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-orange">会議</span>;
+                      return <span key={idx} onClick={handleBadgeClick} className={`status-badge status-badge-orange ${isCompleted ? 'opacity-50 line-through' : ''}`}>会議</span>;
                     }
                     if (typeName === 'テレワーク') {
-                      return <span key={idx} onClick={handleBadgeClick} className="status-badge status-badge-green">テレ</span>;
+                      return <span key={idx} onClick={handleBadgeClick} className={`status-badge status-badge-green ${isCompleted ? 'opacity-50 line-through' : ''}`}>テレ</span>;
                     }
 
                     // Fallback: Show as a generic badge using its color for any other personal types
@@ -308,11 +310,12 @@ const ScheduleCalendar = ({
                       <span
                         key={idx}
                         onClick={handleBadgeClick}
-                        className="status-badge"
+                        className={`status-badge ${isCompleted ? 'opacity-50' : ''}`}
                         style={{
                           backgroundColor: (e as any).backgroundColor || '#94a3b8',
                           color: 'white',
-                          border: 'none'
+                          border: 'none',
+                          textDecoration: isCompleted ? 'line-through' : 'none'
                         }}
                       >
                         {typeName.length > 2 ? typeName.substring(0, 2) : typeName}

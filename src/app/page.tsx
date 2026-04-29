@@ -11,7 +11,7 @@ import DeletionChoiceModal from "@/components/DeletionChoiceModal";
 import MonitoringView from "@/components/MonitoringView";
 import EventPreviewModal from "@/components/EventPreviewModal";
 import { supabase } from "@/lib/supabase";
-import { Client, ScheduleType, CareManager, Clinic } from "@/types";
+import { Client, ScheduleType, CareManager, Clinic, Routine } from "@/types";
 import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsIcon, CheckSquare } from "lucide-react";
 
 type TabType = 'settings' | 'schedule' | 'conference' | 'shift' | 'monitoring';
@@ -56,6 +56,7 @@ export default function Home() {
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [scheduleTypes, setScheduleTypes] = useState<ScheduleType[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+  const [routines, setRoutines] = useState<Routine[]>([]);
 
   useEffect(() => {
     setHasMounted(true);
@@ -66,11 +67,12 @@ export default function Home() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        const [usersRes, typesRes, eventsRes, clinicsRes] = await Promise.all([
+        const [usersRes, typesRes, eventsRes, clinicsRes, routinesRes] = await Promise.all([
           fetch('/api/users'),
           fetch('/api/schedule-types'),
           fetch('/api/events'),
-          fetch('/api/clinics')
+          fetch('/api/clinics'),
+          fetch('/api/routines')
         ]);
 
         const usersData = await usersRes.json();
@@ -86,8 +88,18 @@ export default function Home() {
           console.error("Failed to parse clinics data", e);
         }
 
+        let routinesData = [];
+        try {
+          if (routinesRes.ok) {
+            routinesData = await routinesRes.json();
+          }
+        } catch (e) {
+          console.error("Failed to parse routines data", e);
+        }
+
         setClients(Array.isArray(usersData) ? sortClients50On(usersData) : []);
         setClinics(Array.isArray(clinicsData) ? clinicsData : []);
+        setRoutines(Array.isArray(routinesData) ? routinesData : []);
 
         let loadedTypes = Array.isArray(typesData) ? typesData : [];
         if (loadedTypes.length === 0) {
@@ -274,6 +286,51 @@ export default function Home() {
     }
   };
 
+  const handleToggleComplete = async (event: any, newStatus: string) => {
+    const isFCEvent = !!event.extendedProps;
+    const props = isFCEvent ? event.extendedProps : event;
+    const realId = event.id;
+
+    const updatedEvents = events.map(e => {
+        if (e.id === realId) {
+            return {
+                ...e,
+                extendedProps: { ...e.extendedProps, status: newStatus },
+                status: newStatus
+            };
+        }
+        return e;
+    });
+    setEvents(updatedEvents);
+    
+    setEditingEvent((prev: any) => prev ? { ...prev, extendedProps: { ...prev.extendedProps, status: newStatus }, status: newStatus } : prev);
+
+    try {
+        const updatedPayload = {
+            id: realId,
+            title: event.title,
+            allDay: event.allDay,
+            start: event.startStr || event.start,
+            end: event.endStr || event.end || event.startStr || event.start,
+            backgroundColor: event.backgroundColor,
+            extendedProps: {
+                ...props,
+                status: newStatus
+            }
+        };
+
+        await fetch('/api/events', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedPayload)
+        });
+    } catch(err) {
+        console.error("Failed to update status", err);
+        const res = await fetch('/api/events');
+        setEvents(await res.json());
+    }
+  };
+
   const handleAddClient = async (data: any) => {
     await fetch('/api/users', { method: 'POST', body: JSON.stringify(data) });
     const res = await fetch('/api/users');
@@ -348,6 +405,121 @@ export default function Home() {
       }
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleAddRoutine = async (data: any) => {
+    try {
+      const newRoutine = { ...data, id: Date.now().toString() };
+      const updatedRoutines = [...routines, newRoutine];
+      const res = await fetch('/api/routines', {
+        method: 'POST',
+        body: JSON.stringify(updatedRoutines),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error('Save failed');
+      setRoutines(updatedRoutines);
+    } catch (e) {
+      console.error(e);
+      alert("登録に失敗しました。");
+    }
+  };
+
+  const handleUpdateRoutine = async (id: string, data: any) => {
+    try {
+      const updatedRoutines = routines.map(r => r.id === id ? { ...data, id } : r);
+      const res = await fetch('/api/routines', {
+        method: 'POST',
+        body: JSON.stringify(updatedRoutines),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error('Update failed');
+      setRoutines(updatedRoutines);
+    } catch (e) {
+      console.error(e);
+      alert("更新に失敗しました。");
+    }
+  };
+
+  const handleDeleteRoutine = async (id: string) => {
+    try {
+      const updatedRoutines = routines.filter(r => r.id !== id);
+      const res = await fetch('/api/routines', {
+        method: 'POST',
+        body: JSON.stringify(updatedRoutines),
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) throw new Error('Delete failed');
+      setRoutines(updatedRoutines);
+    } catch (e) {
+      console.error(e);
+      alert("削除に失敗しました。");
+    }
+  };
+
+  const handleDeployRoutines = async () => {
+    if (routines.length === 0) {
+       alert("先に「設定」画面の「ルーティン業務マスタ」からルーティンを登録してください。");
+       return;
+    }
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みのルーティン業務（${routines.length}件）を一括展開しますか？`);
+    if (!confirmDeploy) return;
+
+    setIsSaving(true);
+    try {
+        let createdCount = 0;
+        for (const routine of routines) {
+            let date = routine.targetDay;
+            if (date === 99) {
+                const nextMonth = new Date(year, month + 1, 1);
+                nextMonth.setDate(0);
+                date = nextMonth.getDate();
+            } else {
+                const lastDay = new Date(year, month + 1, 0).getDate();
+                if (date > lastDay) date = lastDay;
+            }
+
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
+            
+            const eventPayload = {
+                title: routine.name,
+                type: 'routine',
+                start: `${dateStr}T10:00:00`,
+                end: `${dateStr}T11:00:00`,
+                allDay: false,
+                clientId: 'personal',
+                clientName: '個人の予定',
+                backgroundColor: routine.color,
+                notes: routine.memo,
+                extendedProps: {
+                    isPersonal: true,
+                    type: 'routine',
+                    careManagerId: selectedCareManagerId,
+                    status: 'scheduled'
+                }
+            };
+
+            await fetch('/api/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventPayload)
+            });
+            createdCount++;
+        }
+
+        const res = await fetch('/api/events');
+        setEvents(await res.json());
+        alert(`${createdCount}件のルーティン予定を展開しました。`);
+    } catch (e) {
+        console.error(e);
+        alert('ルーティン展開中にエラーが発生しました。');
+    } finally {
+        setIsSaving(false);
     }
   };
 
@@ -432,18 +604,27 @@ export default function Home() {
               <div className="flex items-center justify-between px-2 landscape:hidden md:landscape:flex">
                 <div className="flex items-center gap-4">
                   <h2 className="text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
-                  <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
-                     <span className="text-xs md:text-sm font-bold text-slate-600">自分の予定のみ</span>
-                     <div className={`w-8 h-4 rounded-full relative transition-colors border shadow-inner ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}>
-                        <div className={`w-3 h-3 bg-white rounded-full absolute top-[1px] left-[1px] transition-transform shadow-sm ${showOnlyMySchedule ? 'translate-x-[16px]' : ''}`} />
-                     </div>
-                     <input 
-                         type="checkbox" 
-                         className="hidden" 
-                         checked={showOnlyMySchedule} 
-                         onChange={(e) => setShowOnlyMySchedule(e.target.checked)} 
-                     />
-                  </label>
+                  <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleDeployRoutines}
+                        className="bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
+                    >
+                        <Repeat size={14} />
+                        ルーティン展開
+                    </button>
+                    <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
+                       <span className="text-xs md:text-sm font-bold text-slate-600">自分の予定のみ</span>
+                       <div className={`w-8 h-4 rounded-full relative transition-colors border shadow-inner ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}>
+                          <div className={`w-3 h-3 bg-white rounded-full absolute top-[1px] left-[1px] transition-transform shadow-sm ${showOnlyMySchedule ? 'translate-x-[16px]' : ''}`} />
+                       </div>
+                       <input 
+                           type="checkbox" 
+                           className="hidden" 
+                           checked={showOnlyMySchedule} 
+                           onChange={(e) => setShowOnlyMySchedule(e.target.checked)} 
+                       />
+                    </label>
+                  </div>
                 </div>
               </div>
               <div className="h-[calc(100dvh-160px)] md:h-[calc(100dvh-200px)] min-h-[300px] w-full rounded-2xl md:rounded-3xl border border-slate-200 bg-white p-2 md:p-4 shadow-xl overflow-hidden">
@@ -504,6 +685,10 @@ export default function Home() {
               onAddClinic={handleAddClinic}
               onUpdateClinic={handleUpdateClinic}
               onDeleteClinic={handleDeleteClinic}
+              routines={routines}
+              onAddRoutine={handleAddRoutine}
+              onUpdateRoutine={handleUpdateRoutine}
+              onDeleteRoutine={handleDeleteRoutine}
               careManagerId={selectedCareManagerId}
             />
           )}
@@ -541,6 +726,7 @@ export default function Home() {
         event={editingEvent}
         clients={clients}
         onEdit={handleEditFromPreview}
+        onToggleComplete={handleToggleComplete}
       />
 
       <EditChoiceModal

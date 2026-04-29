@@ -69,7 +69,8 @@ const VisitModal = ({
                 
                 // Set form state from either top level or extendedProps
                 setClientId(props.clientId || editingEvent.clientId || '');
-                setType(props.type || editingEvent.type || '');
+                const eventType = props.type || editingEvent.type || '';
+                setType(eventType === 'routine' ? (editingEvent.title || '') : eventType);
                 setStartTime(props.startTime || editingEvent.startTime || '10:00');
                 setEndTime(props.endTime || editingEvent.endTime || '11:00');
                 setNotes(props.notes || editingEvent.notes || '');
@@ -359,14 +360,12 @@ const VisitModal = ({
                             </div>
                         </div>
 
-                        {!isPersonal && (
-                            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between mb-1">
-                                <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
-                                    <input type="checkbox" className="w-4 h-4 text-emerald-500 rounded border-slate-300" checked={status === 'completed'} onChange={(e) => setStatus(e.target.checked ? 'completed' : 'scheduled')} />
-                                    訪問済（実績）
-                                </label>
-                            </div>
-                        )}
+                        <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between mb-1">
+                            <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
+                                <input type="checkbox" className="w-4 h-4 text-emerald-500 rounded border-slate-300" checked={status === 'completed'} onChange={(e) => setStatus(e.target.checked ? 'completed' : 'scheduled')} />
+                                実績あり（完了済）
+                            </label>
+                        </div>
 
                         {!isPersonal && (
                             <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-3">
