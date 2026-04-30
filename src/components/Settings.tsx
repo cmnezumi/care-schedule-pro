@@ -36,7 +36,9 @@ const Settings = ({
     routines = [], onAddRoutine, onUpdateRoutine, onDeleteRoutine,
     careManagerId
 }: SettingsProps) => {
-    const clients = allClients.filter(c => c.careManagerId === careManagerId);
+    const clients = careManagerId === 'all' 
+        ? allClients 
+        : allClients.filter(c => c.careManagerId === careManagerId || (!c.careManagerId && careManagerId === 'cm1'));
     const [activeTab, setActiveTab] = useState<'users' | 'scheduleTypes' | 'clinics' | 'routines'>('users');
     const [isUserModalOpen, setIsUserModalOpen] = useState(false);
     const [editingClient, setEditingClient] = useState<Client | null>(null);
@@ -111,10 +113,11 @@ const Settings = ({
 
     const handleSaveClient = (data: Omit<Client, 'id'>) => {
         if (editingClient) {
-            onUpdateClient(editingClient.id, data);
+            onUpdateClient(editingClient.id, { ...data, careManagerId: editingClient.careManagerId });
         } else {
-            onAddClient(data);
+            onAddClient({ ...data, careManagerId: careManagerId === 'all' ? 'cm1' : careManagerId });
         }
+        setIsUserModalOpen(false);
     };
 
     const handleCloseUserModal = () => {
