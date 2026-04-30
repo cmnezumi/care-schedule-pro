@@ -52,6 +52,14 @@ export default function MonitoringView({ clients, events, setEvents, careManager
     }).sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
   }, [events, targetMonthStr]);
 
+  const scheduledClientIds = useMemo(() => {
+      return monitoringEvents.map(e => String(e.extendedProps?.clientId || e.clientId));
+  }, [monitoringEvents]);
+
+  const unscheduledClients = useMemo(() => {
+      return clients.filter(c => !scheduledClientIds.includes(String(c.id)));
+  }, [clients, scheduledClientIds]);
+
   const handleToggleStatus = async (evt: any) => {
     const isPersonal = evt.extendedProps?.isPersonal || evt.isPersonal;
     if (isPersonal) return;
@@ -218,7 +226,7 @@ export default function MonitoringView({ clients, events, setEvents, careManager
             <h3 className="text-sm font-bold text-sky-700 p-3 border-b border-sky-100 bg-sky-50/50 flex items-center gap-2">
                 <CalendarIcon size={16} /> 【今月】プラン更新対象
             </h3>
-            <div className="overflow-y-auto custom-scrollbar flex-1 p-2">
+            <div className="overflow-y-auto custom-scrollbar flex-1 p-2 max-h-48 lg:max-h-none">
                 {renewalClients.length > 0 ? renewalClients.map(c => (
                     <div key={c.id} className="p-2 border-b border-slate-100 last:border-0 rounded-lg">
                         <div className="font-bold text-sm text-slate-700 flex items-center gap-2">
@@ -231,6 +239,31 @@ export default function MonitoringView({ clients, events, setEvents, careManager
                     </div>
                 )) : (
                     <div className="text-center p-4 text-xs text-slate-400">対象者はいません</div>
+                )}
+            </div>
+        </div>
+
+        {/* 未作成の利用者 */}
+        <div className="bg-white rounded-2xl border border-slate-200 flex-1 flex flex-col shadow-sm overflow-hidden hidden lg:flex">
+            <h3 className="text-sm font-bold text-rose-700 p-3 border-b border-rose-100 bg-rose-50/50 flex items-center gap-2">
+                <CalendarIcon size={16} /> 未配置の利用者 ({unscheduledClients.length}名)
+            </h3>
+            <div className="overflow-y-auto custom-scrollbar flex-1 p-2">
+                {unscheduledClients.length > 0 ? unscheduledClients.map(c => (
+                    <div key={c.id} className="p-2 border-b border-slate-100 last:border-0 rounded-lg">
+                        <div className="font-bold text-sm text-slate-700 flex items-center gap-2">
+                            <User size={14} className="text-rose-400" />
+                            {c.name} 様
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-1 ml-6 flex gap-2">
+                            <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-600">{c.careLevel}</span>
+                        </div>
+                    </div>
+                )) : (
+                    <div className="text-center p-6 text-xs text-slate-400 font-bold flex flex-col items-center gap-2">
+                        <CheckCircle2 size={24} className="text-emerald-400" />
+                        全員配置済みです！
+                    </div>
                 )}
             </div>
         </div>
