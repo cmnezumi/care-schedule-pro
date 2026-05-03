@@ -82,12 +82,14 @@ const Settings = ({
     const [newRoutineMemo, setNewRoutineMemo] = useState('');
     const [newRoutineDay, setNewRoutineDay] = useState<number>(1);
     const [newRoutineColor, setNewRoutineColor] = useState(PRESET_COLORS[0]);
+    const [newRoutineMonths, setNewRoutineMonths] = useState<number[]>([]); // Empty means all months
 
     const handleEditRoutine = (routine: Routine) => {
         setNewRoutineName(routine.name);
         setNewRoutineMemo(routine.memo || '');
         setNewRoutineDay(routine.targetDay);
         setNewRoutineColor(routine.color);
+        setNewRoutineMonths(routine.targetMonths || []);
         setEditingRoutineId(routine.id);
         setActiveTab('routines');
     };
@@ -98,6 +100,7 @@ const Settings = ({
         setNewRoutineMemo('');
         setNewRoutineDay(1);
         setNewRoutineColor(PRESET_COLORS[0]);
+        setNewRoutineMonths([]);
     };
 
     const handleEditClient = (client: Client) => {
@@ -175,7 +178,8 @@ const Settings = ({
             name: newRoutineName,
             memo: newRoutineMemo,
             targetDay: newRoutineDay,
-            color: newRoutineColor
+            color: newRoutineColor,
+            targetMonths: newRoutineMonths.length > 0 ? newRoutineMonths : undefined
         };
         if (editingRoutineId && onUpdateRoutine) {
             onUpdateRoutine(editingRoutineId, data);
@@ -187,6 +191,7 @@ const Settings = ({
         setNewRoutineMemo('');
         setNewRoutineDay(1);
         setNewRoutineColor(PRESET_COLORS[0]);
+        setNewRoutineMonths([]);
     };
 
     return (
@@ -581,6 +586,32 @@ const Settings = ({
                                 </select>
                             </div>
                             <div className="md:col-span-12">
+                                <label className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">対象月（空欄の場合は毎月展開されます）</label>
+                                <div className="flex flex-wrap gap-2">
+                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map(m => (
+                                        <button
+                                            key={m}
+                                            onClick={() => {
+                                                setNewRoutineMonths(prev => 
+                                                    prev.includes(m) ? prev.filter(month => month !== m) : [...prev, m].sort((a, b) => a - b)
+                                                );
+                                            }}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${newRoutineMonths.includes(m) ? 'bg-indigo-500 text-white border-indigo-400 shadow-sm' : 'bg-white text-slate-500 border-slate-200 hover:border-indigo-300'}`}
+                                        >
+                                            {m}月
+                                        </button>
+                                    ))}
+                                    {newRoutineMonths.length > 0 && (
+                                        <button 
+                                            onClick={() => setNewRoutineMonths([])}
+                                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-rose-500 hover:bg-rose-50 transition-all border border-transparent"
+                                        >
+                                            クリア（毎月に設定）
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="md:col-span-12">
                                 <label className="block text-[11px] font-bold text-slate-400 mb-2 uppercase tracking-wider">カラー選択</label>
                                 <div className="flex flex-wrap gap-2">
                                     {PRESET_COLORS.map(color => (
@@ -656,9 +687,12 @@ const Settings = ({
                                             <div className="w-3 h-3 rounded-full flex-none" style={{ backgroundColor: routine.color }} />
                                             <div className="font-bold text-slate-800 text-lg truncate pr-16">{routine.name}</div>
                                         </div>
-                                        <div className="flex items-center gap-1.5 mb-3">
+                                        <div className="flex flex-wrap items-center gap-1.5 mb-3">
                                             <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded-md text-[10px] font-bold">
                                                 予定日: {routine.targetDay === 99 ? '月末' : `${routine.targetDay}日`}
+                                            </span>
+                                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold ${routine.targetMonths && routine.targetMonths.length > 0 ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                                {routine.targetMonths && routine.targetMonths.length > 0 ? `${routine.targetMonths.join(', ')}月` : '毎月'}
                                             </span>
                                         </div>
                                         <div className="text-xs text-slate-500 whitespace-pre-wrap flex-grow bg-slate-50 p-2 rounded-lg border border-slate-100">

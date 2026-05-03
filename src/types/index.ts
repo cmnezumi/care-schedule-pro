@@ -54,4 +54,5 @@ export interface Routine {
     memo: string;      // Detailed description
     targetDay: number; // 1-31, or 99 for end of month
     color: string;     // Color code for the badge
+    targetMonths?: number[]; // [1, 2, ..., 12], if undefined or empty, means every month
 }

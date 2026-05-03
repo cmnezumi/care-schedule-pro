@@ -473,7 +473,16 @@ export default function Home() {
     setIsSaving(true);
     try {
         let createdCount = 0;
+        const currentMonthNum = month + 1;
+        
         for (const routine of routines) {
+            // Check if routine is applicable for this month
+            if (routine.targetMonths && routine.targetMonths.length > 0) {
+                if (!routine.targetMonths.includes(currentMonthNum)) {
+                    continue; // Skip if not in target months
+                }
+            }
+
             let date = routine.targetDay;
             if (date === 99) {
                 const nextMonth = new Date(year, month + 1, 1);
