@@ -158,7 +158,7 @@ export default function MonitoringView({ clients, events, setEvents, careManager
       });
       
       const newMonitoring = generateMonitoringSchedule(targetClients, targetMonthStr, monthShifts, monthTelework, currentMonthDbEvents);
-      const newPreps = generatePrepEvents(targetMonthStr, monthShifts, currentMonthDbEvents);
+      const newPreps = generatePrepEvents(targetMonthStr, monthShifts, monthTelework, currentMonthDbEvents);
       
       const newEvents = [...newMonitoring, ...newPreps];
       

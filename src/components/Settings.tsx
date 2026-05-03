@@ -92,6 +92,7 @@ const Settings = ({
         setNewRoutineMonths(routine.targetMonths || []);
         setEditingRoutineId(routine.id);
         setActiveTab('routines');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     const handleCancelEditRoutine = () => {

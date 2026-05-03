@@ -219,6 +219,7 @@ export function generateMonitoringSchedule(
 export function generatePrepEvents(
     monthStr: string,
     shifts: Record<string, string>,
+    telework: Record<string, boolean>,
     events: any[]
 ): any[] {
     const [year, month] = monthStr.split('-').map(Number);
@@ -228,6 +229,10 @@ export function generatePrepEvents(
         if (day < 1) return false;
         const dIdx = day - 1;
         const shiftStatus = shifts[`0-${dIdx}`]; 
+        const isTele = telework[`0-${dIdx}`] === true;
+        
+        if (isTele) return false; // Telework is not for office-based prep work
+
         if (!shiftStatus) {
             const dayOfWeek = new Date(year, month - 1, day).getDay();
             return dayOfWeek !== 0 && dayOfWeek !== 6;
