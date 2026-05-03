@@ -721,7 +721,7 @@ export default function Home() {
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
         editingEvent={editingEvent}
-        clients={clients.filter(c => c.careManagerId === selectedCareManagerId)}
+        clients={filteredClients}
         scheduleTypes={scheduleTypes}
         clinics={clinics}
         editTargetChoice={editTargetChoice}
