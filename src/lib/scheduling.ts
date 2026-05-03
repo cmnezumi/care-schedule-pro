@@ -53,8 +53,8 @@ export function generateMonitoringSchedule(
     const events: any[] = [];
     let eventIdCounter = 1;
 
-    // Time slots for a day (5 people max: avoiding 12:00-13:30, strictly 5 slots per user request)
-    const allTimeSlots = ["10:00", "11:00", "13:30", "14:30", "15:30"];
+    // Time slots for a day (6 people max: avoiding 12:00-13:30, strictly 6 slots per user request)
+    const allTimeSlots = ["10:00", "11:00", "13:30", "14:15", "15:00", "15:45"];
 
     // A map to track who is assigned to which day and which slots are free for the CM
     const calendar: { [day: number]: { assigned: Client[], cmFreeSlots: string[] } } = {};
@@ -75,9 +75,9 @@ export function generateMonitoringSchedule(
             return !dayCMEvents.some(e => {
                 if (e.allDay) return false; // all day events don't block specific time slots
                 const eStart = new Date(e.start);
-                const eEnd = e.end ? new Date(e.end) : new Date(eStart.getTime() + 45*60*1000); // 45 mins duration for conflict check
+                const eEnd = e.end ? new Date(e.end) : new Date(eStart.getTime() + 30*60*1000); // 30 mins duration for conflict check
                 const slotStart = new Date(`${dayPrefix}${slot}:00+09:00`);
-                const slotEnd = new Date(slotStart.getTime() + 45*60*1000);
+                const slotEnd = new Date(slotStart.getTime() + 30*60*1000);
                 return eStart < slotEnd && eEnd > slotStart;
             });
         });
@@ -101,7 +101,7 @@ export function generateMonitoringSchedule(
                 const eStart = new Date(e.start);
                 const eEnd = e.end ? new Date(e.end) : new Date(eStart.getTime() + 60*60*1000);
                 const slotStart = new Date(`${dayPrefix}${slot}:00+09:00`);
-                const slotEnd = new Date(slotStart.getTime() + 60*60*1000);
+                const slotEnd = new Date(slotStart.getTime() + 30*60*1000);
                 return eStart < slotEnd && eEnd > slotStart;
             });
         });
@@ -116,7 +116,7 @@ export function generateMonitoringSchedule(
         const [hStr, mStr] = startTimeStr.split(':');
         const startIso = `${year}-${pad(month)}-${pad(day)}T${pad(Number(hStr))}:${pad(Number(mStr))}:00+09:00`;
         const startObj = new Date(startIso);
-        const endObj = new Date(startObj.getTime() + 45 * 60 * 1000); // 45 min duration
+        const endObj = new Date(startObj.getTime() + 30 * 60 * 1000); // 30 min duration
         const endIso = `${year}-${pad(month)}-${pad(day)}T${pad(endObj.getHours())}:${pad(endObj.getMinutes())}:00+09:00`;
         
         events.push({
