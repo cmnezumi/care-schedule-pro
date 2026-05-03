@@ -12,6 +12,7 @@ export function generateMonitoringSchedule(
     clients: Client[],
     monthStr: string, // YYYY-MM
     shifts: Record<string, string>,
+    telework: Record<string, boolean>,
     existingEvents: any[] = []
 ): any[] {
     const [year, month] = monthStr.split('-').map(Number);
@@ -36,16 +37,17 @@ export function generateMonitoringSchedule(
 
         // Shift format assumes '0-{dayIndex}' where 0 is the care manager
         const shiftStatus = shifts[`0-${i}`]; 
+        const isTelework = telework[`0-${i}`] === true;
         const isHoliday = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus || '');
         
         const dateObj = new Date(year, month - 1, dayOfMonth);
         const dayOfWeek = dateObj.getDay();
         
         if (shiftStatus) {
-            if (!isHoliday) availableDays.push(dayOfMonth);
+            if (!isHoliday && !isTelework) availableDays.push(dayOfMonth);
         } else {
             // fallback: not weekend
-            if (dayOfWeek !== 0 && dayOfWeek !== 6) availableDays.push(dayOfMonth);
+            if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isTelework) availableDays.push(dayOfMonth);
         }
     }
     const events: any[] = [];
@@ -57,8 +59,8 @@ export function generateMonitoringSchedule(
     // A map to track who is assigned to which day and which slots are free for the CM
     const calendar: { [day: number]: { assigned: Client[], cmFreeSlots: string[] } } = {};
     
-    // CM events are personal events or conferences
-    const cmEvents = existingEvents.filter(e => e.extendedProps?.isPersonal || e.extendedProps?.type === 'conference' || e.title?.includes('担当者会議'));
+    // CM events are ALL events to prevent double-booking
+    const cmEvents = existingEvents;
 
     availableDays.forEach(d => {
         const pad = (n: number) => String(n).padStart(2, '0');
@@ -71,6 +73,7 @@ export function generateMonitoringSchedule(
 
         let freeSlots = allTimeSlots.filter(slot => {
             return !dayCMEvents.some(e => {
+                if (e.allDay) return false; // all day events don't block specific time slots
                 const eStart = new Date(e.start);
                 const eEnd = e.end ? new Date(e.end) : new Date(eStart.getTime() + 45*60*1000); // 45 mins duration for conflict check
                 const slotStart = new Date(`${dayPrefix}${slot}:00+09:00`);

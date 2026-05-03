@@ -115,6 +115,7 @@ export default function MonitoringView({ clients, events, setEvents, careManager
       const res = await fetch('/api/shifts');
       const shiftsObj = await res.json();
       const monthShifts = shiftsObj[targetMonthStr]?.shifts || {};
+      const monthTelework = shiftsObj[targetMonthStr]?.telework || {};
       
       // 当月のモニタリングイベントを抽出
       const currentMonthMonitoring = events.filter(e => {
@@ -156,7 +157,7 @@ export default function MonitoringView({ clients, events, setEvents, careManager
           return s?.startsWith(targetMonthStr) && !eventsToDelete.some(del => del.id === e.id);
       });
       
-      const newMonitoring = generateMonitoringSchedule(targetClients, targetMonthStr, monthShifts, currentMonthDbEvents);
+      const newMonitoring = generateMonitoringSchedule(targetClients, targetMonthStr, monthShifts, monthTelework, currentMonthDbEvents);
       const newPreps = generatePrepEvents(targetMonthStr, monthShifts, currentMonthDbEvents);
       
       const newEvents = [...newMonitoring, ...newPreps];
