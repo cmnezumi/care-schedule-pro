@@ -62,6 +62,15 @@ export default function Home() {
     setHasMounted(true);
   }, []);
 
+  // Reset modals on tab change
+  useEffect(() => {
+    setIsModalOpen(false);
+    setIsPreviewModalOpen(false);
+    setIsEditChoiceModalOpen(false);
+    setIsDeletionModalOpen(false);
+    setEditingEvent(null);
+  }, [activeTab]);
+
   // Load data
   useEffect(() => {
     const loadData = async () => {
@@ -602,6 +611,19 @@ export default function Home() {
             </nav>
 
             <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-500 uppercase hidden sm:block">担当者</div>
+                <select 
+                  value={selectedCareManagerId}
+                  onChange={(e) => setSelectedCareManagerId(e.target.value)}
+                  className="bg-white border-none rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="all">全員分</option>
+                  {careManagers.map(cm => (
+                    <option key={cm.id} value={cm.id}>{cm.name}</option>
+                  ))}
+                </select>
+              </div>
               {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={16} />}
             </div>
           </div>
@@ -621,18 +643,18 @@ export default function Home() {
                         <Repeat size={14} />
                         ルーティン展開
                     </button>
-                    <label className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
+                    <div className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
                        <span className="text-xs md:text-sm font-bold text-slate-600">自分の予定のみ</span>
-                       <div className={`w-8 h-4 rounded-full relative transition-colors border shadow-inner ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}>
+                       <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowOnlyMySchedule(!showOnlyMySchedule);
+                          }}
+                          className={`w-8 h-4 rounded-full relative transition-colors border shadow-inner cursor-pointer ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}
+                       >
                           <div className={`w-3 h-3 bg-white rounded-full absolute top-[1px] left-[1px] transition-transform shadow-sm ${showOnlyMySchedule ? 'translate-x-[16px]' : ''}`} />
                        </div>
-                       <input 
-                           type="checkbox" 
-                           className="hidden" 
-                           checked={showOnlyMySchedule} 
-                           onChange={(e) => setShowOnlyMySchedule(e.target.checked)} 
-                       />
-                    </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -721,7 +743,7 @@ export default function Home() {
         selectedDate={selectedDate}
         onDateChange={setSelectedDate}
         editingEvent={editingEvent}
-        clients={filteredClients}
+        clients={clients}
         scheduleTypes={scheduleTypes}
         clinics={clinics}
         editTargetChoice={editTargetChoice}

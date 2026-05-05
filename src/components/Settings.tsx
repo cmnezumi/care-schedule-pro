@@ -84,6 +84,8 @@ const Settings = ({
     const [newRoutineColor, setNewRoutineColor] = useState(PRESET_COLORS[0]);
     const [newRoutineMonths, setNewRoutineMonths] = useState<number[]>([]); // Empty means all months
 
+    const scrollContainerRef = React.useRef<HTMLDivElement>(null);
+
     const handleEditRoutine = (routine: Routine) => {
         setNewRoutineName(routine.name);
         setNewRoutineMemo(routine.memo || '');
@@ -92,7 +94,9 @@ const Settings = ({
         setNewRoutineMonths(routine.targetMonths || []);
         setEditingRoutineId(routine.id);
         setActiveTab('routines');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     };
 
     const handleCancelEditRoutine = () => {
@@ -196,7 +200,7 @@ const Settings = ({
     };
 
     return (
-        <div className="h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
+        <div ref={scrollContainerRef} className="h-full bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden flex flex-col">
             <div className="flex border-b border-slate-100">
                 <button
                     onClick={() => setActiveTab('users')}
@@ -661,8 +665,23 @@ const Settings = ({
                             登録済みのルーティン一覧
                         </h3>
                         {routines.length === 0 ? (
-                            <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-200 text-slate-400">
-                                まだルーティン業務が登録されていません
+                            <div className="flex flex-col items-center gap-4 py-12 bg-white rounded-3xl border border-dashed border-slate-200">
+                                <p className="text-slate-400">まだルーティン業務が登録されていません</p>
+                                <div className="flex flex-wrap justify-center gap-2 max-w-md">
+                                    {['介護保険確認', '住所地特例申請', '同一建物減算', 'コンプラ研修', '集中減算送付'].map(item => (
+                                        <button
+                                            key={item}
+                                            onClick={() => {
+                                                setNewRoutineName(item);
+                                                setActiveTab('routines');
+                                                if (scrollContainerRef.current) scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            className="px-3 py-1.5 bg-slate-50 text-slate-600 rounded-full text-xs font-bold hover:bg-sky-50 hover:text-sky-600 transition-all border border-slate-100"
+                                        >
+                                            + {item}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

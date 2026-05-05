@@ -59,8 +59,8 @@ export function generateMonitoringSchedule(
     // A map to track who is assigned to which day and which slots are free for the CM
     const calendar: { [day: number]: { assigned: Client[], cmFreeSlots: string[] } } = {};
     
-    // CM events are ALL events to prevent double-booking
-    const cmEvents = existingEvents;
+    // CM events are personal events, conferences, or routines
+    const cmEvents = existingEvents.filter(e => e.extendedProps?.isPersonal || e.extendedProps?.type === 'conference' || e.extendedProps?.type === 'routine' || e.title?.includes('担当者会議'));
 
     availableDays.forEach(d => {
         const pad = (n: number) => String(n).padStart(2, '0');
