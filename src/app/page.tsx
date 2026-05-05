@@ -476,11 +476,24 @@ export default function Home() {
     const year = now.getFullYear();
     const month = now.getMonth();
     
-    const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みのルーティン業務（${routines.length}件）を一括展開しますか？`);
+    const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みのルーティン業務（${routines.length}件）を一括展開しますか？\n（既に展開済みの当月のルーティン予定は一度削除されて再配置されます）`);
     if (!confirmDeploy) return;
 
     setIsSaving(true);
     try {
+        const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const oldRoutines = events.filter(e => {
+            let s = e.start;
+            if (s && typeof s.toISOString === 'function') s = s.toISOString();
+            return s?.startsWith(targetMonthStr) && e.extendedProps?.type === 'routine';
+        });
+
+        if (oldRoutines.length > 0) {
+            await Promise.all(oldRoutines.map(evt => 
+                fetch(`/api/events?id=${evt.id}`, { method: 'DELETE' })
+            ));
+        }
+
         let createdCount = 0;
         const currentMonthNum = month + 1;
         
