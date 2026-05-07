@@ -238,16 +238,17 @@ export default function Home() {
     if (!eventToDelete) return;
     setIsSaving(true);
     try {
-      const realId = eventToDelete.baseEventId || eventToDelete.id;
       const queryParams = new URLSearchParams();
-      queryParams.append('id', realId);
 
-      if (choice !== 'this') {
+      if (choice === 'this') {
+          queryParams.append('id', eventToDelete.id);
+      } else {
+          const baseId = eventToDelete.baseEventId || eventToDelete.id;
+          queryParams.append('id', baseId);
           queryParams.append('choice', choice);
-          if (choice === 'following') queryParams.append('date', eventToDelete.start);
-      } else if (eventToDelete.baseEventId) {
-          queryParams.append('choice', 'this_instance');
-          queryParams.append('date', eventToDelete.start);
+          if (choice === 'following') {
+              queryParams.append('date', eventToDelete.start);
+          }
       }
 
       await fetch(`/api/events?${queryParams.toString()}`, {
