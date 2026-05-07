@@ -555,6 +555,88 @@ export default function Home() {
     }
   };
 
+  const handleDeployClinics = async () => {
+    if (clinics.length === 0) {
+       alert("先に「設定」画面の「往診マスタ」から往診を登録してください。");
+       return;
+    }
+    
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    
+    const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みの往診予定（${clinics.length}件のクリニック）を一括展開しますか？\n（既に展開済みの当月の往診マスター予定は一度削除されて再配置されます）`);
+    if (!confirmDeploy) return;
+
+    setIsSaving(true);
+    try {
+        const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const oldClinics = events.filter(e => {
+            let s = e.start;
+            if (s && typeof s.toISOString === 'function') s = s.toISOString();
+            return s?.startsWith(targetMonthStr) && e.extendedProps?.type === 'master_clinic';
+        });
+
+        if (oldClinics.length > 0) {
+            await Promise.all(oldClinics.map(evt => 
+                fetch(`/api/events?id=${evt.id}`, { method: 'DELETE' })
+            ));
+        }
+
+        let createdCount = 0;
+        
+        for (const clinic of clinics) {
+            const firstDay = new Date(year, month, 1);
+            let firstDayOffset = clinic.dayOfWeek - firstDay.getDay();
+            if (firstDayOffset < 0) firstDayOffset += 7;
+            
+            for (const week of clinic.monthlyWeeks) {
+                const dateNum = 1 + firstDayOffset + (week - 1) * 7;
+                const lastDay = new Date(year, month + 1, 0).getDate();
+                
+                if (dateNum <= lastDay) {
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dateNum).padStart(2, '0')}`;
+                    
+                    const eventPayload = {
+                        title: `${clinic.name} (往診)`,
+                        type: 'master_clinic',
+                        start: `${dateStr}T${clinic.startTime}:00`,
+                        end: `${dateStr}T${clinic.endTime}:00`,
+                        allDay: false,
+                        clientId: 'personal',
+                        clientName: '個人の予定',
+                        backgroundColor: '#14b8a6',
+                        notes: '往診マスターから一括展開',
+                        extendedProps: {
+                            isPersonal: true,
+                            type: 'master_clinic',
+                            clinicId: clinic.id,
+                            careManagerId: selectedCareManagerId,
+                            status: 'scheduled'
+                        }
+                    };
+
+                    await fetch('/api/events', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(eventPayload)
+                    });
+                    createdCount++;
+                }
+            }
+        }
+
+        const res = await fetch('/api/events');
+        setEvents(await res.json());
+        alert(`${createdCount}件の往診予定を展開しました。`);
+    } catch (e) {
+        console.error(e);
+        alert('往診展開中にエラーが発生しました。');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
   // Filtered lists
   const filteredClients = clients.filter(c =>
     selectedCareManagerId === 'all' ||
@@ -568,13 +650,11 @@ export default function Home() {
        const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
        const type = e.extendedProps?.type || '';
        const title = e.title || '';
-       const isClinic = e.extendedProps?.clinicId || clinics.some(c => c.name === type || c.id === type) || type === 'clinic' || title.includes('往診');
        const isEngagingEvent = isPersonal || 
           type === 'monitoring' || title.includes('モニタリング') ||
           type === 'office_work' ||
           type === 'conference' || title.includes('担当者会議') ||
-          type === 'office_meeting' || title.includes('会議') ||
-          isClinic;
+          type === 'office_meeting' || title.includes('会議');
        
        if (!isEngagingEvent) return false;
     }
@@ -651,6 +731,13 @@ export default function Home() {
                 <div className="flex items-center gap-4">
                   <h2 className="text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
                   <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleDeployClinics}
+                        className="bg-teal-100 text-teal-700 hover:bg-teal-200 hover:text-teal-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
+                    >
+                        <Repeat size={14} />
+                        往診展開
+                    </button>
                     <button
                         onClick={handleDeployRoutines}
                         className="bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
