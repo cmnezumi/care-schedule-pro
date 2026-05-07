@@ -568,12 +568,13 @@ export default function Home() {
        const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
        const type = e.extendedProps?.type || '';
        const title = e.title || '';
+       const isClinic = e.extendedProps?.clinicId || clinics.some(c => c.name === type || c.id === type) || type === 'clinic' || title.includes('往診');
        const isEngagingEvent = isPersonal || 
           type === 'monitoring' || title.includes('モニタリング') ||
           type === 'office_work' ||
           type === 'conference' || title.includes('担当者会議') ||
           type === 'office_meeting' || title.includes('会議') ||
-          type === 'clinic' || title.includes('往診');
+          isClinic;
        
        if (!isEngagingEvent) return false;
     }

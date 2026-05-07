@@ -77,6 +77,7 @@ const VisitModal = ({
                 setIsPersonal(props.isPersonal ?? editingEvent.isPersonal ?? false);
                 setAllDay(editingEvent.allDay || false);
                 setStatus(props.status || editingEvent.status || 'scheduled');
+                setSelectedClinicId(props.clinicId || editingEvent.clinicId || '');
 
                 const recType = props.recurrenceType || editingEvent.recurrenceType;
                 if (recType) {
@@ -181,7 +182,8 @@ const VisitModal = ({
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
                 monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
                 baseEventId: editingEvent?.baseEventId,
-                status
+                status,
+                clinicId: selectedClinicId || editingEvent?.extendedProps?.clinicId
             },
             isContinuous
         };
