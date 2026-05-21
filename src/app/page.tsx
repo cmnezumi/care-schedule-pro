@@ -809,7 +809,10 @@ export default function Home() {
 
           {activeTab === 'shift' && (
             <div className="w-full">
-              <ShiftAutomation />
+              <ShiftAutomation 
+                initialYear={currentMonth.getFullYear()}
+                initialMonth={currentMonth.getMonth() + 1}
+              />
             </div>
           )}
 

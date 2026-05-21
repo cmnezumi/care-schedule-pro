@@ -2,9 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 
-const ShiftAutomation = () => {
-    const [year, setYear] = useState(2026);
-    const [month, setMonth] = useState(2);
+interface ShiftAutomationProps {
+    initialYear?: number;
+    initialMonth?: number;
+}
+
+const ShiftAutomation = ({
+    initialYear = new Date().getFullYear(),
+    initialMonth = new Date().getMonth() + 1
+}: ShiftAutomationProps) => {
+    const [year, setYear] = useState(initialYear);
+    const [month, setMonth] = useState(initialMonth);
     const [legalInCount, setLegalInCount] = useState(4);
     const [legalOutCount, setLegalOutCount] = useState(5);
     const [inputMode, setInputMode] = useState<'standard' | 'telework' | 'oncall'>('standard');

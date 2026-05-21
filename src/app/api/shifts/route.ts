@@ -53,12 +53,28 @@ export async function POST(request: Request) {
         if (error) throw error;
 
         // 2. Sync to events table
-        // Delete existing shift-derived events for this month
+        // Parse year & month
+        const [yearStr, monthStr] = yearMonth.split('-');
+        const year = parseInt(yearStr);
+        const month = parseInt(monthStr);
+
+        // Delete existing shift-derived events for this month using date range query
+        const startDate = `${yearMonth}-01T00:00:00+09:00`;
+        let nextYear = year;
+        let nextMonth = month + 1;
+        if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear += 1;
+        }
+        const nextMonthStr = String(nextMonth).padStart(2, '0');
+        const endDate = `${nextYear}-${nextMonthStr}-01T00:00:00+09:00`;
+
         const { error: deleteError } = await supabase
             .from('events')
             .delete()
             .filter('extended_props->>fromShift', 'eq', 'true')
-            .like('start_time', `${yearMonth}%`);
+            .gte('start_time', startDate)
+            .lt('start_time', endDate);
 
         if (deleteError) throw deleteError;
 
@@ -70,9 +86,6 @@ export async function POST(request: Request) {
         ];
 
         const newEvents: any[] = [];
-        const [yearStr, monthStr] = yearMonth.split('-');
-        const year = parseInt(yearStr);
-        const month = parseInt(monthStr);
 
         // Get total days in month
         const totalDays = new Date(year, month, 0).getDate();
@@ -97,6 +110,7 @@ export async function POST(request: Request) {
                 if (shiftType && labelMap[shiftType]) {
                     const label = labelMap[shiftType];
                     newEvents.push({
+                        id: `shift-off-${cm.id}-${dateStr}-${Math.random().toString(36).substring(2, 7)}`,
                         title: `${cm.name}: ${label}`,
                         all_day: false,
                         start_time: `${dateStr}T09:00:00+09:00`,
@@ -116,6 +130,7 @@ export async function POST(request: Request) {
                 const isTele = telework ? telework[key] : false;
                 if (isTele) {
                     newEvents.push({
+                        id: `shift-tele-${cm.id}-${dateStr}-${Math.random().toString(36).substring(2, 7)}`,
                         title: `${cm.name}: テレワーク`,
                         all_day: false,
                         start_time: `${dateStr}T09:00:00+09:00`,
