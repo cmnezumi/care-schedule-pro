@@ -17,6 +17,7 @@ interface ScheduleCalendarProps {
   onEventClick?: (event: any) => void;
   onEventDrop?: (event: any) => void;
   onEventResize?: (event: any) => void;
+  onDatesSet?: (date: Date) => void;
 }
 
 const ScheduleCalendar = ({
@@ -28,7 +29,8 @@ const ScheduleCalendar = ({
   onDateClick,
   onEventClick,
   onEventDrop,
-  onEventResize
+  onEventResize,
+  onDatesSet
 }: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('dayGridMonth');
@@ -226,7 +228,12 @@ const ScheduleCalendar = ({
         <FullCalendar
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
-          datesSet={(arg) => setCurrentView(arg.view.type)}
+          datesSet={(arg) => {
+            setCurrentView(arg.view.type);
+            if (onDatesSet) {
+              onDatesSet(arg.view.currentStart);
+            }
+          }}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',

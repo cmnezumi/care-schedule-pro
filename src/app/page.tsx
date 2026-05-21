@@ -44,6 +44,7 @@ export default function Home() {
   const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(false);
   const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all'>('single');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
   const [isDeletionModalOpen, setIsDeletionModalOpen] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<any>(null);
@@ -69,7 +70,15 @@ export default function Home() {
     setIsEditChoiceModalOpen(false);
     setIsDeletionModalOpen(false);
     setEditingEvent(null);
-  }, [activeTab]);
+
+    // Reload events when switching to schedule tab to reflect shift changes
+    if (activeTab === 'schedule' && hasMounted) {
+      fetch('/api/events')
+        .then(res => res.json())
+        .then(data => setEvents(Array.isArray(data) ? data : []))
+        .catch(err => console.error("Failed to reload events on tab change", err));
+    }
+  }, [activeTab, hasMounted]);
 
   // Load data
   useEffect(() => {
@@ -473,9 +482,8 @@ export default function Home() {
        return;
     }
     
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
     
     const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みのルーティン業務（${routines.length}件）を一括展開しますか？\n（既に展開済みの当月のルーティン予定は一度削除されて再配置されます）`);
     if (!confirmDeploy) return;
@@ -561,9 +569,8 @@ export default function Home() {
        return;
     }
     
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth();
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
     
     const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みの往診予定（${clinics.length}件のクリニック）を一括展開しますか？\n（既に展開済みの当月の往診マスター予定は一度削除されて再配置されます）`);
     if (!confirmDeploy) return;
@@ -770,6 +777,7 @@ export default function Home() {
                   onDateClick={handleDateClick}
                   onEventClick={handleEditEvent}
                   onEventDrop={handleEventDrop}
+                  onDatesSet={setCurrentMonth}
                 />
               </div>
             </div>
