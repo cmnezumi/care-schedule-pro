@@ -100,6 +100,9 @@ export async function POST(request: Request) {
 
         for (let sIdx = 0; sIdx < careManagers.length; sIdx++) {
             const cm = careManagers[sIdx];
+            // 一人用（ねずみ＝cm1専用）のため、他のケアマネジャーのシフトイベントは作成しない
+            if (cm.id !== 'cm1') continue;
+
             for (let dIdx = 0; dIdx < totalDays; dIdx++) {
                 const key = `${sIdx}-${dIdx}`;
                 const dayStr = String(dIdx + 1).padStart(2, '0');
@@ -111,7 +114,7 @@ export async function POST(request: Request) {
                     const label = labelMap[shiftType];
                     newEvents.push({
                         id: `shift-off-${cm.id}-${dateStr}-${Math.random().toString(36).substring(2, 7)}`,
-                        title: `${cm.name}: ${label}`,
+                        title: label,
                         all_day: false,
                         start_time: `${dateStr}T09:00:00+09:00`,
                         end_time: `${dateStr}T10:00:00+09:00`,
@@ -131,7 +134,7 @@ export async function POST(request: Request) {
                 if (isTele) {
                     newEvents.push({
                         id: `shift-tele-${cm.id}-${dateStr}-${Math.random().toString(36).substring(2, 7)}`,
-                        title: `${cm.name}: テレワーク`,
+                        title: `テレワーク`,
                         all_day: false,
                         start_time: `${dateStr}T09:00:00+09:00`,
                         end_time: `${dateStr}T10:00:00+09:00`,

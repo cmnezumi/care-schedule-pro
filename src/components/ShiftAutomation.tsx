@@ -18,7 +18,7 @@ const ShiftAutomation = ({
     const [inputMode, setInputMode] = useState<'standard' | 'telework' | 'oncall'>('standard');
     const [isLoading, setIsLoading] = useState(false);
 
-    const staffList = ['スタッフA', 'スタッフB', 'スタッフC'];
+    const staffList = ['予定'];
     const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
 
     const getDaysInMonth = (y: number, m: number) => {
@@ -454,7 +454,7 @@ const ShiftAutomation = ({
                 <table className="w-full border-collapse border-t min-w-[800px] md:min-w-full leading-normal">
                     <thead>
                         <tr className="bg-slate-50">
-                            <th className="sticky left-0 z-30 bg-slate-50 border-b border-r p-2 w-24 text-sm font-medium shadow-[1px_0_0_0_#e2e8f0]">スタッフ</th>
+                            <th className="sticky left-0 z-30 bg-slate-50 border-b border-r p-2 w-24 text-sm font-medium shadow-[1px_0_0_0_#e2e8f0]">区分</th>
                             {days.map((day, dIdx) => (
                                 <th key={dIdx} className={`sticky top-0 z-20 bg-slate-50 border-b border-r p-1 text-center min-w-[36px] ${day.getDay() === 0 ? 'text-rose-500' : day.getDay() === 6 ? 'text-blue-500' : ''}`}>
                                     <div className="text-xs font-bold">{day.getDate()}</div>
