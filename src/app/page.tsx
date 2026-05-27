@@ -30,11 +30,11 @@ export default function Home() {
 
   // Care Managers State
   const [careManagers] = useState<CareManager[]>([
-    { id: 'cm1', name: 'ねずみ' },
-    { id: 'cm2', name: 'ケアマネ A' },
-    { id: 'cm3', name: 'ケアマネ B' },
+    { id: 'cm1', name: 'ケアマネ A' },
+    { id: 'cm2', name: 'ケアマネ B' },
+    { id: 'cm3', name: 'ケアマネ C' },
   ]);
-  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
+  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('all');
   const isHandlingEventRef = React.useRef(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -645,7 +645,12 @@ export default function Home() {
   };
 
   // Filtered lists
-  const filteredClients = clients;
+  const filteredClients = clients.filter(c =>
+    selectedCareManagerId === 'all' ||
+    c.careManagerId === selectedCareManagerId ||
+    (!c.careManagerId && selectedCareManagerId === 'cm1')
+  );
+  const clientIdsOfSelectedCM = new Set(filteredClients.map(c => c.id));
   const filteredEvents = events.filter(e => {
     // If "My Schedule Only" is ON, filter out routine client events
     if (showOnlyMySchedule) {
@@ -661,10 +666,11 @@ export default function Home() {
        if (!isEngagingEvent) return false;
     }
 
+    if (selectedCareManagerId === 'all') return true;
     if (e.extendedProps?.isPersonal) {
-      return e.extendedProps?.careManagerId === 'cm1' || !e.extendedProps?.careManagerId;
+      return e.extendedProps?.careManagerId === selectedCareManagerId || (!e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1');
     }
-    return true;
+    return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
   });
 
   if (!hasMounted) {
@@ -707,6 +713,19 @@ export default function Home() {
             </nav>
 
             <div className="flex items-center gap-2 md:gap-4">
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
+                <div className="px-2 py-1 text-[10px] font-bold text-slate-500 uppercase hidden sm:block">担当者</div>
+                <select 
+                  value={selectedCareManagerId}
+                  onChange={(e) => setSelectedCareManagerId(e.target.value)}
+                  className="bg-white border-none rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="all">全員分</option>
+                  {careManagers.map(cm => (
+                    <option key={cm.id} value={cm.id}>{cm.name}</option>
+                  ))}
+                </select>
+              </div>
               {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={16} />}
             </div>
           </div>

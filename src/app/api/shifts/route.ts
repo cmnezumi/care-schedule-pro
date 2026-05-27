@@ -80,9 +80,9 @@ export async function POST(request: Request) {
 
         // Generate new events from shifts & telework
         const careManagers = [
-            { id: 'cm1', name: 'ねずみ' },
-            { id: 'cm2', name: 'ケアマネ A' },
-            { id: 'cm3', name: 'ケアマネ B' }
+            { id: 'cm1', name: 'ケアマネ A' },
+            { id: 'cm2', name: 'ケアマネ B' },
+            { id: 'cm3', name: 'ケアマネ C' }
         ];
 
         const newEvents: any[] = [];
@@ -100,7 +100,7 @@ export async function POST(request: Request) {
 
         for (let sIdx = 0; sIdx < careManagers.length; sIdx++) {
             const cm = careManagers[sIdx];
-            // 一人用（ねずみ＝cm1専用）のため、他のケアマネジャーのシフトイベントは作成しない
+            // カレンダー同期はケアマネA（ユーザー本人＝cm1）の分のみ
             if (cm.id !== 'cm1') continue;
 
             for (let dIdx = 0; dIdx < totalDays; dIdx++) {

@@ -15,10 +15,12 @@ const ShiftAutomation = ({
     const [month, setMonth] = useState(initialMonth);
     const [legalInCount, setLegalInCount] = useState(4);
     const [legalOutCount, setLegalOutCount] = useState(5);
+    const [paidLeaveCount, setPaidLeaveCount] = useState(0);
     const [inputMode, setInputMode] = useState<'standard' | 'telework' | 'oncall'>('standard');
     const [isLoading, setIsLoading] = useState(false);
 
-    const staffList = ['予定'];
+    // スタッフリスト（3名体制。sIdx=0 がケアマネA＝ユーザー本人）
+    const staffList = ['ケアマネ A', 'ケアマネ B', 'ケアマネ C'];
     const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
 
     const getDaysInMonth = (y: number, m: number) => {
@@ -126,210 +128,201 @@ const ShiftAutomation = ({
         setTeleworkState(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    // ---- 自動作成ロジック ----
     const handleAutoCreate = () => {
         const newShiftState = { ...shiftState };
         const newOnCallState: Record<string, string> = {};
 
+        // 全スタッフ・全日の日別休み人数を追跡
         const dailyOffCount = days.map(() => 0);
-        const getIsHol = (sIdx: number, dIdx: number, state: Record<string, string>) => {
+
+        // 休日判定ヘルパー
+        const isHoliday = (sIdx: number, dIdx: number, state: Record<string, string>): boolean => {
             const type = state[`${sIdx}-${dIdx}`];
-            return type && (type.includes('holiday') || type === 'paid_leave' || type === 'hope_holiday');
+            return !!type && (
+                type === 'hope_holiday' || type === 'paid_leave' ||
+                type === 'legal_holiday' || type === 'legal_out_holiday' ||
+                type === 'auto_holiday'
+            );
         };
 
-        const canAssignHoliday = (sIdx: number, dIdx: number, state: Record<string, string>, strict: boolean) => {
-            const dayOfMonth = dIdx + 1;
-            const prevIsHol = dIdx > 0 && getIsHol(sIdx, dIdx - 1, state);
-            const nextIsHol = dIdx < days.length - 1 && getIsHol(sIdx, dIdx + 1, state);
-            
-            if (prevIsHol || nextIsHol) {
-                if (strict) {
-                    let invalidConsecutive = false;
-                    if (prevIsHol && (dayOfMonth - 1 < 6 || dayOfMonth > 21)) invalidConsecutive = true;
-                    if (nextIsHol && (dayOfMonth < 6 || dayOfMonth + 1 > 21)) invalidConsecutive = true;
-                    if (invalidConsecutive) return false;
-                }
-                const prevPrevIsHol = dIdx > 1 && getIsHol(sIdx, dIdx - 2, state);
-                const nextNextIsHol = dIdx < days.length - 2 && getIsHol(sIdx, dIdx + 2, state);
-                if ((prevIsHol && prevPrevIsHol) || (nextIsHol && nextNextIsHol) || (prevIsHol && nextIsHol)) {
-                    return false;
-                }
+        // 連勤数カウント（dIdx の日時点での連続連勤数）
+        const getWorkStreak = (sIdx: number, dIdx: number, state: Record<string, string>): number => {
+            let streak = 0;
+            for (let d = dIdx; d >= 0; d--) {
+                if (!isHoliday(sIdx, d, state)) streak++;
+                else break;
             }
-            return true;
+            return streak;
         };
 
+        // ── ステップ0: 既存の手動設定を保持（法内・法外の自動配置分はリセット）
         staffList.forEach((_, sIdx) => {
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
-                if (['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday'].includes(newShiftState[key])) {
-                    if (newShiftState[key] === 'hope_holiday' || newShiftState[key] === 'paid_leave') {
-                        dailyOffCount[dIdx]++;
-                    } else {
-                        delete newShiftState[key];
-                    }
-                } else if (newShiftState[key] !== 'fixed_work' && newShiftState[key] !== 'work') {
+                const type = newShiftState[key];
+                if (type === 'legal_holiday' || type === 'legal_out_holiday' || type === 'auto_holiday') {
                     delete newShiftState[key];
-                } else if (newShiftState[key] === 'work') {
+                } else if (type === 'work') {
                     delete newShiftState[key];
                 }
             });
         });
 
+        // ── ステップ1: 手動設定の希望休・有給・固定出勤を dailyOffCount へ反映
         staffList.forEach((_, sIdx) => {
-            const targetLegal = legalInCount;
-            const targetOut = legalOutCount;
-            const totalHolidaysNeeded = targetLegal + targetOut;
-
-            let assignedCount = 0;
             days.forEach((_, dIdx) => {
                 const type = newShiftState[`${sIdx}-${dIdx}`];
                 if (type === 'hope_holiday' || type === 'paid_leave') {
-                    assignedCount++;
+                    dailyOffCount[dIdx]++;
                 }
             });
+        });
 
-            let consecutiveHolidaysCount = 0;
-            const availableIndices = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]);
-            for (let i = availableIndices.length - 1; i > 0; i--) {
-                const j = Math.floor(Math.random() * (i + 1));
-                [availableIndices[i], availableIndices[j]] = [availableIndices[j], availableIndices[i]];
+        // ── ステップ2: 各スタッフの有給を自動配置（paidLeaveCount 分）
+        staffList.forEach((_, sIdx) => {
+            const existingPaid = days.filter((_, dIdx) => newShiftState[`${sIdx}-${dIdx}`] === 'paid_leave').length;
+            let paidToAssign = Math.max(0, paidLeaveCount - existingPaid);
+
+            // シャッフルした日付インデックスで配置
+            const indices = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]).sort(() => Math.random() - 0.5);
+
+            for (const dIdx of indices) {
+                if (paidToAssign <= 0) break;
+                const dayOfMonth = dIdx + 1;
+                const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
+                const maxOff = isWeekend ? 2 : 1;
+                if (dailyOffCount[dIdx] >= maxOff) continue;
+
+                // 連休制限チェック（連休は7〜20日のみ）
+                const prevIsHol = dIdx > 0 && isHoliday(sIdx, dIdx - 1, newShiftState);
+                const nextIsHol = dIdx < days.length - 1 && isHoliday(sIdx, dIdx + 1, newShiftState);
+                const wouldBeConsecutive = prevIsHol || nextIsHol;
+                if (wouldBeConsecutive && (dayOfMonth < 7 || dayOfMonth > 20)) continue;
+
+                newShiftState[`${sIdx}-${dIdx}`] = 'paid_leave';
+                dailyOffCount[dIdx]++;
+                paidToAssign--;
+            }
+        });
+
+        // ── ステップ3: 各スタッフに公休（法内＋法外）を自動配置
+        staffList.forEach((_, sIdx) => {
+            const targetTotal = legalInCount + legalOutCount; // 公休の目標合計
+            const existingHolidays = days.filter((_, dIdx) => {
+                const t = newShiftState[`${sIdx}-${dIdx}`];
+                return t === 'hope_holiday' || t === 'paid_leave';
+            }).length;
+
+            let toAssign = Math.max(0, targetTotal - existingHolidays);
+            let assigned = 0;
+
+            // ---- Pass A: 基本配置（3連勤制限＋連休7〜20日制限＋平日1人制限）----
+            // シャッフルして分散を促す
+            const indices = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]).sort(() => Math.random() - 0.5);
+
+            for (const dIdx of indices) {
+                if (assigned >= toAssign) break;
+                const dayOfMonth = dIdx + 1;
+                const dayOfWeek = days[dIdx].getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const maxOff = isWeekend ? 2 : 1;
+                if (dailyOffCount[dIdx] >= maxOff) continue;
+
+                // 連休制限：月初（1〜6日）・月末（21日以降）は連休禁止
+                const prevIsHol = dIdx > 0 && isHoliday(sIdx, dIdx - 1, newShiftState);
+                const nextIsHol = dIdx < days.length - 1 && isHoliday(sIdx, dIdx + 1, newShiftState);
+                const wouldBeConsecutive = prevIsHol || nextIsHol;
+                if (wouldBeConsecutive && (dayOfMonth < 7 || dayOfMonth > 20)) continue;
+
+                // 3連休以上にならないかチェック
+                const prevPrevIsHol = dIdx > 1 && isHoliday(sIdx, dIdx - 2, newShiftState);
+                const nextNextIsHol = dIdx < days.length - 2 && isHoliday(sIdx, dIdx + 2, newShiftState);
+                if ((prevIsHol && prevPrevIsHol) || (nextIsHol && nextNextIsHol) || (prevIsHol && nextIsHol)) continue;
+
+                newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
+                dailyOffCount[dIdx]++;
+                assigned++;
             }
 
-            const totalToAssign = totalHolidaysNeeded - assignedCount;
-            let currentAssigned = 0;
-
-            // Pass 1: Break long work streaks (Max 3 consecutive work days)
-            let currentWorkStreak = 0;
-            for (let d = 0; d < days.length && currentAssigned < totalToAssign; d++) {
-                if (getIsHol(sIdx, d, newShiftState)) {
-                    currentWorkStreak = 0;
-                } else {
-                    currentWorkStreak++;
-                }
-
-                if (currentWorkStreak >= 4) {
-                    let assigned = false;
-                    
-                    // Attempt 1: Strict constraints + maxOff limits
-                    for (let step = 0; step < 4; step++) {
+            // ---- Pass B: 4連勤以上が発生していたら強制的に休みを挿入 ----
+            // ここで最大連勤数を強制する（4連勤まで許容、5連勤以上は強制カット）
+            for (let d = 0; d < days.length; d++) {
+                const streak = getWorkStreak(sIdx, d, newShiftState);
+                if (streak >= 5) {
+                    // 5連勤以上：強制挿入（ルール無視でもカット）
+                    for (let step = 1; step <= 4; step++) {
                         const targetD = d - step;
-                        if (newShiftState[`${sIdx}-${targetD}`]) continue;
-                        
+                        if (targetD < 0) break;
+                        if (isHoliday(sIdx, targetD, newShiftState)) break;
+                        if (!newShiftState[`${sIdx}-${targetD}`] || newShiftState[`${sIdx}-${targetD}`] === 'work') {
+                            newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                            dailyOffCount[targetD]++;
+                            assigned++;
+                            break;
+                        }
+                    }
+                } else if (streak === 4 && assigned < toAssign) {
+                    // 4連勤：余裕がある場合のみ基本ルール内で休みを挿入
+                    for (let step = 1; step <= 3; step++) {
+                        const targetD = d - step;
+                        if (targetD < 0) break;
+                        if (isHoliday(sIdx, targetD, newShiftState)) break;
+                        const dayOfMonth = targetD + 1;
                         const isWeekend = days[targetD].getDay() === 0 || days[targetD].getDay() === 6;
                         const maxOff = isWeekend ? 2 : 1;
-                        if (dailyOffCount[targetD] < maxOff && canAssignHoliday(sIdx, targetD, newShiftState, true)) {
-                            newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
-                            currentAssigned++;
-                            dailyOffCount[targetD]++;
-                            assigned = true;
-                            break;
-                        }
-                    }
-                    
-                    // Attempt 2: Ignore maxOff but keep strict holiday placement rules
-                    if (!assigned) {
-                        for (let step = 0; step < 4; step++) {
-                            const targetD = d - step;
-                            if (newShiftState[`${sIdx}-${targetD}`]) continue;
-                            
-                            if (canAssignHoliday(sIdx, targetD, newShiftState, true)) {
-                                newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
-                                currentAssigned++;
-                                dailyOffCount[targetD]++;
-                                assigned = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    // Attempt 3: Force assignment entirely to break rule
-                    if (!assigned) {
-                        for (let step = 0; step < 4; step++) {
-                            const targetD = d - step;
-                            if (newShiftState[`${sIdx}-${targetD}`]) continue;
-                            
-                            newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
-                            currentAssigned++;
-                            dailyOffCount[targetD]++;
-                            assigned = true;
-                            break;
-                        }
-                    }
-                    
-                    if (assigned) {
-                        currentWorkStreak = 0;
-                        for (let k = d; k >= 0; k--) {
-                            if (!getIsHol(sIdx, k, newShiftState)) currentWorkStreak++;
-                            else break;
-                        }
+                        if (dailyOffCount[targetD] >= maxOff) continue;
+                        const prevIsHol = targetD > 0 && isHoliday(sIdx, targetD - 1, newShiftState);
+                        const nextIsHol = targetD < days.length - 1 && isHoliday(sIdx, targetD + 1, newShiftState);
+                        if ((prevIsHol || nextIsHol) && (dayOfMonth < 7 || dayOfMonth > 20)) continue;
+                        newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                        dailyOffCount[targetD]++;
+                        assigned++;
+                        break;
                     }
                 }
             }
 
-            // Pass 2: Assign consecutive holidays (Strict)
-            availableIndices.forEach(dIdx => {
-                if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
-                const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
-                const maxOff = isWeekend ? 2 : 1;
-                if (dailyOffCount[dIdx] >= maxOff) return;
-                
-                const prevIsHol = dIdx > 0 && getIsHol(sIdx, dIdx - 1, newShiftState);
-                const nextIsHol = dIdx < days.length - 1 && getIsHol(sIdx, dIdx + 1, newShiftState);
-                if (prevIsHol || nextIsHol) {
-                    if (consecutiveHolidaysCount < 1 && canAssignHoliday(sIdx, dIdx, newShiftState, true)) {
-                        newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
-                        currentAssigned++;
-                        dailyOffCount[dIdx]++;
-                        consecutiveHolidaysCount++;
-                    }
-                }
-            });
-
-            // Pass 3: Backfill Singles (Strict)
-            availableIndices.forEach(dIdx => {
-                if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
-                const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
-                const maxOff = isWeekend ? 2 : 1;
-                if (dailyOffCount[dIdx] >= maxOff) return;
-                
-                if (canAssignHoliday(sIdx, dIdx, newShiftState, true)) {
-                    const prevIsHol = dIdx > 0 && getIsHol(sIdx, dIdx - 1, newShiftState);
-                    const nextIsHol = dIdx < days.length - 1 && getIsHol(sIdx, dIdx + 1, newShiftState);
-                    if (prevIsHol || nextIsHol) {
-                        if (consecutiveHolidaysCount < 1) consecutiveHolidaysCount++;
-                        else return; // Don't create new consecutives if limit reached
-                    }
+            // ---- Pass C: まだ不足しているならフォールバック（制限緩和） ----
+            if (assigned < toAssign) {
+                const remaining = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]).sort(() => Math.random() - 0.5);
+                for (const dIdx of remaining) {
+                    if (assigned >= toAssign) break;
+                    const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
+                    const maxOff = isWeekend ? 2 : 1;
+                    if (dailyOffCount[dIdx] >= maxOff) continue;
+                    // 3連休のみ防止、それ以外はOK
+                    const prevIsHol = dIdx > 0 && isHoliday(sIdx, dIdx - 1, newShiftState);
+                    const nextIsHol = dIdx < days.length - 1 && isHoliday(sIdx, dIdx + 1, newShiftState);
+                    const prevPrevIsHol = dIdx > 1 && isHoliday(sIdx, dIdx - 2, newShiftState);
+                    const nextNextIsHol = dIdx < days.length - 2 && isHoliday(sIdx, dIdx + 2, newShiftState);
+                    if ((prevIsHol && prevPrevIsHol) || (nextIsHol && nextNextIsHol) || (prevIsHol && nextIsHol)) continue;
                     newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
-                    currentAssigned++;
                     dailyOffCount[dIdx]++;
+                    assigned++;
                 }
-            });
+            }
 
-            // Pass 4: Fallback (Lenient: ignore 6-21 rule to meet quota, but still prevent 3-day consecutives)
-            availableIndices.forEach(dIdx => {
-                if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
-                if (canAssignHoliday(sIdx, dIdx, newShiftState, false)) {
+            // ---- Pass D: 最終フォールバック（すべてのルール無視） ----
+            if (assigned < toAssign) {
+                const remaining = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]);
+                for (const dIdx of remaining) {
+                    if (assigned >= toAssign) break;
                     newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
-                    currentAssigned++;
                     dailyOffCount[dIdx]++;
+                    assigned++;
                 }
-            });
+            }
 
-            // Pass 5: Ultimate Fallback (Ignore all rules to meet quota)
-            availableIndices.forEach(dIdx => {
-                if (newShiftState[`${sIdx}-${dIdx}`] || currentAssigned >= totalToAssign) return;
-                newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
-                currentAssigned++;
-                dailyOffCount[dIdx]++;
-            });
-
-            let legalRemaining = targetLegal;
+            // ── ステップ4: auto_holiday を法内・法外に変換
+            let legalRemaining = legalInCount;
+            // 手動配置の希望休・有給を法内にカウント
             days.forEach((_, dIdx) => {
                 const type = newShiftState[`${sIdx}-${dIdx}`];
-                if (type === 'hope_holiday' || type === 'paid_leave') {
-                    if (legalRemaining > 0) legalRemaining--;
+                if ((type === 'hope_holiday' || type === 'paid_leave') && legalRemaining > 0) {
+                    legalRemaining--;
                 }
             });
-
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
                 if (newShiftState[key] === 'auto_holiday') {
@@ -342,34 +335,32 @@ const ShiftAutomation = ({
                 }
             });
 
+            // ── ステップ5: 残りは出勤（work）で埋める
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
                 if (!newShiftState[key]) newShiftState[key] = 'work';
             });
         });
 
-        // 4. Refined On-Call Assignment
+        // ── ステップ6: オンコール自動割り当て（出勤者の中から公平に）
         const onCallCount = staffList.map(() => 0);
-        const getIsWorking = (sIdx: number, dIdx: number, state: Record<string, string>) => {
+        const getIsWorking = (sIdx: number, dIdx: number, state: Record<string, string>): boolean => {
             const type = state[`${sIdx}-${dIdx}`];
             return type === 'work' || type === 'fixed_work';
         };
 
         days.forEach((_, dIdx) => {
-            // Find eligible staff (work both today and tomorrow)
             let eligible = staffList.map((_, i) => i).filter(sIdx => {
                 const worksToday = getIsWorking(sIdx, dIdx, newShiftState);
-                const worksTomorrow = dIdx < days.length - 1 ? getIsWorking(sIdx, dIdx + 1, newShiftState) : worksToday; // month-end fallback
+                const worksTomorrow = dIdx < days.length - 1 ? getIsWorking(sIdx, dIdx + 1, newShiftState) : worksToday;
                 return worksToday && worksTomorrow;
             });
 
-            // Fallback: just work today if no one works both
             if (eligible.length === 0) {
                 eligible = staffList.map((_, i) => i).filter(sIdx => getIsWorking(sIdx, dIdx, newShiftState));
             }
 
             if (eligible.length > 0) {
-                // Pick the one with the lowest monthly on-call count for fairness
                 const chosenStaffIdx = eligible.reduce((prev, curr) =>
                     onCallCount[curr] < onCallCount[prev] ? curr : prev
                 );
@@ -419,9 +410,10 @@ const ShiftAutomation = ({
                             setYear(parseInt(y)); setMonth(parseInt(m));
                         }}
                         className="border p-1 bg-slate-50 rounded text-xs" />
-                    <div className="flex gap-2 text-xs">
-                        <div className="flex items-center gap-1"><span>法内:</span><input type="number" value={legalInCount} onChange={e => setLegalInCount(parseInt(e.target.value))} className="w-8 border-b text-center" /></div>
-                        <div className="flex items-center gap-1"><span>法外:</span><input type="number" value={legalOutCount} onChange={e => setLegalOutCount(parseInt(e.target.value))} className="w-8 border-b text-center" /></div>
+                    <div className="flex gap-3 text-xs">
+                        <div className="flex items-center gap-1"><span>法内:</span><input type="number" min={0} value={legalInCount} onChange={e => setLegalInCount(parseInt(e.target.value) || 0)} className="w-8 border-b text-center" /></div>
+                        <div className="flex items-center gap-1"><span>法外:</span><input type="number" min={0} value={legalOutCount} onChange={e => setLegalOutCount(parseInt(e.target.value) || 0)} className="w-8 border-b text-center" /></div>
+                        <div className="flex items-center gap-1"><span>有給:</span><input type="number" min={0} value={paidLeaveCount} onChange={e => setPaidLeaveCount(parseInt(e.target.value) || 0)} className="w-8 border-b text-center" /></div>
                     </div>
                 </div>
 
@@ -454,7 +446,7 @@ const ShiftAutomation = ({
                 <table className="w-full border-collapse border-t min-w-[800px] md:min-w-full leading-normal">
                     <thead>
                         <tr className="bg-slate-50">
-                            <th className="sticky left-0 z-30 bg-slate-50 border-b border-r p-2 w-24 text-sm font-medium shadow-[1px_0_0_0_#e2e8f0]">区分</th>
+                            <th className="sticky left-0 z-30 bg-slate-50 border-b border-r p-2 w-28 text-sm font-medium shadow-[1px_0_0_0_#e2e8f0]">ケアマネ</th>
                             {days.map((day, dIdx) => (
                                 <th key={dIdx} className={`sticky top-0 z-20 bg-slate-50 border-b border-r p-1 text-center min-w-[36px] ${day.getDay() === 0 ? 'text-rose-500' : day.getDay() === 6 ? 'text-blue-500' : ''}`}>
                                     <div className="text-xs font-bold">{day.getDate()}</div>
@@ -466,22 +458,22 @@ const ShiftAutomation = ({
                     <tbody>
                         {staffList.map((staff, sIdx) => (
                             <tr key={sIdx}>
-                                <td className="sticky left-0 z-10 bg-white border-b border-r p-2 text-sm font-bold text-slate-700 shadow-[1px_0_0_0_#e2e8f0]">
-                                    {staff.replace('スタッフ', '')}
+                                <td className="sticky left-0 z-10 bg-white border-b border-r p-2 text-xs font-bold text-slate-700 shadow-[1px_0_0_0_#e2e8f0]">
+                                    {staff}
                                 </td>
                                 {days.map((_, dIdx) => {
                                     const key = `${sIdx}-${dIdx}`;
                                     const type = shiftState[key];
                                     const isOnCall = onCallState[dIdx] === sIdx.toString();
                                     const isTele = teleworkState[key];
-                                    const isHoliday = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(type);
+                                    const isHol = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(type);
 
                                     return (
                                         <td key={dIdx}
                                             onClick={() => handleCellClick(sIdx, dIdx)}
                                             onContextMenu={e => toggleTelework(sIdx, dIdx, e)}
                                             className={`border-b border-r p-0 text-center h-11 cursor-pointer transition-colors relative 
-                          ${isOnCall ? 'bg-emerald-50' : isHoliday ? 'bg-yellow-50' : 'hover:bg-slate-50'} 
+                          ${isOnCall ? 'bg-emerald-50' : isHol ? 'bg-yellow-50' : 'hover:bg-slate-50'} 
                           ${inputMode === 'telework' ? 'bg-indigo-50/10' : ''}
                           ${inputMode === 'oncall' ? 'bg-emerald-50/10' : ''}
                         `}>
@@ -501,7 +493,7 @@ const ShiftAutomation = ({
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-indigo-500 rounded-full border border-white shadow-sm" />テレワーク</span>
                 <span className="flex items-center gap-1.5"><span className="w-5 h-1.5 bg-emerald-400 rounded-sm" />オンコール</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-yellow-100 border border-slate-200 rounded-sm" />休日</span>
-                <span className="ml-auto text-indigo-600 font-medium">※スマホは横画面推奨</span>
+                <span className="ml-auto text-slate-400">✕:希望休 有:有給 法内:法定内 法外:法定外 ◎:固定出勤</span>
             </div>
         </div>
     );
