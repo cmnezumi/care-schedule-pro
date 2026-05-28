@@ -652,6 +652,14 @@ export default function Home() {
   );
   const clientIdsOfSelectedCM = new Set(filteredClients.map(c => c.id));
   const filteredEvents = events.filter(e => {
+    // If it's a shift event, only show it if it belongs to careManagerId 'cm1' (or if careManagerId is not specified, default to cm1)
+    if (e.extendedProps?.fromShift === 'true' || e.extendedProps?.fromShift === true) {
+      const cmId = e.extendedProps?.careManagerId;
+      if (cmId && cmId !== 'cm1') {
+        return false;
+      }
+    }
+
     // If "My Schedule Only" is ON, filter out routine client events
     if (showOnlyMySchedule) {
        const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
@@ -664,13 +672,13 @@ export default function Home() {
           type === 'office_meeting' || title.includes('会議');
        
        if (!isEngagingEvent) return false;
-    }
+     }
 
-    if (selectedCareManagerId === 'all') return true;
-    if (e.extendedProps?.isPersonal) {
-      return e.extendedProps?.careManagerId === selectedCareManagerId || (!e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1');
-    }
-    return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
+     if (selectedCareManagerId === 'all') return true;
+     if (e.extendedProps?.isPersonal) {
+       return e.extendedProps?.careManagerId === selectedCareManagerId || (!e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1');
+     }
+     return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
   });
 
   if (!hasMounted) {
