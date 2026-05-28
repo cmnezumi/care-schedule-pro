@@ -38,6 +38,12 @@ const ShiftAutomation = ({
     const [onCallState, setOnCallState] = useState<Record<string, string>>({});
     const [teleworkState, setTeleworkState] = useState<Record<string, boolean>>({});
 
+    // We keep a track of manual presets by storing them when clicked, or we can check which cells are manually set.
+    // To distinguish manual versus automatic, we can store a separate set of keys that are manually set,
+    // or just assume any shiftState that exists *before* clicking "Auto Create" is manual.
+    // Let's store a state: manualKeys as a Record<string, boolean> to know which cells are manually set.
+    const [manualKeys, setManualKeys] = useState<Record<string, boolean>>({});
+
     const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
 
     // Load data
@@ -52,10 +58,21 @@ const ShiftAutomation = ({
                     setShiftState(data.shifts || {});
                     setOnCallState(data.onCall || {});
                     setTeleworkState(data.telework || {});
+                    // If shifts loaded from DB, we treat them as manual (since they were saved)
+                    const loadedManuals: Record<string, boolean> = {};
+                    if (data.shifts) {
+                        Object.keys(data.shifts).forEach(k => {
+                            if (data.shifts[k]) {
+                                loadedManuals[k] = true;
+                            }
+                        });
+                    }
+                    setManualKeys(loadedManuals);
                 } else {
                     setShiftState({});
                     setOnCallState({});
                     setTeleworkState({});
+                    setManualKeys({});
                 }
             } catch (e) {
                 console.error("Failed to load shifts", e);
@@ -109,15 +126,32 @@ const ShiftAutomation = ({
 
         const current = shiftState[key];
         let next = '';
-        if (!current) next = 'hope_holiday';
-        else if (current === 'hope_holiday') next = 'fixed_work';
-        else if (current === 'fixed_work') next = 'paid_leave';
-        else if (current === 'paid_leave') next = '';
+        // Cycle: '' -> 'work' (日) -> 'legal_holiday' (法内) -> 'legal_out_holiday' (法外) -> 'paid_leave' (有休) -> 'am_paid_leave' (AM休) -> 'pm_paid_leave' (PM休)
+        if (!current) next = 'work';
+        else if (current === 'work') next = 'legal_holiday';
+        else if (current === 'legal_holiday') next = 'legal_out_holiday';
+        else if (current === 'legal_out_holiday') next = 'paid_leave';
+        else if (current === 'paid_leave') next = 'am_paid_leave';
+        else if (current === 'am_paid_leave') next = 'pm_paid_leave';
+        else if (current === 'pm_paid_leave') next = '';
 
         setShiftState(prev => {
             const newState = { ...prev };
-            if (next) newState[key] = next;
-            else delete newState[key];
+            if (next) {
+                newState[key] = next;
+            } else {
+                delete newState[key];
+            }
+            return newState;
+        });
+
+        setManualKeys(prev => {
+            const newState = { ...prev };
+            if (next) {
+                newState[key] = true;
+            } else {
+                delete newState[key];
+            }
             return newState;
         });
     };
@@ -136,13 +170,13 @@ const ShiftAutomation = ({
         // 全スタッフ・全日の日別休み人数を追跡
         const dailyOffCount = days.map(() => 0);
 
-        // 休日判定ヘルパー
+        // 休日判定ヘルパー (AM休、PM休も公休や休みの扱いとしてカウント)
         const isHoliday = (sIdx: number, dIdx: number, state: Record<string, string>): boolean => {
             const type = state[`${sIdx}-${dIdx}`];
             return !!type && (
-                type === 'hope_holiday' || type === 'paid_leave' ||
                 type === 'legal_holiday' || type === 'legal_out_holiday' ||
-                type === 'auto_holiday'
+                type === 'paid_leave' || type === 'am_paid_leave' || type === 'pm_paid_leave' ||
+                type === 'hope_holiday' || type === 'auto_holiday'
             );
         };
 
@@ -156,32 +190,37 @@ const ShiftAutomation = ({
             return streak;
         };
 
-        // ── ステップ0: 既存の手動設定を保持（法内・法外の自動配置分はリセット）
+        // ── ステップ0: 自動配置されたセルのみリセット（手動設定 manualKeys は完全に保持）
         staffList.forEach((_, sIdx) => {
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
-                const type = newShiftState[key];
-                if (type === 'legal_holiday' || type === 'legal_out_holiday' || type === 'auto_holiday') {
-                    delete newShiftState[key];
-                } else if (type === 'work') {
+                if (!manualKeys[key]) {
+                    // 手動設定ではないセルはすべてクリアして自動作成の対象に
                     delete newShiftState[key];
                 }
             });
         });
 
-        // ── ステップ1: 手動設定の希望休・有給・固定出勤を dailyOffCount へ反映
+        // ── ステップ1: 手動設定された休みを dailyOffCount へ反映
         staffList.forEach((_, sIdx) => {
             days.forEach((_, dIdx) => {
-                const type = newShiftState[`${sIdx}-${dIdx}`];
-                if (type === 'hope_holiday' || type === 'paid_leave') {
+                const key = `${sIdx}-${dIdx}`;
+                if (manualKeys[key] && isHoliday(sIdx, dIdx, newShiftState)) {
                     dailyOffCount[dIdx]++;
                 }
             });
         });
 
-        // ── ステップ2: 各スタッフの有給を自動配置（paidLeaveCount 分）
+        // ── ステップ2: 各スタッフの有給（一日有休、AM休、PM休）を自動配置（paidLeaveCount 分）
         staffList.forEach((_, sIdx) => {
-            const existingPaid = days.filter((_, dIdx) => newShiftState[`${sIdx}-${dIdx}`] === 'paid_leave').length;
+            // 手動設定ですでに存在する有給（一日、AM休、PM休）の数
+            const existingPaid = days.filter((_, dIdx) => {
+                const key = `${sIdx}-${dIdx}`;
+                if (!manualKeys[key]) return false;
+                const type = newShiftState[key];
+                return type === 'paid_leave' || type === 'am_paid_leave' || type === 'pm_paid_leave';
+            }).length;
+            
             let paidToAssign = Math.max(0, paidLeaveCount - existingPaid);
 
             // シャッフルした日付インデックスで配置
@@ -208,17 +247,19 @@ const ShiftAutomation = ({
 
         // ── ステップ3: 各スタッフに公休（法内＋法外）を自動配置
         staffList.forEach((_, sIdx) => {
-            const targetTotal = legalInCount + legalOutCount; // 公休の目標合計
+            // 手動設定の「法内」「法外」も公休としてカウント
             const existingHolidays = days.filter((_, dIdx) => {
-                const t = newShiftState[`${sIdx}-${dIdx}`];
-                return t === 'hope_holiday' || t === 'paid_leave';
+                const key = `${sIdx}-${dIdx}`;
+                if (!manualKeys[key]) return false;
+                const t = newShiftState[key];
+                return t === 'legal_holiday' || t === 'legal_out_holiday' || t === 'paid_leave' || t === 'am_paid_leave' || t === 'pm_paid_leave';
             }).length;
 
+            const targetTotal = legalInCount + legalOutCount; // 公休の目標合計
             let toAssign = Math.max(0, targetTotal - existingHolidays);
             let assigned = 0;
 
             // ---- Pass A: 基本配置（3連勤制限＋連休7〜20日制限＋平日1人制限）----
-            // シャッフルして分散を促す
             const indices = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]).sort(() => Math.random() - 0.5);
 
             for (const dIdx of indices) {
@@ -246,24 +287,22 @@ const ShiftAutomation = ({
             }
 
             // ---- Pass B: 4連勤以上が発生していたら強制的に休みを挿入 ----
-            // ここで最大連勤数を強制する（4連勤まで許容、5連勤以上は強制カット）
             for (let d = 0; d < days.length; d++) {
                 const streak = getWorkStreak(sIdx, d, newShiftState);
                 if (streak >= 5) {
-                    // 5連勤以上：強制挿入（ルール無視でもカット）
                     for (let step = 1; step <= 4; step++) {
                         const targetD = d - step;
                         if (targetD < 0) break;
                         if (isHoliday(sIdx, targetD, newShiftState)) break;
-                        if (!newShiftState[`${sIdx}-${targetD}`] || newShiftState[`${sIdx}-${targetD}`] === 'work') {
-                            newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                        const key = `${sIdx}-${targetD}`;
+                        if (!newShiftState[key] || newShiftState[key] === 'work') {
+                            newShiftState[key] = 'auto_holiday';
                             dailyOffCount[targetD]++;
                             assigned++;
                             break;
                         }
                     }
                 } else if (streak === 4 && assigned < toAssign) {
-                    // 4連勤：余裕がある場合のみ基本ルール内で休みを挿入
                     for (let step = 1; step <= 3; step++) {
                         const targetD = d - step;
                         if (targetD < 0) break;
@@ -275,7 +314,8 @@ const ShiftAutomation = ({
                         const prevIsHol = targetD > 0 && isHoliday(sIdx, targetD - 1, newShiftState);
                         const nextIsHol = targetD < days.length - 1 && isHoliday(sIdx, targetD + 1, newShiftState);
                         if ((prevIsHol || nextIsHol) && (dayOfMonth < 7 || dayOfMonth > 20)) continue;
-                        newShiftState[`${sIdx}-${targetD}`] = 'auto_holiday';
+                        const key = `${sIdx}-${targetD}`;
+                        newShiftState[key] = 'auto_holiday';
                         dailyOffCount[targetD]++;
                         assigned++;
                         break;
@@ -291,7 +331,6 @@ const ShiftAutomation = ({
                     const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
                     const maxOff = isWeekend ? 2 : 1;
                     if (dailyOffCount[dIdx] >= maxOff) continue;
-                    // 3連休のみ防止、それ以外はOK
                     const prevIsHol = dIdx > 0 && isHoliday(sIdx, dIdx - 1, newShiftState);
                     const nextIsHol = dIdx < days.length - 1 && isHoliday(sIdx, dIdx + 1, newShiftState);
                     const prevPrevIsHol = dIdx > 1 && isHoliday(sIdx, dIdx - 2, newShiftState);
@@ -314,15 +353,16 @@ const ShiftAutomation = ({
                 }
             }
 
-            // ── ステップ4: auto_holiday を法内・法外に変換
-            let legalRemaining = legalInCount;
-            // 手動配置の希望休・有給を法内にカウント
-            days.forEach((_, dIdx) => {
-                const type = newShiftState[`${sIdx}-${dIdx}`];
-                if ((type === 'hope_holiday' || type === 'paid_leave') && legalRemaining > 0) {
-                    legalRemaining--;
-                }
-            });
+            // ── ステップ4: auto_holiday を「法内」と「法外」に変換
+            // 手動設定の「法内」の数を正しくカウントする
+            const manualLegalInCount = days.filter((_, dIdx) => {
+                const key = `${sIdx}-${dIdx}`;
+                return manualKeys[key] && newShiftState[key] === 'legal_holiday';
+            }).length;
+
+            // 自動割り当てが必要な法内公休数
+            let legalRemaining = Math.max(0, legalInCount - manualLegalInCount);
+
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
                 if (newShiftState[key] === 'auto_holiday') {
@@ -338,7 +378,9 @@ const ShiftAutomation = ({
             // ── ステップ5: 残りは出勤（work）で埋める
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
-                if (!newShiftState[key]) newShiftState[key] = 'work';
+                if (!newShiftState[key]) {
+                    newShiftState[key] = 'work';
+                }
             });
         });
 
@@ -346,7 +388,8 @@ const ShiftAutomation = ({
         const onCallCount = staffList.map(() => 0);
         const getIsWorking = (sIdx: number, dIdx: number, state: Record<string, string>): boolean => {
             const type = state[`${sIdx}-${dIdx}`];
-            return type === 'work' || type === 'fixed_work';
+            // 'work' のほか、AM休やPM休も半分は稼働日なのでオンコール可能
+            return type === 'work' || type === 'fixed_work' || type === 'am_paid_leave' || type === 'pm_paid_leave';
         };
 
         days.forEach((_, dIdx) => {
@@ -376,19 +419,21 @@ const ShiftAutomation = ({
     const getShiftLabel = (type: string) => {
         switch (type) {
             case 'work': return '日';
-            case 'fixed_work': return '◎';
-            case 'hope_holiday': return '✕';
-            case 'paid_leave': return '有';
             case 'legal_holiday': return '法内';
             case 'legal_out_holiday': return '法外';
+            case 'paid_leave': return '有';
+            case 'am_paid_leave': return 'AM休';
+            case 'pm_paid_leave': return 'PM休';
             default: return '';
         }
     };
 
-    const getShiftColor = (type: string) => {
-        if (type === 'hope_holiday') return 'text-rose-500 font-bold';
+    const getShiftColor = (type: string, isManual: boolean) => {
+        // 手動設定されたセルはすべて赤字にする
+        if (isManual) return 'text-rose-600 font-bold';
+
         if (type === 'paid_leave') return 'text-pink-500 font-bold';
-        if (type === 'fixed_work') return 'text-emerald-600 font-bold';
+        if (type === 'am_paid_leave' || type === 'pm_paid_leave') return 'text-orange-500 font-bold';
         if (type === 'legal_holiday') return 'text-slate-700';
         if (type === 'legal_out_holiday') return 'text-slate-400';
         return 'text-slate-600';
@@ -466,18 +511,19 @@ const ShiftAutomation = ({
                                     const type = shiftState[key];
                                     const isOnCall = onCallState[dIdx] === sIdx.toString();
                                     const isTele = teleworkState[key];
-                                    const isHol = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(type);
+                                    const isHol = ['legal_holiday', 'legal_out_holiday', 'paid_leave', 'am_paid_leave', 'pm_paid_leave', 'hope_holiday', 'auto_holiday'].includes(type);
+                                    const isManual = !!manualKeys[key];
 
                                     return (
                                         <td key={dIdx}
                                             onClick={() => handleCellClick(sIdx, dIdx)}
                                             onContextMenu={e => toggleTelework(sIdx, dIdx, e)}
                                             className={`border-b border-r p-0 text-center h-11 cursor-pointer transition-colors relative 
-                          ${isOnCall ? 'bg-emerald-50' : isHol ? 'bg-yellow-50' : 'hover:bg-slate-50'} 
-                          ${inputMode === 'telework' ? 'bg-indigo-50/10' : ''}
-                          ${inputMode === 'oncall' ? 'bg-emerald-50/10' : ''}
-                        `}>
-                                            <div className={`text-xs font-medium ${getShiftColor(type)}`}>{getShiftLabel(type)}</div>
+                                              ${isOnCall ? 'bg-emerald-50' : isHol ? 'bg-yellow-50/70' : 'hover:bg-slate-50'} 
+                                              ${inputMode === 'telework' ? 'bg-indigo-50/10' : ''}
+                                              ${inputMode === 'oncall' ? 'bg-emerald-50/10' : ''}
+                                            `}>
+                                            <div className={`text-xs font-medium ${getShiftColor(type, isManual)}`}>{getShiftLabel(type)}</div>
                                             {isTele && <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full border border-white shadow-sm" />}
                                             {isOnCall && <div className="absolute bottom-0 inset-x-0 h-1.5 bg-emerald-400" />}
                                         </td>
@@ -492,8 +538,8 @@ const ShiftAutomation = ({
             <div className="p-3 text-[11px] text-slate-500 bg-slate-50 border-t flex flex-wrap gap-x-4 gap-y-2 items-center">
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-indigo-500 rounded-full border border-white shadow-sm" />テレワーク</span>
                 <span className="flex items-center gap-1.5"><span className="w-5 h-1.5 bg-emerald-400 rounded-sm" />オンコール</span>
-                <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-yellow-100 border border-slate-200 rounded-sm" />休日</span>
-                <span className="ml-auto text-slate-400">✕:希望休 有:有給 法内:法定内 法外:法定外 ◎:固定出勤</span>
+                <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-yellow-100/70 border border-slate-200 rounded-sm" />休み・有休・半休</span>
+                <span className="ml-auto text-slate-400">赤文字:手動固定値 (自動作成で変化しません) | 選択順: 未設定 → 日 → 法内 → 法外 → 有休 → AM休 → PM休</span>
             </div>
         </div>
     );

@@ -94,6 +94,8 @@ export async function POST(request: Request) {
         const labelMap: Record<string, string> = {
             'hope_holiday': '休み',
             'paid_leave': '有休',
+            'am_paid_leave': 'AM休',
+            'pm_paid_leave': 'PM休',
             'legal_holiday': '法内',
             'legal_out_holiday': '法外'
         };
