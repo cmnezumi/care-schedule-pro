@@ -20,6 +20,7 @@ interface VisitModalProps {
     isSaving?: boolean;
     onCopy?: (data: any) => void;
     clinics?: Clinic[];
+    currentCareManagerId?: string;
 }
 
 const VisitModal = ({
@@ -36,7 +37,8 @@ const VisitModal = ({
     editTargetChoice = 'single',
     isSaving = false,
     onCopy,
-    clinics = []
+    clinics = [],
+    currentCareManagerId
 }: VisitModalProps) => {
     const [clientId, setClientId] = useState('');
     const [type, setType] = useState<string>('');
@@ -172,6 +174,7 @@ const VisitModal = ({
             allDay,
             backgroundColor,
             extendedProps: {
+                ...editingEvent?.extendedProps,
                 clientId: isPersonal ? null : clientId,
                 type: typeIdToSave,
                 notes,
@@ -183,7 +186,11 @@ const VisitModal = ({
                 monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
                 baseEventId: editingEvent?.baseEventId,
                 status,
-                clinicId: selectedClinicId || editingEvent?.extendedProps?.clinicId
+                clinicId: selectedClinicId || editingEvent?.extendedProps?.clinicId,
+                careManagerId: editingEvent?.extendedProps?.careManagerId || 
+                               (currentCareManagerId && currentCareManagerId !== 'all' ? currentCareManagerId : undefined) || 
+                               clients.find(c => c.id === clientId)?.careManagerId || 
+                               'cm1'
             },
             isContinuous
         };
@@ -250,6 +257,7 @@ const VisitModal = ({
             allDay,
             backgroundColor,
             extendedProps: {
+                ...editingEvent?.extendedProps,
                 clientId: isPersonal ? null : clientId,
                 type: typeIdToSave,
                 notes,
@@ -260,7 +268,11 @@ const VisitModal = ({
                 weeklyDays: recurrenceType === 'weekly' ? weeklyDays : undefined,
                 monthlyRecur: recurrenceType === 'monthly' ? { type: monthlyRecurType, weeks: monthlyWeeks, day: monthlyDay } : undefined,
                 baseEventId: undefined, // Strip baseEventId
-                status
+                status,
+                careManagerId: editingEvent?.extendedProps?.careManagerId || 
+                               (currentCareManagerId && currentCareManagerId !== 'all' ? currentCareManagerId : undefined) || 
+                               clients.find(c => c.id === clientId)?.careManagerId || 
+                               'cm1'
             }
         };
         onCopy(copyData);

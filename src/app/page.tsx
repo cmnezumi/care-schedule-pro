@@ -34,7 +34,7 @@ export default function Home() {
     { id: 'cm2', name: 'ケアマネ B' },
     { id: 'cm3', name: 'ケアマネ C' },
   ]);
-  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('all');
+  const [selectedCareManagerId, setSelectedCareManagerId] = useState<string>('cm1');
   const isHandlingEventRef = React.useRef(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -644,6 +644,51 @@ export default function Home() {
     }
   };
 
+  const handleDeployShifts = async () => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+    const confirmDeploy = confirm(`${year}年${month + 1}月のシフト情報から、休みとテレワーク予定をカレンダーに反映しますか？`);
+    if (!confirmDeploy) return;
+
+    setIsSaving(true);
+    try {
+        const shiftsRes = await fetch('/api/shifts');
+        if (!shiftsRes.ok) throw new Error('Failed to fetch shifts');
+        const allShifts = await shiftsRes.json();
+        const monthData = allShifts[targetMonthStr];
+
+        if (!monthData) {
+            alert(`${year}年${month + 1}月のシフトデータがありません。「シフト」タブで作成・保存してください。`);
+            return;
+        }
+
+        const syncRes = await fetch('/api/shifts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                yearMonth: targetMonthStr,
+                shifts: monthData.shifts || {},
+                onCall: monthData.onCall || {},
+                telework: monthData.telework || {}
+            })
+        });
+
+        if (!syncRes.ok) throw new Error('Failed to sync shifts');
+
+        const eventsRes = await fetch('/api/events');
+        setEvents(await eventsRes.json());
+        alert(`${year}年${month + 1}月のシフト（休み・テレワーク）を反映しました。`);
+    } catch (e) {
+        console.error(e);
+        alert('シフト反映中にエラーが発生しました。');
+    } finally {
+        setIsSaving(false);
+    }
+  };
+
+
   // Filtered lists
   const filteredClients = clients.filter(c =>
     selectedCareManagerId === 'all' ||
@@ -667,6 +712,7 @@ export default function Home() {
        const title = e.title || '';
        const isEngagingEvent = isPersonal || 
           type === 'monitoring' || title.includes('モニタリング') ||
+          type === 'assessment' || title.includes('アセスメント') || title.includes('認定調査') ||
           type === 'office_work' ||
           type === 'conference' || title.includes('担当者会議') ||
           type === 'office_meeting' || title.includes('会議');
@@ -675,8 +721,14 @@ export default function Home() {
      }
 
      if (selectedCareManagerId === 'all') return true;
+     
+     const eventCMId = e.extendedProps?.careManagerId;
+     if (eventCMId) {
+       return eventCMId === selectedCareManagerId;
+     }
+     
      if (e.extendedProps?.isPersonal) {
-       return e.extendedProps?.careManagerId === selectedCareManagerId || (!e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1');
+       return !e.extendedProps?.careManagerId && selectedCareManagerId === 'cm1';
      }
      return clientIdsOfSelectedCM.has(e.extendedProps?.clientId);
   });
@@ -721,19 +773,6 @@ export default function Home() {
             </nav>
 
             <div className="flex items-center gap-2 md:gap-4">
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl">
-                <div className="px-2 py-1 text-[10px] font-bold text-slate-500 uppercase hidden sm:block">担当者</div>
-                <select 
-                  value={selectedCareManagerId}
-                  onChange={(e) => setSelectedCareManagerId(e.target.value)}
-                  className="bg-white border-none rounded-lg px-2 py-1 text-xs font-bold text-slate-700 outline-none shadow-sm focus:ring-2 focus:ring-blue-500/20"
-                >
-                  <option value="all">全員分</option>
-                  {careManagers.map(cm => (
-                    <option key={cm.id} value={cm.id}>{cm.name}</option>
-                  ))}
-                </select>
-              </div>
               {(isSaving || isLoading) && <Loader2 className="animate-spin text-blue-500" size={16} />}
             </div>
           </div>
@@ -759,6 +798,13 @@ export default function Home() {
                     >
                         <Repeat size={14} />
                         ルーティン展開
+                    </button>
+                    <button
+                        onClick={handleDeployShifts}
+                        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:text-indigo-800 px-3 py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
+                    >
+                        <Repeat size={14} />
+                        シフト反映
                     </button>
                     <div className="flex items-center gap-2 cursor-pointer bg-slate-100 px-3 py-1.5 rounded-full hover:bg-slate-200 transition-colors">
                        <span className="text-xs md:text-sm font-bold text-slate-600">自分の予定のみ</span>
@@ -870,6 +916,7 @@ export default function Home() {
         editTargetChoice={editTargetChoice}
         isSaving={isSaving}
         onCopy={handleCopyEvent}
+        currentCareManagerId={selectedCareManagerId === 'all' ? 'cm1' : selectedCareManagerId}
       />
 
       <EventPreviewModal
