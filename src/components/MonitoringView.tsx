@@ -62,14 +62,12 @@ export default function MonitoringView({ clients, events, setEvents, careManager
 
   const handleToggleStatus = async (evt: any) => {
     const isPersonal = evt.extendedProps?.isPersonal || evt.isPersonal;
-    if (isPersonal) return;
+    const clientId = evt.extendedProps?.clientId || evt.clientId;
+    if (isPersonal && !clientId) return;
 
     const isCompleted = evt.extendedProps?.status === 'completed';
     const newStatus = isCompleted ? 'scheduled' : 'completed';
     
-    // Find the original client ID just in case
-    const clientId = evt.extendedProps?.clientId || evt.clientId;
-
     const updatedPayload = {
       id: evt.id,
       title: evt.title,

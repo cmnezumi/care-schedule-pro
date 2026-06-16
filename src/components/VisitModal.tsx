@@ -64,6 +64,12 @@ const VisitModal = ({
     }, [isOpen]);
 
     useEffect(() => {
+        if (!clientId) {
+            setIsPersonal(true);
+        }
+    }, [clientId]);
+
+    useEffect(() => {
         if (isOpen) {
             if (editingEvent) {
                 // Editing mode
@@ -100,8 +106,10 @@ const VisitModal = ({
                 if (isFirstOpen.current) {
                     if (defaultClientId) {
                         setClientId(defaultClientId);
-                    } else if (clients.length > 0) {
-                        setClientId(clients[0].id);
+                        setIsPersonal(false);
+                    } else {
+                        setClientId('');
+                        setIsPersonal(true);
                     }
                     setType('');
                     setStartTime('10:00');
@@ -109,7 +117,6 @@ const VisitModal = ({
                     setNotes('');
                     setAllDay(false);
                     setRecurrenceType('none');
-                    setIsPersonal(false);
                     setStatus('scheduled');
 
                     setWeeklyDays([selectedDate.getDay()]);
@@ -159,11 +166,11 @@ const VisitModal = ({
         const typeIdToSave = selectedType ? selectedType.id : type;
         
         const clientName = clients.find(c => c.id === clientId)?.name || '';
-        const generatedTitle = isPersonal 
-            ? typeNameToSave 
-            : typeIdToSave === 'monitoring' 
+        const generatedTitle = clientId 
+            ? (typeIdToSave === 'monitoring' 
                 ? `モニタリング: ${clientName}`
-                : `${clientName}: ${typeNameToSave}`;
+                : `${clientName}: ${typeNameToSave}`)
+            : typeNameToSave;
 
         const finalData = {
             id: editingEvent?.id,
@@ -175,10 +182,10 @@ const VisitModal = ({
             backgroundColor,
             extendedProps: {
                 ...editingEvent?.extendedProps,
-                clientId: isPersonal ? null : clientId,
+                clientId: clientId || null,
                 type: typeIdToSave,
                 notes,
-                isPersonal,
+                isPersonal: isPersonal || !clientId,
                 startTime,
                 endTime,
                 recurrenceType,
@@ -243,11 +250,11 @@ const VisitModal = ({
         const typeIdToSave = selectedType ? selectedType.id : type;
 
         const clientName = clients.find(c => c.id === clientId)?.name || '';
-        const generatedTitle = isPersonal 
-            ? typeNameToSave 
-            : typeIdToSave === 'monitoring' 
+        const generatedTitle = clientId 
+            ? (typeIdToSave === 'monitoring' 
                 ? `モニタリング: ${clientName}`
-                : `${clientName}: ${typeNameToSave}`;
+                : `${clientName}: ${typeNameToSave}`)
+            : typeNameToSave;
 
         const copyData = {
             id: undefined, // Strip ID to create a new one
@@ -258,10 +265,10 @@ const VisitModal = ({
             backgroundColor,
             extendedProps: {
                 ...editingEvent?.extendedProps,
-                clientId: isPersonal ? null : clientId,
+                clientId: clientId || null,
                 type: typeIdToSave,
                 notes,
-                isPersonal,
+                isPersonal: isPersonal || !clientId,
                 startTime,
                 endTime,
                 recurrenceType,
@@ -362,7 +369,13 @@ const VisitModal = ({
                         <div className="flex gap-2">
                             <div className="flex-1 bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between">
                                 <label className="text-sm font-bold text-slate-700 cursor-pointer flex items-center gap-2">
-                                    <input type="checkbox" className="w-4 h-4 text-sky-500 rounded border-slate-300" checked={isPersonal} onChange={(e) => setIsPersonal(e.target.checked)} />
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 text-sky-500 rounded border-slate-300 disabled:opacity-50" 
+                                        checked={isPersonal || !clientId} 
+                                        disabled={!clientId}
+                                        onChange={(e) => setIsPersonal(e.target.checked)} 
+                                    />
                                     自分の予定
                                 </label>
                             </div>
@@ -381,38 +394,37 @@ const VisitModal = ({
                             </label>
                         </div>
 
-                        {!isPersonal && (
-                            <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-3">
-                                <div>
-                                    <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">利用者</label>
+                        <div className="animate-in fade-in slide-in-from-top-1 duration-200 space-y-3">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">利用者</label>
+                                <select
+                                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm"
+                                    value={clientId}
+                                    onChange={(e) => setClientId(e.target.value)}
+                                >
+                                    <option value="">（なし／個人の予定）</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name} 様</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {clinics.length > 0 && !editingEvent && clientId && (
+                                <div className="bg-sky-50 border border-sky-100 p-2.5 rounded-xl">
+                                    <label className="block text-[10px] font-bold text-sky-600 mb-1 ml-1 uppercase">クリニックの往診予定を適用</label>
                                     <select
-                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-medium text-slate-700 text-sm"
-                                        value={clientId}
-                                        onChange={(e) => setClientId(e.target.value)}
+                                        className="w-full bg-transparent font-bold text-sky-700 text-xs outline-none cursor-pointer"
+                                        value=""
+                                        onChange={(e) => handleClinicSelect(e.target.value)}
                                     >
-                                        {clients.map(client => (
-                                            <option key={client.id} value={client.id}>{client.name} 様</option>
+                                        <option value="" disabled>テンプレートを選択...</option>
+                                        {clinics.map(c => (
+                                            <option key={c.id} value={c.id}>{c.name} ({c.startTime}〜)</option>
                                         ))}
                                     </select>
                                 </div>
-
-                                {clinics.length > 0 && !editingEvent && (
-                                    <div className="bg-sky-50 border border-sky-100 p-2.5 rounded-xl">
-                                        <label className="block text-[10px] font-bold text-sky-600 mb-1 ml-1 uppercase">クリニックの往診予定を適用</label>
-                                        <select
-                                            className="w-full bg-transparent font-bold text-sky-700 text-xs outline-none cursor-pointer"
-                                            value=""
-                                            onChange={(e) => handleClinicSelect(e.target.value)}
-                                        >
-                                            <option value="" disabled>テンプレートを選択...</option>
-                                            {clinics.map(c => (
-                                                <option key={c.id} value={c.id}>{c.name} ({c.startTime}〜)</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                            )}
+                        </div>
 
                         <div>
                             <label className="block text-[11px] font-bold text-slate-500 mb-1 ml-1">予定の種類</label>

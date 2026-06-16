@@ -263,7 +263,8 @@ const ScheduleCalendar = ({
 
             const dayEvents = filteredEvents.filter(e => {
               const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
-              if (!isPersonal) return false;
+              const hasClient = !!(e.extendedProps?.clientId || e.clientId);
+              if (!isPersonal || hasClient) return false;
 
               // Check if this date is excluded
               const excludedDates = e.extendedProps?.excludedDates || e.excludedDates || [];
@@ -336,13 +337,14 @@ const ScheduleCalendar = ({
           }}
           eventClassNames={(arg) => {
             const isPersonal = arg.event.extendedProps?.isPersonal;
+            const hasClient = !!arg.event.extendedProps?.clientId;
             const excludedDates = arg.event.extendedProps?.excludedDates || [];
             const currentDate = arg.event.startStr.split('T')[0];
 
             const classes = [];
             if (excludedDates.includes(currentDate)) classes.push('hidden');
-            // Hide personal events from main list in Month view
-            if (isPersonal && arg.view.type === 'dayGridMonth') classes.push('hidden-personal-event');
+            // Hide personal events from main list in Month view only if they do not have a client
+            if (isPersonal && !hasClient && arg.view.type === 'dayGridMonth') classes.push('hidden-personal-event');
 
             return classes;
           }}
@@ -352,7 +354,8 @@ const ScheduleCalendar = ({
             if (excludedDates.includes(currentDate)) return null;
 
             const isPersonal = arg.event.extendedProps?.isPersonal;
-            if (isPersonal && arg.view.type === 'dayGridMonth') return null; // Handled by dayCellContent
+            const hasClient = !!arg.event.extendedProps?.clientId;
+            if (isPersonal && !hasClient && arg.view.type === 'dayGridMonth') return null; // Handled by dayCellContent
 
             const isCompleted = arg.event.extendedProps?.status === 'completed';
 
@@ -403,7 +406,7 @@ const ScheduleCalendar = ({
 
             return (
               <div className={`fc-event-main-frame flex items-center px-1 overflow-hidden gap-1 transition-opacity ${isCompleted ? 'opacity-50' : ''}`}>
-                {!isPersonal && (
+                {(!isPersonal || hasClient) && (
                     <div 
                        onClick={handleToggleComplete}
                        className={`flex-none w-[10px] h-[10px] mt-[1px] rounded flex items-center justify-center cursor-pointer transition-colors ${isCompleted ? 'bg-emerald-500 border-none' : 'bg-transparent border border-white/70 hover:bg-white/30'}`}
