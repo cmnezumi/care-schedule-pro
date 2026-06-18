@@ -35,6 +35,8 @@ const ScheduleCalendar = ({
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('dayGridMonth');
   const [weekViewClientId, setWeekViewClientId] = useState<string>('all');
+  const [isMobile, setIsMobile] = useState(false);
+  const [selectedDateState, setSelectedDateState] = useState<Date>(new Date());
   // Allow local state fallback if props aren't provided (though they will be)
   const [localEvents, setLocalEvents] = useState<any[]>([]);
 
@@ -42,11 +44,18 @@ const ScheduleCalendar = ({
 
   useEffect(() => {
     setMounted(true);
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   const handleDateClick = (arg: DateClickArg) => {
     console.log("Date clicked:", arg.dateStr);
-    if (onDateClick) {
+    setSelectedDateState(arg.date);
+    if (!isMobile && onDateClick) {
       onDateClick(arg.date);
     }
   };
@@ -68,6 +77,83 @@ const ScheduleCalendar = ({
     if (onEventResize) {
       onEventResize(info.event);
     }
+  };
+
+  const toggleEventStatus = async (eventId: string, currentStatus: string, eventObj: any) => {
+    const isCompleted = currentStatus === 'completed';
+    const newStatus = isCompleted ? 'scheduled' : 'completed';
+    
+    // Construct the updated event payload
+    const updatedPayload = {
+        id: eventId,
+        title: eventObj.title,
+        allDay: eventObj.allDay,
+        start: eventObj.startStr || eventObj.start,
+        end: eventObj.endStr || eventObj.end || eventObj.start,
+        backgroundColor: eventObj.backgroundColor,
+        extendedProps: {
+            ...(eventObj.extendedProps || {}),
+            status: newStatus
+        }
+    };
+
+    // Optimistic UI Update for instant feedback
+    if (setEvents) {
+        const optimisticEvents = filteredEvents.map(e => e.id === eventId ? {
+            ...e,
+            extendedProps: { ...e.extendedProps, status: newStatus }
+        } : e);
+        setEvents(optimisticEvents);
+    }
+
+    try {
+        await fetch('/api/events', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updatedPayload)
+        });
+        
+        if (setEvents) {
+            fetch('/api/events').then(res => res.json()).then(data => setEvents(data));
+        }
+    } catch(err) {
+        console.error("Failed to update status", err);
+        if (setEvents) setEvents(filteredEvents); // Revert on fail
+    }
+  };
+
+  const getSelectedDayEvents = () => {
+    const dateStr = selectedDateState.toLocaleDateString('sv-SE');
+    const currentDay = selectedDateState.getDay();
+
+    return filteredEvents.filter(e => {
+      // Check if this date is excluded
+      const excludedDates = e.extendedProps?.excludedDates || e.excludedDates || [];
+      if (excludedDates.includes(dateStr)) return false;
+
+      // Check single instance or monthly manually-created instances
+      if (e.start) {
+        const startStr = getJSTDateStr(e.start);
+        if (startStr === dateStr) return true;
+      }
+
+      // Check weekly recurring
+      const daysOfWeek = e.daysOfWeek || e.extendedProps?.recurring?.daysOfWeek;
+      if (daysOfWeek && Array.isArray(daysOfWeek) && daysOfWeek.includes(currentDay)) {
+        if (e.startRecur && dateStr < e.startRecur) return false;
+        if (e.endRecur && dateStr > e.endRecur) return false;
+        return true;
+      }
+
+      return false;
+    }).sort((a, b) => {
+      if (a.allDay && !b.allDay) return -1;
+      if (!a.allDay && b.allDay) return 1;
+      if (a.start && b.start) {
+        return new Date(a.start).getTime() - new Date(b.start).getTime();
+      }
+      return 0;
+    });
   };
 
   // Filter and normalize events for display
@@ -100,7 +186,7 @@ const ScheduleCalendar = ({
   if (!mounted) return <div className="h-full w-full bg-slate-50 animate-pulse rounded-lg"></div>;
 
   return (
-    <div className="h-full w-full flex flex-col calendar-wrapper relative bg-white rounded-xl">
+    <div className="h-full w-full flex flex-col calendar-wrapper relative bg-white rounded-xl overflow-hidden">
       {isWeekOrDayView && clients.length > 0 && (
         <div className="w-full flex items-center justify-center pt-3 pb-1 z-10 relative">
           <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.05)] text-sm">
@@ -118,7 +204,7 @@ const ScheduleCalendar = ({
           </div>
         </div>
       )}
-      <div className="flex-1 w-full min-h-0 relative">
+      <div className={`w-full min-h-0 relative ${isMobile ? 'h-[55%] flex-grow' : 'flex-1'}`}>
         <style jsx global>{`
         .fc-toolbar-title {
           font-size: 1.25rem !important;
@@ -234,7 +320,11 @@ const ScheduleCalendar = ({
               onDatesSet(arg.view.currentStart);
             }
           }}
-          headerToolbar={{
+          headerToolbar={isMobile ? {
+            left: 'prev,next',
+            center: 'title',
+            right: 'today'
+          } : {
             left: 'prev,next today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
@@ -288,8 +378,10 @@ const ScheduleCalendar = ({
               return false;
             });
 
+            const isSelected = dateStr === selectedDateState.toLocaleDateString('sv-SE');
+
             return (
-              <div className="flex items-start justify-between w-full px-1 pt-0.5 pb-0 h-full">
+              <div className={`flex items-start justify-between w-full px-1 pt-0.5 pb-0 h-full transition-colors ${isMobile && isSelected ? 'bg-sky-50 border border-sky-300 rounded-lg shadow-inner ring-1 ring-sky-200' : ''}`}>
                 <div className="flex flex-wrap gap-0.5 max-w-[75%] mt-0.5">
                   {dayEvents.map((e, idx) => {
                     const typeName = (e.title || '').split(':').pop()?.trim();
@@ -362,46 +454,7 @@ const ScheduleCalendar = ({
             const handleToggleComplete = async (e: React.MouseEvent) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
-                const newStatus = isCompleted ? 'scheduled' : 'completed';
-                
-                // Construct the updated event payload
-                const updatedPayload = {
-                    id: arg.event.id,
-                    title: arg.event.title,
-                    allDay: arg.event.allDay,
-                    start: arg.event.startStr,
-                    end: arg.event.endStr || arg.event.startStr,
-                    backgroundColor: arg.event.backgroundColor,
-                    extendedProps: {
-                        ...arg.event.extendedProps,
-                        status: newStatus
-                    }
-                };
-
-                // Optimistic UI Update for instant feedback
-                if (setEvents) {
-                    const optimisticEvents = filteredEvents.map(e => e.id === arg.event.id ? {
-                        ...e,
-                        extendedProps: { ...e.extendedProps, status: newStatus }
-                    } : e);
-                    setEvents(optimisticEvents);
-                }
-
-                try {
-                    await fetch('/api/events', {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedPayload)
-                    });
-                    
-                    if (setEvents) {
-                        fetch('/api/events').then(res => res.json()).then(data => setEvents(data));
-                    }
-                } catch(err) {
-                    console.error("Failed to update status", err);
-                    if (setEvents) setEvents(filteredEvents); // Revert on fail
-                }
+                toggleEventStatus(arg.event.id, arg.event.extendedProps?.status || 'scheduled', arg.event);
             };
 
             return (
@@ -424,6 +477,127 @@ const ScheduleCalendar = ({
           eventClick={handleEventClick}
         />
       </div>
+      
+      {isMobile && (
+        <div className="border-t border-slate-200 bg-slate-50/70 flex flex-col h-[45dvh] min-h-[220px]">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 flex-none">
+            <span className="text-xs font-bold text-slate-700">
+              {selectedDateState.getMonth() + 1}月{selectedDateState.getDate()}日({(() => {
+                const days = ['日', '月', '火', '水', '木', '金', '土'];
+                return days[selectedDateState.getDay()];
+              })()}) の予定
+            </span>
+            <button
+              onClick={() => {
+                if (onDateClick) {
+                  onDateClick(selectedDateState);
+                }
+              }}
+              className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-3 py-1 rounded-full text-xs shadow-sm flex items-center gap-1"
+            >
+              ＋ 新規追加
+            </button>
+          </div>
+          
+          {/* Event List */}
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            {getSelectedDayEvents().length === 0 ? (
+              <div className="text-center text-xs text-slate-400 py-6 font-bold">予定はありません</div>
+            ) : (
+              getSelectedDayEvents().map((e, idx) => {
+                const isCompleted = e.extendedProps?.status === 'completed';
+                const hasClient = !!(e.extendedProps?.clientId || e.clientId);
+                const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
+                
+                // Format time range
+                let timeStr = '終日';
+                if (!e.allDay && e.start) {
+                  const s = new Date(e.start);
+                  const sh = String(s.getHours()).padStart(2, '0');
+                  const sm = String(s.getMinutes()).padStart(2, '0');
+                  let eh = '';
+                  let em = '';
+                  if (e.end) {
+                    const endObj = new Date(e.end);
+                    eh = String(endObj.getHours()).padStart(2, '0');
+                    em = String(endObj.getMinutes()).padStart(2, '0');
+                  } else {
+                    const endObj = new Date(s.getTime() + 30 * 60 * 1000);
+                    eh = String(endObj.getHours()).padStart(2, '0');
+                    em = String(endObj.getMinutes()).padStart(2, '0');
+                  }
+                  timeStr = `${sh}:${sm}〜${eh}:${em}`;
+                }
+
+                // Color mapping
+                const bgColor = e.backgroundColor || '#94a3b8';
+                
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      if (onEventClick) {
+                        onEventClick({ event: e });
+                      }
+                    }}
+                    className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer ${
+                      isCompleted ? 'opacity-60' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* Completion Toggle */}
+                      {hasClient && (
+                        <div
+                          onClick={(evt) => {
+                            evt.preventDefault();
+                            evt.stopPropagation();
+                            toggleEventStatus(e.id, e.extendedProps?.status || 'scheduled', e);
+                          }}
+                          className={`flex-none w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                            isCompleted
+                              ? 'bg-emerald-500 border-emerald-500 text-white'
+                              : 'border-slate-300 text-transparent hover:border-emerald-400'
+                          }`}
+                        >
+                          {isCompleted && (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                      
+                      {/* Time & Title */}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                            {timeStr}
+                          </span>
+                          {isPersonal && !hasClient && (
+                            <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">
+                              自分の予定
+                            </span>
+                          )}
+                        </div>
+                        <div className={`text-xs font-bold ${isCompleted ? 'line-through text-slate-400 font-normal' : 'text-slate-700'} truncate`}>
+                          {e.title}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Indicator Color Tag */}
+                    <div
+                      className="w-2.5 h-2.5 rounded-full flex-none ml-2"
+                      style={{ backgroundColor: bgColor }}
+                    />
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

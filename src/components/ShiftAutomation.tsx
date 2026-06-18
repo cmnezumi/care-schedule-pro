@@ -5,11 +5,13 @@ import React, { useState, useEffect } from 'react';
 interface ShiftAutomationProps {
     initialYear?: number;
     initialMonth?: number;
+    onSaveSuccess?: () => void;
 }
 
 const ShiftAutomation = ({
     initialYear = new Date().getFullYear(),
-    initialMonth = new Date().getMonth() + 1
+    initialMonth = new Date().getMonth() + 1,
+    onSaveSuccess
 }: ShiftAutomationProps) => {
     const [year, setYear] = useState(initialYear);
     const [month, setMonth] = useState(initialMonth);
@@ -97,6 +99,9 @@ const ShiftAutomation = ({
             });
             if (res.ok) {
                 alert("保存しました");
+                if (onSaveSuccess) {
+                    onSaveSuccess();
+                }
             }
         } catch (e) {
             alert("保存に失敗しました");

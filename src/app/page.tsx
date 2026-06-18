@@ -866,6 +866,17 @@ export default function Home() {
               <ShiftAutomation 
                 initialYear={currentMonth.getFullYear()}
                 initialMonth={currentMonth.getMonth() + 1}
+                onSaveSuccess={async () => {
+                  try {
+                    const res = await fetch('/api/events');
+                    if (res.ok) {
+                      const data = await res.json();
+                      setEvents(Array.isArray(data) ? data : []);
+                    }
+                  } catch (e) {
+                    console.error("Failed to sync events on shift save", e);
+                  }
+                }}
               />
             </div>
           )}
