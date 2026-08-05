@@ -37,7 +37,26 @@ export function generateMonitoringSchedule(
 
         // Shift format assumes '0-{dayIndex}' where 0 is the care manager
         const shiftStatus = shifts[`0-${i}`]; 
-        const isTelework = telework[`0-${i}`] === true;
+        
+        const pad = (n: number) => String(n).padStart(2, '0');
+        // JST日付文字列（YYYY-MM-DD）を取得するヘルパー
+        // DBはUTCで保存されているため、+09:00に変換してから日付を比較する
+        const toJSTDateStr = (isoStr: string): string => {
+            const d = new Date(isoStr);
+            const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().split('T')[0];
+        };
+        const targetDateStr = `${year}-${pad(month)}-${pad(dayOfMonth)}`;
+
+        // Check if there is an existing telework event on this day in existingEvents
+        // タイムゾーンを考慮してJST日付で比較する
+        const hasTeleworkEvent = existingEvents.some(e => {
+            const st = e.start?.toISOString ? e.start.toISOString() : String(e.start);
+            const isTele = e.extendedProps?.type === 'telework' || e.extendedProps?.type === 'テレワーク' || e.title?.includes('テレワーク');
+            return isTele && toJSTDateStr(st) === targetDateStr;
+        });
+
+        const isTelework = telework[`0-${i}`] === true || hasTeleworkEvent || shiftStatus === 'telework' || shiftStatus === 'テレワーク';
         const isHoliday = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus || '');
         
         const dateObj = new Date(year, month - 1, dayOfMonth);
@@ -182,8 +201,9 @@ export function generateMonitoringSchedule(
         let validDays = allowedDays.filter(d => getClientFreeSlots(d, clientIds).length >= neededSlots);
 
         if (validDays.length === 0) {
-            const fallbackDay = allowedDays[allowedDays.length - 1] || 1; 
-            return { day: fallbackDay, slots: calendar[fallbackDay].cmFreeSlots };
+            const fallbackDay = allowedDays[allowedDays.length - 1] || availableDays[availableDays.length - 1] || 1; 
+            const slots = calendar[fallbackDay] ? calendar[fallbackDay].cmFreeSlots : [];
+            return { day: fallbackDay, slots };
         }
         
         let chosenDay = validDays[0];
@@ -239,7 +259,24 @@ export function generatePrepEvents(
         if (day < 1) return false;
         const dIdx = day - 1;
         const shiftStatus = shifts[`0-${dIdx}`]; 
-        const isTele = telework[`0-${dIdx}`] === true;
+        
+        const pad = (n: number) => String(n).padStart(2, '0');
+        // JST日付文字列（YYYY-MM-DD）を取得するヘルパー
+        const toJSTDateStr = (isoStr: string): string => {
+            const d = new Date(isoStr);
+            const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().split('T')[0];
+        };
+        const targetDateStr = `${year}-${pad(month)}-${pad(day)}`;
+
+        // タイムゾーンを考慮してJST日付で比較する
+        const hasTeleworkEvent = events.some(e => {
+            const st = e.start?.toISOString ? e.start.toISOString() : String(e.start);
+            const isTele = e.extendedProps?.type === 'telework' || e.extendedProps?.type === 'テレワーク' || e.title?.includes('テレワーク');
+            return isTele && toJSTDateStr(st) === targetDateStr;
+        });
+
+        const isTele = telework[`0-${dIdx}`] === true || hasTeleworkEvent;
         
         if (isTele) return false; // Telework is not for office-based prep work
 

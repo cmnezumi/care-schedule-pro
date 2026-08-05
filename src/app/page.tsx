@@ -85,6 +85,9 @@ export default function Home() {
     const loadData = async () => {
       setIsLoading(true);
       try {
+        // 未完了のルーティン予定を翌出勤日にロールオーバー（完了を待ってからイベントを取得）
+        await fetch('/api/events/rollover', { method: 'POST' }).catch(() => {});
+
         const [usersRes, typesRes, eventsRes, clinicsRes, routinesRes] = await Promise.all([
           fetch('/api/users'),
           fetch('/api/schedule-types'),
@@ -187,16 +190,52 @@ export default function Home() {
     setIsModalOpen(true);
   };
 
+  // Helper to map DB event to FullCalendar event format
+  const mapDbEventToFc = (e: any) => ({
+    id: e.id,
+    title: e.title,
+    allDay: e.all_day,
+    start: e.start_time,
+    end: e.end_time,
+    backgroundColor: e.background_color,
+    extendedProps: e.extended_props
+  });
+
   const handleSaveVisit = async (data: any) => {
     setIsSaving(true);
     try {
-      await fetch('/api/events', {
+      const response = await fetch('/api/events', {
         method: (data.id || editingEvent?.id) ? 'PUT' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      const res = await fetch('/api/events');
-      setEvents(await res.json());
+      if (!response.ok) throw new Error('Failed to save event');
+      const responseData = await response.json();
+      
+      const isEdit = !!(data.id || editingEvent?.id);
+      
+      if (isEdit) {
+        const baseEventId = data.extendedProps?.baseEventId || editingEvent?.extendedProps?.baseEventId;
+        const updateAll = data.editTargetChoice === 'all' && baseEventId;
+        
+        if (updateAll) {
+          const updatedEvents = Array.isArray(responseData) ? responseData.map(mapDbEventToFc) : [];
+          setEvents(prev => [
+            ...prev.filter(e => e.extendedProps?.baseEventId !== baseEventId),
+            ...updatedEvents
+          ]);
+        } else {
+          const updatedEvent = Array.isArray(responseData) ? responseData[0] : responseData;
+          if (updatedEvent) {
+            const mapped = mapDbEventToFc(updatedEvent);
+            setEvents(prev => prev.map(e => e.id === mapped.id ? mapped : e));
+          }
+        }
+      } else {
+        const newEvents = Array.isArray(responseData) ? responseData.map(mapDbEventToFc) : [mapDbEventToFc(responseData)];
+        setEvents(prev => [...prev, ...newEvents]);
+      }
+
       if (!data.isContinuous) {
         setIsModalOpen(false);
         setEditingEvent(null);
@@ -231,9 +270,10 @@ export default function Home() {
     setIsSaving(true);
     try {
       const realId = eventInfo.baseEventId || eventInfo.id;
-      await fetch(`/api/events?id=${realId}`, { method: 'DELETE' });
-      const res = await fetch('/api/events');
-      setEvents(await res.json());
+      const response = await fetch(`/api/events?id=${realId}`, { method: 'DELETE' });
+      if (!response.ok) throw new Error('Failed to delete event');
+      
+      setEvents(prev => prev.filter(e => e.id !== realId));
       setIsModalOpen(false);
       setEditingEvent(null);
     } catch (e) {
@@ -260,11 +300,29 @@ export default function Home() {
           }
       }
 
-      await fetch(`/api/events?${queryParams.toString()}`, {
+      const response = await fetch(`/api/events?${queryParams.toString()}`, {
         method: 'DELETE'
       });
-      const res = await fetch('/api/events');
-      setEvents(await res.json());
+      if (!response.ok) throw new Error('Failed to delete events');
+
+      const realId = eventToDelete.baseEventId || eventToDelete.id;
+
+      if (choice === 'this') {
+        setEvents(prev => prev.filter(e => e.id !== eventToDelete.id));
+      } else if (choice === 'all') {
+        setEvents(prev => prev.filter(e => e.extendedProps?.baseEventId !== realId && e.id !== realId));
+      } else if (choice === 'following') {
+        const dateStr = eventToDelete.start.split('T')[0];
+        setEvents(prev => prev.filter(e => {
+          const isTargetSeries = e.extendedProps?.baseEventId === realId || e.id === realId;
+          if (isTargetSeries) {
+            const eStart = e.start?.toISOString ? e.start.toISOString() : String(e.start);
+            return eStart.split('T')[0] < dateStr;
+          }
+          return true;
+        }));
+      }
+
       setIsDeletionModalOpen(false);
       setEventToDelete(null);
       setIsModalOpen(false);
@@ -289,13 +347,18 @@ export default function Home() {
     };
 
     try {
-      await fetch('/api/events', {
+      const response = await fetch('/api/events', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatedPayload)
       });
-      const res = await fetch('/api/events');
-      setEvents(await res.json());
+      if (!response.ok) throw new Error('Failed to move event');
+      const responseData = await response.json();
+      const updatedEvent = Array.isArray(responseData) ? responseData[0] : responseData;
+      if (updatedEvent) {
+        const mapped = mapDbEventToFc(updatedEvent);
+        setEvents(prev => prev.map(e => e.id === mapped.id ? mapped : e));
+      }
     } catch (e) {
       console.error(e);
       alert('予定の移動に失敗しました。');
