@@ -312,13 +312,36 @@ export async function PUT(request: Request) {
   }
 }
 
-// DELETE: イベントを削除
 export async function DELETE(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
+    const typeQuery = searchParams.get('type');
+    const monthQuery = searchParams.get('month');
     const id = searchParams.get('id');
     const choice = searchParams.get('choice');
     const dateQuery = searchParams.get('date');
+
+    if (typeQuery === 'routine' && monthQuery) {
+        const [y, m] = monthQuery.split('-').map(Number);
+        const startDate = `${monthQuery}-01T00:00:00`;
+        let nextYear = y;
+        let nextMonth = m + 1;
+        if (nextMonth > 12) {
+            nextMonth = 1;
+            nextYear += 1;
+        }
+        const endDate = `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00`;
+
+        const { error } = await supabase
+            .from('events')
+            .delete()
+            .filter('extended_props->>type', 'eq', 'routine')
+            .gte('start_time', startDate)
+            .lt('start_time', endDate);
+        
+        if (error) throw error;
+        return NextResponse.json({ message: 'Routines for month deleted successfully' });
+    }
 
     if (!id) {
       return NextResponse.json({ message: 'ID is required' }, { status: 400 });

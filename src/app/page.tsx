@@ -551,17 +551,9 @@ export default function Home() {
     setIsSaving(true);
     try {
         const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-        const oldRoutines = events.filter(e => {
-            let s = e.start;
-            if (s && typeof s.toISOString === 'function') s = s.toISOString();
-            return s?.startsWith(targetMonthStr) && e.extendedProps?.type === 'routine';
-        });
-
-        if (oldRoutines.length > 0) {
-            await Promise.all(oldRoutines.map(evt => 
-                fetch(`/api/events?id=${evt.id}`, { method: 'DELETE' })
-            ));
-        }
+        
+        // 既存の当月のルーティン予定を一括削除
+        await fetch(`/api/events?type=routine&month=${targetMonthStr}`, { method: 'DELETE' });
 
         let createdCount = 0;
         const currentMonthNum = month + 1;
