@@ -85,9 +85,6 @@ export default function Home() {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // 未完了のルーティン予定を翌出勤日にロールオーバー（完了を待ってからイベントを取得）
-        await fetch('/api/events/rollover', { method: 'POST' }).catch(() => {});
-
         const [usersRes, typesRes, eventsRes, clinicsRes, routinesRes] = await Promise.all([
           fetch('/api/users'),
           fetch('/api/schedule-types'),
