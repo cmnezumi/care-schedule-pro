@@ -553,7 +553,10 @@ export default function Home() {
         const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
         
         // 既存の当月のルーティン予定を一括削除
-        await fetch(`/api/events?type=routine&month=${targetMonthStr}`, { method: 'DELETE' });
+        const deleteRes = await fetch(`/api/events?type=routine&month=${targetMonthStr}`, { method: 'DELETE' });
+        if (!deleteRes.ok) {
+            throw new Error(`ルーティン削除に失敗しました (status: ${deleteRes.status})`);
+        }
 
         let createdCount = 0;
         const currentMonthNum = month + 1;
@@ -578,11 +581,15 @@ export default function Home() {
 
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
             
+            // 固定IDを使うことでupsert時に同一IDが重複挿入されない
+            const routineEventId = `routine-${routine.id}-${targetMonthStr}`;
+            
             const eventPayload = {
+                id: routineEventId,
                 title: routine.name,
                 type: 'routine',
-                start: `${dateStr}T10:00:00`,
-                end: `${dateStr}T11:00:00`,
+                start: `${dateStr}T10:00:00+09:00`,
+                end: `${dateStr}T11:00:00+09:00`,
                 allDay: false,
                 clientId: 'personal',
                 clientName: '個人の予定',
@@ -592,7 +599,8 @@ export default function Home() {
                     isPersonal: true,
                     type: 'routine',
                     careManagerId: selectedCareManagerId,
-                    status: 'scheduled'
+                    status: 'scheduled',
+                    baseEventId: routineEventId
                 }
             };
 
