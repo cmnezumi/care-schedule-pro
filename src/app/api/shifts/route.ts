@@ -27,7 +27,7 @@ export async function GET() {
 export async function POST(request: Request) {
     try {
         const payload = await request.json(); // Expected: { yearMonth: "2026-02", shifts: {...}, onCall: {...}, telework: {...} }
-        const { yearMonth, shifts, onCall, telework } = payload;
+        const { yearMonth, shifts, onCall, telework, manualKeys, manualOnCallKeys } = payload;
 
         if (!yearMonth) {
             return NextResponse.json({ message: 'Missing yearMonth' }, { status: 400 });
@@ -37,6 +37,8 @@ export async function POST(request: Request) {
             shifts,
             onCall,
             telework,
+            manualKeys: manualKeys || {},
+            manualOnCallKeys: manualOnCallKeys || {},
             updatedAt: new Date().toISOString()
         };
 

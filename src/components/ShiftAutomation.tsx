@@ -45,6 +45,7 @@ const ShiftAutomation = ({
     // or just assume any shiftState that exists *before* clicking "Auto Create" is manual.
     // Let's store a state: manualKeys as a Record<string, boolean> to know which cells are manually set.
     const [manualKeys, setManualKeys] = useState<Record<string, boolean>>({});
+    const [manualOnCallKeys, setManualOnCallKeys] = useState<Record<string, boolean>>({});
 
     const yearMonth = `${year}-${month.toString().padStart(2, '0')}`;
 
@@ -60,21 +61,14 @@ const ShiftAutomation = ({
                     setShiftState(data.shifts || {});
                     setOnCallState(data.onCall || {});
                     setTeleworkState(data.telework || {});
-                    // If shifts loaded from DB, we treat them as manual (since they were saved)
-                    const loadedManuals: Record<string, boolean> = {};
-                    if (data.shifts) {
-                        Object.keys(data.shifts).forEach(k => {
-                            if (data.shifts[k]) {
-                                loadedManuals[k] = true;
-                            }
-                        });
-                    }
-                    setManualKeys(loadedManuals);
+                    setManualKeys(data.manualKeys || {});
+                    setManualOnCallKeys(data.manualOnCallKeys || {});
                 } else {
                     setShiftState({});
                     setOnCallState({});
                     setTeleworkState({});
                     setManualKeys({});
+                    setManualOnCallKeys({});
                 }
             } catch (e) {
                 console.error("Failed to load shifts", e);
@@ -94,7 +88,9 @@ const ShiftAutomation = ({
                     yearMonth,
                     shifts: shiftState,
                     onCall: onCallState,
-                    telework: teleworkState
+                    telework: teleworkState,
+                    manualKeys,
+                    manualOnCallKeys
                 })
             });
             if (res.ok) {
@@ -118,6 +114,15 @@ const ShiftAutomation = ({
                     delete newState[dayIdx];
                 } else {
                     newState[dayIdx] = staffIdx.toString();
+                }
+                return newState;
+            });
+            setManualOnCallKeys(prev => {
+                const newState = { ...prev };
+                if (onCallState[dayIdx] === staffIdx.toString()) {
+                    delete newState[dayIdx];
+                } else {
+                    newState[dayIdx] = true;
                 }
                 return newState;
             });
@@ -300,7 +305,7 @@ const ShiftAutomation = ({
                         if (targetD < 0) break;
                         if (isHoliday(sIdx, targetD, newShiftState)) break;
                         const key = `${sIdx}-${targetD}`;
-                        if (!newShiftState[key] || newShiftState[key] === 'work') {
+                        if (!manualKeys[key] && (!newShiftState[key] || newShiftState[key] === 'work')) {
                             newShiftState[key] = 'auto_holiday';
                             dailyOffCount[targetD]++;
                             assigned++;
@@ -320,17 +325,19 @@ const ShiftAutomation = ({
                         const nextIsHol = targetD < days.length - 1 && isHoliday(sIdx, targetD + 1, newShiftState);
                         if ((prevIsHol || nextIsHol) && (dayOfMonth < 7 || dayOfMonth > 20)) continue;
                         const key = `${sIdx}-${targetD}`;
-                        newShiftState[key] = 'auto_holiday';
-                        dailyOffCount[targetD]++;
-                        assigned++;
-                        break;
+                        if (!manualKeys[key]) {
+                            newShiftState[key] = 'auto_holiday';
+                            dailyOffCount[targetD]++;
+                            assigned++;
+                            break;
+                        }
                     }
                 }
             }
 
             // ---- Pass C: まだ不足しているならフォールバック（制限緩和） ----
             if (assigned < toAssign) {
-                const remaining = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]).sort(() => Math.random() - 0.5);
+                const remaining = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`] && !manualKeys[`${sIdx}-${i}`]).sort(() => Math.random() - 0.5);
                 for (const dIdx of remaining) {
                     if (assigned >= toAssign) break;
                     const isWeekend = days[dIdx].getDay() === 0 || days[dIdx].getDay() === 6;
@@ -349,7 +356,7 @@ const ShiftAutomation = ({
 
             // ---- Pass D: 最終フォールバック（すべてのルール無視） ----
             if (assigned < toAssign) {
-                const remaining = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`]);
+                const remaining = days.map((_, i) => i).filter(i => !newShiftState[`${sIdx}-${i}`] && !manualKeys[`${sIdx}-${i}`]);
                 for (const dIdx of remaining) {
                     if (assigned >= toAssign) break;
                     newShiftState[`${sIdx}-${dIdx}`] = 'auto_holiday';
@@ -370,7 +377,7 @@ const ShiftAutomation = ({
 
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
-                if (newShiftState[key] === 'auto_holiday') {
+                if (!manualKeys[key] && newShiftState[key] === 'auto_holiday') {
                     if (legalRemaining > 0) {
                         newShiftState[key] = 'legal_holiday';
                         legalRemaining--;
@@ -383,7 +390,7 @@ const ShiftAutomation = ({
             // ── ステップ5: 残りは出勤（work）で埋める
             days.forEach((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
-                if (!newShiftState[key]) {
+                if (!manualKeys[key] && !newShiftState[key]) {
                     newShiftState[key] = 'work';
                 }
             });
@@ -398,6 +405,16 @@ const ShiftAutomation = ({
         };
 
         days.forEach((_, dIdx) => {
+            // 手動設定されたオンコールがある場合は保持
+            if (manualOnCallKeys[dIdx] && onCallState[dIdx] !== undefined) {
+                newOnCallState[dIdx] = onCallState[dIdx];
+                const manualStaffIdx = parseInt(onCallState[dIdx]);
+                if (!isNaN(manualStaffIdx)) {
+                    onCallCount[manualStaffIdx]++;
+                }
+                return;
+            }
+
             let eligible = staffList.map((_, i) => i).filter(sIdx => {
                 const worksToday = getIsWorking(sIdx, dIdx, newShiftState);
                 const worksTomorrow = dIdx < days.length - 1 ? getIsWorking(sIdx, dIdx + 1, newShiftState) : worksToday;
