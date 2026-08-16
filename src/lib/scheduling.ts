@@ -39,25 +39,38 @@ export function generateMonitoringSchedule(
         const shiftStatus = shifts[`0-${i}`]; 
         
         const pad = (n: number) => String(n).padStart(2, '0');
-        // JST日付文字列（YYYY-MM-DD）を取得するヘルパー
-        // DBはUTCで保存されているため、+09:00に変換してから日付を比較する
-        const toJSTDateStr = (isoStr: string): string => {
-            const d = new Date(isoStr);
-            const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-            return jst.toISOString().split('T')[0];
+        const toJSTDateStr = (dateInput: any): string => {
+            if (!dateInput) return '';
+            const d = new Date(dateInput);
+            if (isNaN(d.getTime())) return '';
+            return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(d);
         };
         const targetDateStr = `${year}-${pad(month)}-${pad(dayOfMonth)}`;
 
-        // Check if there is an existing telework event on this day in existingEvents
-        // タイムゾーンを考慮してJST日付で比較する
+        // Check if there is an existing telework or holiday event on this day in existingEvents
         const hasTeleworkEvent = existingEvents.some(e => {
-            const st = e.start?.toISOString ? e.start.toISOString() : String(e.start);
-            const isTele = e.extendedProps?.type === 'telework' || e.extendedProps?.type === 'テレワーク' || e.title?.includes('テレワーク');
-            return isTele && toJSTDateStr(st) === targetDateStr;
+            if (!e) return false;
+            const isTele = e.extendedProps?.type === 'telework' || 
+                          e.extendedProps?.type === 'テレワーク' || 
+                          e.title?.includes('テレワーク') ||
+                          e.title?.includes('在宅');
+            return isTele && toJSTDateStr(e.start) === targetDateStr;
         });
 
-        const isTelework = telework[`0-${i}`] === true || hasTeleworkEvent || shiftStatus === 'telework' || shiftStatus === 'テレワーク';
-        const isHoliday = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus || '');
+        const hasHolidayEvent = existingEvents.some(e => {
+            if (!e) return false;
+            const isHol = e.extendedProps?.type === 'holiday' || 
+                          e.extendedProps?.type === 'paid_leave' || 
+                          e.title?.includes('有休') || 
+                          e.title?.includes('公休') || 
+                          e.title?.includes('希望休') || 
+                          e.title?.includes('休暇') ||
+                          e.title?.includes('休み');
+            return isHol && toJSTDateStr(e.start) === targetDateStr;
+        });
+
+        const isTelework = telework[`0-${i}`] === true || telework[`${dayOfMonth}`] === true || hasTeleworkEvent || shiftStatus === 'telework' || shiftStatus === 'テレワーク' || shiftStatus === '在宅';
+        const isHoliday = ['hope_holiday', 'paid_leave', 'am_paid_leave', 'pm_paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday', 'holiday', '休', '有休', '公休', '希望休'].includes(shiftStatus || '') || hasHolidayEvent;
         
         const dateObj = new Date(year, month - 1, dayOfMonth);
         const dayOfWeek = dateObj.getDay();
@@ -65,8 +78,8 @@ export function generateMonitoringSchedule(
         if (shiftStatus) {
             if (!isHoliday && !isTelework) availableDays.push(dayOfMonth);
         } else {
-            // fallback: not weekend
-            if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isTelework) availableDays.push(dayOfMonth);
+            // fallback: not weekend, not holiday, and not telework
+            if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isHoliday && !isTelework) availableDays.push(dayOfMonth);
         }
     }
     const events: any[] = [];
@@ -195,13 +208,25 @@ export function generateMonitoringSchedule(
     // 3. Assign
     const findBestDayAndSlot = (cList: Client[], isRenewal: boolean, groupType: 'office' | 'same' | 'home' | 'couple') => {
         const allowedDays = availableDays.filter(d => isRenewal ? d >= 7 : d >= 10);
+        const candidateDays = allowedDays.length > 0 ? allowedDays : availableDays;
+
+        if (candidateDays.length === 0) {
+            return { day: 1, slots: [] };
+        }
+
         const neededSlots = cList.length;
         const clientIds = cList.map(c => c.id);
         
-        let validDays = allowedDays.filter(d => getClientFreeSlots(d, clientIds).length >= neededSlots);
+        let validDays = candidateDays.filter(d => calendar[d] && getClientFreeSlots(d, clientIds).length >= neededSlots);
 
         if (validDays.length === 0) {
-            const fallbackDay = allowedDays[allowedDays.length - 1] || availableDays[availableDays.length - 1] || 1; 
+            // Pick from candidateDays the day with the most free slots or fewest assignments
+            const sortedByAvailability = [...candidateDays].sort((a, b) => {
+                const freeA = calendar[a] ? calendar[a].cmFreeSlots.length : 0;
+                const freeB = calendar[b] ? calendar[b].cmFreeSlots.length : 0;
+                return freeB - freeA;
+            });
+            const fallbackDay = sortedByAvailability[0];
             const slots = calendar[fallbackDay] ? calendar[fallbackDay].cmFreeSlots : [];
             return { day: fallbackDay, slots };
         }
@@ -209,7 +234,7 @@ export function generateMonitoringSchedule(
         let chosenDay = validDays[0];
         
         if (groupType === 'same') {
-             const daysWithSame = validDays.filter(d => calendar[d].assigned.some(c => c.name.startsWith('●')));
+             const daysWithSame = validDays.filter(d => calendar[d] && calendar[d].assigned.some(c => c.name.startsWith('●')));
              if (daysWithSame.length > 0) chosenDay = daysWithSame[0];
         }
 

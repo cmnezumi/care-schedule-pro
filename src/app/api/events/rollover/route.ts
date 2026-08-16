@@ -4,9 +4,11 @@ import { supabase } from '@/lib/supabase';
 export const dynamic = 'force-dynamic';
 
 // JST で YYYY-MM-DD を返すユーティリティ
-function toJSTDateStr(date: Date): string {
-    const jst = new Date(date.getTime() + 9 * 60 * 60 * 1000);
-    return jst.toISOString().split('T')[0];
+function toJSTDateStr(dateInput: any): string {
+    if (!dateInput) return '';
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tokyo' }).format(d);
 }
 
 // YYYY-MM-DD 文字列から Date オブジェクト（JST 0:00）を返す
@@ -27,8 +29,8 @@ function isWorkingDay(
     const dIdx = d - 1; // 0-indexed
     const key = `0-${dIdx}`;
     const shiftStatus = shiftsMap[key];
-    const isTelework = teleworkMap[key] === true || teleworkEventDates.has(dateStr);
-    const isHoliday = ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus || '');
+    const isTelework = teleworkMap[key] === true || teleworkMap[`${d}`] === true || teleworkEventDates.has(dateStr) || shiftStatus === 'telework' || shiftStatus === 'テレワーク' || shiftStatus === '在宅';
+    const isHoliday = ['hope_holiday', 'paid_leave', 'am_paid_leave', 'pm_paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday', 'holiday', '休', '有休', '公休', '希望休'].includes(shiftStatus || '');
 
     if (isTelework) return false;
     if (shiftStatus) return !isHoliday;
