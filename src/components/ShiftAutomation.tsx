@@ -58,10 +58,21 @@ const ShiftAutomation = ({
                 const allShifts = await res.json();
                 const data = allShifts[yearMonth];
                 if (data) {
-                    setShiftState(data.shifts || {});
+                    const loadedShifts = data.shifts || {};
+                    const loadedManualKeys = data.manualKeys || {};
+                    
+                    // 既存のシフトデータがある場合、manualKeysが未保持でも入力済みのセルを手動固定扱いとして補完
+                    const updatedManualKeys: Record<string, boolean> = { ...loadedManualKeys };
+                    Object.keys(loadedShifts).forEach(k => {
+                        if (loadedShifts[k]) {
+                            updatedManualKeys[k] = true;
+                        }
+                    });
+
+                    setShiftState(loadedShifts);
                     setOnCallState(data.onCall || {});
                     setTeleworkState(data.telework || {});
-                    setManualKeys(data.manualKeys || {});
+                    setManualKeys(updatedManualKeys);
                     setManualOnCallKeys(data.manualOnCallKeys || {});
                 } else {
                     setShiftState({});
@@ -136,9 +147,10 @@ const ShiftAutomation = ({
 
         const current = shiftState[key];
         let next = '';
-        // Cycle: '' -> 'work' (日) -> 'legal_holiday' (法内) -> 'legal_out_holiday' (法外) -> 'paid_leave' (有休) -> 'am_paid_leave' (AM休) -> 'pm_paid_leave' (PM休)
+        // Cycle: '' -> 'work' (日) -> 'hope_holiday' (希望休) -> 'legal_holiday' (法内) -> 'legal_out_holiday' (法外) -> 'paid_leave' (有休) -> 'am_paid_leave' (AM休) -> 'pm_paid_leave' (PM休)
         if (!current) next = 'work';
-        else if (current === 'work') next = 'legal_holiday';
+        else if (current === 'work') next = 'hope_holiday';
+        else if (current === 'hope_holiday') next = 'legal_holiday';
         else if (current === 'legal_holiday') next = 'legal_out_holiday';
         else if (current === 'legal_out_holiday') next = 'paid_leave';
         else if (current === 'paid_leave') next = 'am_paid_leave';
@@ -257,12 +269,12 @@ const ShiftAutomation = ({
 
         // ── ステップ3: 各スタッフに公休（法内＋法外）を自動配置
         staffList.forEach((_, sIdx) => {
-            // 手動設定の「法内」「法外」も公休としてカウント
+            // 手動設定の「希望休」「法内」「法外」等も公休としてカウント
             const existingHolidays = days.filter((_, dIdx) => {
                 const key = `${sIdx}-${dIdx}`;
                 if (!manualKeys[key]) return false;
                 const t = newShiftState[key];
-                return t === 'legal_holiday' || t === 'legal_out_holiday' || t === 'paid_leave' || t === 'am_paid_leave' || t === 'pm_paid_leave';
+                return t === 'legal_holiday' || t === 'legal_out_holiday' || t === 'paid_leave' || t === 'am_paid_leave' || t === 'pm_paid_leave' || t === 'hope_holiday';
             }).length;
 
             const targetTotal = legalInCount + legalOutCount; // 公休の目標合計
@@ -441,6 +453,7 @@ const ShiftAutomation = ({
     const getShiftLabel = (type: string) => {
         switch (type) {
             case 'work': return '日';
+            case 'hope_holiday': return '希望';
             case 'legal_holiday': return '法内';
             case 'legal_out_holiday': return '法外';
             case 'paid_leave': return '有';
@@ -451,9 +464,14 @@ const ShiftAutomation = ({
     };
 
     const getShiftColor = (type: string, isManual: boolean) => {
-        // 手動設定されたセルはすべて赤字にする
-        if (isManual) return 'text-rose-600 font-bold';
+        // 手動設定されたセルは赤字・強調
+        if (isManual) {
+            if (type === 'hope_holiday') return 'text-rose-600 font-bold';
+            if (type === 'work') return 'text-blue-700 font-bold';
+            return 'text-rose-600 font-bold';
+        }
 
+        if (type === 'hope_holiday') return 'text-rose-600 font-bold';
         if (type === 'paid_leave') return 'text-pink-500 font-bold';
         if (type === 'am_paid_leave' || type === 'pm_paid_leave') return 'text-orange-500 font-bold';
         if (type === 'legal_holiday') return 'text-slate-700';
@@ -545,6 +563,9 @@ const ShiftAutomation = ({
                                               ${inputMode === 'telework' ? 'bg-indigo-50/10' : ''}
                                               ${inputMode === 'oncall' ? 'bg-emerald-50/10' : ''}
                                             `}>
+                                            {isManual && type && (
+                                                <span className="absolute top-0.5 left-0.5 text-[8px] leading-none text-rose-500 font-bold select-none" title="手動固定済み">📌</span>
+                                            )}
                                             <div className={`text-xs font-medium ${getShiftColor(type, isManual)}`}>{getShiftLabel(type)}</div>
                                             {isTele && <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-indigo-500 rounded-full border border-white shadow-sm" />}
                                             {isOnCall && <div className="absolute bottom-0 inset-x-0 h-1.5 bg-emerald-400" />}
@@ -561,7 +582,7 @@ const ShiftAutomation = ({
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-indigo-500 rounded-full border border-white shadow-sm" />テレワーク</span>
                 <span className="flex items-center gap-1.5"><span className="w-5 h-1.5 bg-emerald-400 rounded-sm" />オンコール</span>
                 <span className="flex items-center gap-1.5"><span className="w-3 h-3 bg-yellow-100/70 border border-slate-200 rounded-sm" />休み・有休・半休</span>
-                <span className="ml-auto text-slate-400">赤文字:手動固定値 (自動作成で変化しません) | 選択順: 未設定 → 日 → 法内 → 法外 → 有休 → AM休 → PM休</span>
+                <span className="ml-auto text-slate-400">📌赤文字:手動固定値 (自動作成で変化しません) | 選択順: 未設定 → 日 → 希望休 → 法内 → 法外 → 有休 → AM休 → PM休</span>
             </div>
         </div>
     );
