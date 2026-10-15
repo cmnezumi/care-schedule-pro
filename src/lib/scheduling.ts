@@ -280,18 +280,19 @@ export function generatePrepEvents(
     const [year, month] = monthStr.split('-').map(Number);
     const lastDay = new Date(year, month, 0).getDate();
     
+    const pad = (n: number) => String(n).padStart(2, '0');
+    // JST日付文字列（YYYY-MM-DD）を取得するヘルパー
+    const toJSTDateStr = (isoStr: string): string => {
+        const d = new Date(isoStr);
+        const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+        return jst.toISOString().split('T')[0];
+    };
+
     const isWorkingDay = (day: number) => {
         if (day < 1) return false;
         const dIdx = day - 1;
         const shiftStatus = shifts[`0-${dIdx}`]; 
         
-        const pad = (n: number) => String(n).padStart(2, '0');
-        // JST日付文字列（YYYY-MM-DD）を取得するヘルパー
-        const toJSTDateStr = (isoStr: string): string => {
-            const d = new Date(isoStr);
-            const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-            return jst.toISOString().split('T')[0];
-        };
         const targetDateStr = `${year}-${pad(month)}-${pad(day)}`;
 
         // タイムゾーンを考慮してJST日付で比較する
@@ -325,48 +326,58 @@ export function generatePrepEvents(
 
     const targetClinics = ['福永A', '福永B', '小竹', 'ふくしま'];
 
+    // クリニック名を特定・正規化するヘルパー
+    const getClinicName = (evt: any): string | null => {
+        const title = evt.title || '';
+        const type = evt.extendedProps?.type || '';
+
+        for (const clinic of targetClinics) {
+            if (title.includes(clinic) || type.includes(clinic)) {
+                return clinic;
+            }
+        }
+        
+        if (type === 'master_clinic' && title) {
+            return title.replace(/\s*\(往診\)/, '').trim();
+        }
+
+        return null;
+    };
+
     const currentMonthClinicEvents = events.filter(e => {
-        const title = e.title || '';
-        const type = e.extendedProps?.type || '';
-        return targetClinics.some(c => title.includes(c) || type.includes(c));
+        return getClinicName(e) !== null;
     });
 
-    const prepMap = new Map<string, { baseName: string, prevWorkDay: number, day: number, clients: string[] }>();
+    // 前営業日とクリニック名をキーにして同一枠に集約（利用者ごとの重複を防ぐ）
+    const prepMap = new Map<string, { clinicName: string, prevWorkDay: number, day: number }>();
 
     currentMonthClinicEvents.forEach(clinicEvt => {
-        const startDateObj = new Date(clinicEvt.start);
-        const day = startDateObj.getDate();
-        
+        const stStr = clinicEvt.start?.toISOString ? clinicEvt.start.toISOString() : String(clinicEvt.start);
+        const jstDateStr = toJSTDateStr(stStr);
+        const [y, m, d] = jstDateStr.split('-').map(Number);
+        if (y !== year || m !== month) return;
+
+        const day = d;
         const prevWorkDay = getPreviousWorkingDay(day);
         if (prevWorkDay !== null) {
-            const baseName = clinicEvt.title ? clinicEvt.title.replace(/.*:\s*/, '') : (clinicEvt.extendedProps?.type || '往診');
-            const clientName = clinicEvt.title && clinicEvt.title.includes(':') 
-                ? clinicEvt.title.split(':')[0].trim() 
-                : '複数名';
-                
-            const key = `${prevWorkDay}-${baseName}`;
+            const clinicName = getClinicName(clinicEvt)!;
+            const key = `${prevWorkDay}-${clinicName}`;
             if (!prepMap.has(key)) {
-                prepMap.set(key, { baseName, prevWorkDay, day, clients: [] });
-            }
-            const entry = prepMap.get(key)!;
-            if (!entry.clients.includes(clientName)) {
-                entry.clients.push(clientName);
+                prepMap.set(key, { clinicName, prevWorkDay, day });
             }
         }
     });
 
     prepMap.forEach((data) => {
-        const pad = (n: number) => String(n).padStart(2, '0');
         const dayPrefix = `${year}-${pad(month)}-${pad(data.prevWorkDay)}T`;
         
         const startIso = `${dayPrefix}16:30:00+09:00`;
         const endIso = `${dayPrefix}17:30:00+09:00`;
         
-        const titleSuffix = data.clients.length > 0 ? `(${data.clients.join('、')})` : '';
-        
+        // 利用者個別の名前は付けず、「複数名」としてクリニック単位で1件だけ作成
         prepEvents.push({
             id: `auto-prep-${Date.now()}-${eventIdCounter++}`,
-            title: `事前準備（${data.baseName}）${titleSuffix}`,
+            title: `事前準備（${data.clinicName}）(複数名)`,
             start: startIso,
             end: endIso,
             allDay: false,

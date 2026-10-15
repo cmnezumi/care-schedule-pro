@@ -6,6 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin, { DateClickArg } from '@fullcalendar/interaction';
 import { Visit, Client, VisitType, ScheduleType } from '@/types';
+import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 
 interface ScheduleCalendarProps {
   clients?: Client[];
@@ -37,6 +38,7 @@ const ScheduleCalendar = ({
   const [weekViewClientId, setWeekViewClientId] = useState<string>('all');
   const [isMobile, setIsMobile] = useState(false);
   const [selectedDateState, setSelectedDateState] = useState<Date>(new Date());
+  const [isListExpanded, setIsListExpanded] = useState<boolean>(false);
   // Allow local state fallback if props aren't provided (though they will be)
   const [localEvents, setLocalEvents] = useState<any[]>([]);
 
@@ -55,7 +57,10 @@ const ScheduleCalendar = ({
   const handleDateClick = (arg: DateClickArg) => {
     console.log("Date clicked:", arg.dateStr);
     setSelectedDateState(arg.date);
-    if (!isMobile && onDateClick) {
+    if (isMobile) {
+      // スマホでは日付マスをタップした時にその日の予定リストをスムーズに展開
+      setIsListExpanded(true);
+    } else if (onDateClick) {
       onDateClick(arg.date);
     }
   };
@@ -204,7 +209,7 @@ const ScheduleCalendar = ({
           </div>
         </div>
       )}
-      <div className={`w-full min-h-0 relative ${isMobile ? 'h-[55%] flex-grow' : 'flex-1'}`}>
+      <div className={`w-full min-h-0 relative ${isMobile ? (!isWeekOrDayView && isListExpanded ? 'h-[58%] flex-1' : 'flex-1') : 'flex-1'}`}>
         <style jsx global>{`
         .fc-toolbar-title {
           font-size: 1.25rem !important;
@@ -224,21 +229,30 @@ const ScheduleCalendar = ({
         }
         @media (max-width: 768px) {
           .fc-toolbar {
-            flex-direction: column;
-            gap: 5px;
-            margin-bottom: 0.5em !important;
+            display: flex !important;
+            flex-direction: row !important;
+            justify-content: space-between !important;
+            align-items: center !important;
+            gap: 2px !important;
+            margin-bottom: 4px !important;
+            padding: 0 2px !important;
           }
           .fc-toolbar-chunk {
-            display: flex;
-            justify-content: center;
-            width: 100%;
+            display: flex !important;
+            align-items: center !important;
+            gap: 2px !important;
           }
           .fc-toolbar-title {
-            font-size: 1rem !important;
+            font-size: 0.9rem !important;
+            font-weight: 700 !important;
+            white-space: nowrap !important;
           }
           .fc-button {
-            padding: 2px 4px !important;
-            font-size: 10px !important;
+            padding: 2px 6px !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            border-radius: 6px !important;
+            min-height: 26px !important;
           }
         }
         @media (max-height: 450px) and (orientation: landscape) {
@@ -321,9 +335,9 @@ const ScheduleCalendar = ({
             }
           }}
           headerToolbar={isMobile ? {
-            left: 'prev,next',
+            left: 'prev,next today',
             center: 'title',
-            right: 'today'
+            right: 'dayGridMonth,timeGridWeek'
           } : {
             left: 'prev,next today',
             center: 'title',
@@ -478,124 +492,144 @@ const ScheduleCalendar = ({
         />
       </div>
       
-      {isMobile && (
-        <div className="border-t border-slate-200 bg-slate-50/70 flex flex-col h-[45dvh] min-h-[220px]">
-          {/* Header */}
-          <div className="flex items-center justify-between px-4 py-2 bg-slate-100 border-b border-slate-200 flex-none">
-            <span className="text-xs font-bold text-slate-700">
-              {selectedDateState.getMonth() + 1}月{selectedDateState.getDate()}日({(() => {
-                const days = ['日', '月', '火', '水', '木', '金', '土'];
-                return days[selectedDateState.getDay()];
-              })()}) の予定
-            </span>
+      {isMobile && !isWeekOrDayView && (
+        <div className={`border-t border-slate-200 bg-slate-50/95 flex flex-col transition-all duration-200 ease-in-out ${
+          isListExpanded ? 'h-[42%] min-h-[160px] max-h-[260px]' : 'h-11 flex-none'
+        }`}>
+          {/* Header & Accordion Toggle */}
+          <div 
+            onClick={() => setIsListExpanded(!isListExpanded)}
+            className="flex items-center justify-between px-3 py-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 transition-colors border-b border-slate-200 flex-none cursor-pointer select-none"
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-xs font-bold text-slate-800 whitespace-nowrap">
+                {selectedDateState.getMonth() + 1}月{selectedDateState.getDate()}日({(() => {
+                  const days = ['日', '月', '火', '水', '木', '金', '土'];
+                  return days[selectedDateState.getDay()];
+                })()})
+              </span>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 whitespace-nowrap">
+                {getSelectedDayEvents().length}件
+              </span>
+              <span className="text-[10px] text-slate-500 font-bold flex items-center gap-0.5 ml-1">
+                {isListExpanded ? (
+                  <>閉じる <ChevronDown size={13} className="text-slate-500" /></>
+                ) : (
+                  <>一覧を見る <ChevronUp size={13} className="text-slate-500" /></>
+                )}
+              </span>
+            </div>
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (onDateClick) {
                   onDateClick(selectedDateState);
                 }
               }}
-              className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-3 py-1 rounded-full text-xs shadow-sm flex items-center gap-1"
+              className="bg-sky-500 hover:bg-sky-600 active:scale-95 text-white font-bold px-2.5 py-1 rounded-full text-[11px] shadow-sm flex items-center gap-1 whitespace-nowrap"
             >
-              ＋ 新規追加
+              <Plus size={12} strokeWidth={3} /> 追加
             </button>
           </div>
           
-          {/* Event List */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-2">
-            {getSelectedDayEvents().length === 0 ? (
-              <div className="text-center text-xs text-slate-400 py-6 font-bold">予定はありません</div>
-            ) : (
-              getSelectedDayEvents().map((e, idx) => {
-                const isCompleted = e.extendedProps?.status === 'completed';
-                const hasClient = !!(e.extendedProps?.clientId || e.clientId);
-                const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
-                
-                // Format time range
-                let timeStr = '終日';
-                if (!e.allDay && e.start) {
-                  const s = new Date(e.start);
-                  const sh = String(s.getHours()).padStart(2, '0');
-                  const sm = String(s.getMinutes()).padStart(2, '0');
-                  let eh = '';
-                  let em = '';
-                  if (e.end) {
-                    const endObj = new Date(e.end);
-                    eh = String(endObj.getHours()).padStart(2, '0');
-                    em = String(endObj.getMinutes()).padStart(2, '0');
-                  } else {
-                    const endObj = new Date(s.getTime() + 30 * 60 * 1000);
-                    eh = String(endObj.getHours()).padStart(2, '0');
-                    em = String(endObj.getMinutes()).padStart(2, '0');
+          {/* Event List (only visible when expanded) */}
+          {isListExpanded && (
+            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+              {getSelectedDayEvents().length === 0 ? (
+                <div className="text-center text-xs text-slate-400 py-6 font-bold">この日の予定はありません</div>
+              ) : (
+                getSelectedDayEvents().map((e, idx) => {
+                  const isCompleted = e.extendedProps?.status === 'completed';
+                  const hasClient = !!(e.extendedProps?.clientId || e.clientId);
+                  const isPersonal = e.extendedProps?.isPersonal || e.isPersonal;
+                  
+                  // Format time range
+                  let timeStr = '終日';
+                  if (!e.allDay && e.start) {
+                    const s = new Date(e.start);
+                    const sh = String(s.getHours()).padStart(2, '0');
+                    const sm = String(s.getMinutes()).padStart(2, '0');
+                    let eh = '';
+                    let em = '';
+                    if (e.end) {
+                      const endObj = new Date(e.end);
+                      eh = String(endObj.getHours()).padStart(2, '0');
+                      em = String(endObj.getMinutes()).padStart(2, '0');
+                    } else {
+                      const endObj = new Date(s.getTime() + 30 * 60 * 1000);
+                      eh = String(endObj.getHours()).padStart(2, '0');
+                      em = String(endObj.getMinutes()).padStart(2, '0');
+                    }
+                    timeStr = `${sh}:${sm}〜${eh}:${em}`;
                   }
-                  timeStr = `${sh}:${sm}〜${eh}:${em}`;
-                }
 
-                // Color mapping
-                const bgColor = e.backgroundColor || '#94a3b8';
-                
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => {
-                      if (onEventClick) {
-                        onEventClick({ event: e });
-                      }
-                    }}
-                    className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer ${
-                      isCompleted ? 'opacity-60' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {/* Completion Toggle */}
-                      {hasClient && (
-                        <div
-                          onClick={(evt) => {
-                            evt.preventDefault();
-                            evt.stopPropagation();
-                            toggleEventStatus(e.id, e.extendedProps?.status || 'scheduled', e);
-                          }}
-                          className={`flex-none w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                            isCompleted
-                              ? 'bg-emerald-500 border-emerald-500 text-white'
-                              : 'border-slate-300 text-transparent hover:border-emerald-400'
-                          }`}
-                        >
-                          {isCompleted && (
-                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-                      
-                      {/* Time & Title */}
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
-                            {timeStr}
-                          </span>
-                          {isPersonal && !hasClient && (
-                            <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">
-                              自分の予定
+                  // Color mapping
+                  const bgColor = e.backgroundColor || '#94a3b8';
+                  
+                  return (
+                    <div
+                      key={idx}
+                      onClick={() => {
+                        if (onEventClick) {
+                          onEventClick({ event: e });
+                        }
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 transition-all cursor-pointer ${
+                        isCompleted ? 'opacity-60' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {/* Completion Toggle */}
+                        {hasClient && (
+                          <div
+                            onClick={(evt) => {
+                              evt.preventDefault();
+                              evt.stopPropagation();
+                              toggleEventStatus(e.id, e.extendedProps?.status || 'scheduled', e);
+                            }}
+                            className={`flex-none w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                              isCompleted
+                                ? 'bg-emerald-500 border-emerald-500 text-white'
+                                : 'border-slate-300 text-transparent hover:border-emerald-400'
+                            }`}
+                          >
+                            {isCompleted && (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                        
+                        {/* Time & Title */}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded">
+                              {timeStr}
                             </span>
-                          )}
-                        </div>
-                        <div className={`text-xs font-bold ${isCompleted ? 'line-through text-slate-400 font-normal' : 'text-slate-700'} truncate`}>
-                          {e.title}
+                            {isPersonal && !hasClient && (
+                              <span className="text-[10px] font-bold text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded">
+                                自分の予定
+                              </span>
+                            )}
+                          </div>
+                          <div className={`text-xs font-bold ${isCompleted ? 'line-through text-slate-400 font-normal' : 'text-slate-700'} truncate`}>
+                            {e.title}
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    {/* Indicator Color Tag */}
-                    <div
-                      className="w-2.5 h-2.5 rounded-full flex-none ml-2"
-                      style={{ backgroundColor: bgColor }}
-                    />
-                  </div>
-                );
-              })
-            )}
-          </div>
+                      {/* Indicator Color Tag */}
+                      <div
+                        className="w-2.5 h-2.5 rounded-full flex-none ml-2"
+                        style={{ backgroundColor: bgColor }}
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
