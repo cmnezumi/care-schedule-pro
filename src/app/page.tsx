@@ -843,41 +843,45 @@ export default function Home() {
             <div className="flex flex-col gap-2 md:gap-4">
               <div className="flex items-center justify-between px-1 landscape:hidden md:landscape:flex overflow-x-auto scrollbar-hide py-0.5">
                 <div className="flex items-center gap-2 md:gap-4 flex-nowrap min-w-max">
-                  <h2 className="hidden md:inline text-base md:text-lg font-bold text-slate-800">月間スケジュール</h2>
                   <div className="flex items-center gap-2 md:gap-3">
+                    {/* スマホでもすぐ押せるよう「自分の予定のみ」を一番左に配置 */}
+                    <div 
+                      onClick={() => setShowOnlyMySchedule(!showOnlyMySchedule)}
+                      className={`flex items-center gap-1.5 cursor-pointer px-3 py-1.5 md:px-3 md:py-1.5 rounded-full transition-all border shadow-sm ${
+                        showOnlyMySchedule 
+                          ? 'bg-sky-50 border-sky-300 text-sky-800 ring-2 ring-sky-200' 
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                       <span className="text-xs md:text-sm font-bold whitespace-nowrap">👤 自分の予定のみ</span>
+                       <div 
+                          className={`w-7 h-3.5 md:w-8 md:h-4 rounded-full relative transition-colors border shadow-inner ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}
+                       >
+                          <div className={`w-2.5 h-2.5 md:w-3 md:h-3 bg-white rounded-full absolute top-[1px] left-[1px] transition-transform shadow-sm ${showOnlyMySchedule ? 'translate-x-[14px] md:translate-x-[16px]' : ''}`} />
+                       </div>
+                    </div>
+
                     <button
                         onClick={handleDeployClinics}
-                        className="bg-teal-100 text-teal-700 hover:bg-teal-200 hover:text-teal-800 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
+                        className="bg-teal-50 border border-teal-200 text-teal-700 hover:bg-teal-100 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
                     >
                         <Repeat size={13} />
                         往診展開
                     </button>
                     <button
                         onClick={handleDeployRoutines}
-                        className="bg-purple-100 text-purple-700 hover:bg-purple-200 hover:text-purple-800 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
+                        className="bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
                     >
                         <Repeat size={13} />
                         ルーティン展開
                     </button>
                     <button
                         onClick={handleDeployShifts}
-                        className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 hover:text-indigo-800 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5"
+                        className="bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full text-xs md:text-sm font-bold transition-colors shadow-sm flex items-center gap-1.5 whitespace-nowrap"
                     >
                         <Repeat size={13} />
                         シフト反映
                     </button>
-                    <div className="flex items-center gap-1.5 cursor-pointer bg-slate-100 px-2.5 py-1 md:px-3 md:py-1.5 rounded-full hover:bg-slate-200 transition-colors">
-                       <span className="text-xs md:text-sm font-bold text-slate-600">自分の予定のみ</span>
-                       <div 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setShowOnlyMySchedule(!showOnlyMySchedule);
-                          }}
-                          className={`w-7 h-3.5 md:w-8 md:h-4 rounded-full relative transition-colors border shadow-inner cursor-pointer ${showOnlyMySchedule ? 'bg-sky-500 border-sky-600' : 'bg-slate-300 border-slate-400'}`}
-                       >
-                          <div className={`w-2.5 h-2.5 md:w-3 md:h-3 bg-white rounded-full absolute top-[1px] left-[1px] transition-transform shadow-sm ${showOnlyMySchedule ? 'translate-x-[14px] md:translate-x-[16px]' : ''}`} />
-                       </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -892,6 +896,8 @@ export default function Home() {
                   onEventClick={handleEditEvent}
                   onEventDrop={handleEventDrop}
                   onDatesSet={setCurrentMonth}
+                  showOnlyMySchedule={showOnlyMySchedule}
+                  onToggleShowOnlyMySchedule={() => setShowOnlyMySchedule(!showOnlyMySchedule)}
                 />
               </div>
             </div>

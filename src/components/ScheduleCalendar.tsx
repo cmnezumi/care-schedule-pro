@@ -19,6 +19,8 @@ interface ScheduleCalendarProps {
   onEventDrop?: (event: any) => void;
   onEventResize?: (event: any) => void;
   onDatesSet?: (date: Date) => void;
+  showOnlyMySchedule?: boolean;
+  onToggleShowOnlyMySchedule?: () => void;
 }
 
 const ScheduleCalendar = ({
@@ -31,7 +33,9 @@ const ScheduleCalendar = ({
   onEventClick,
   onEventDrop,
   onEventResize,
-  onDatesSet
+  onDatesSet,
+  showOnlyMySchedule = false,
+  onToggleShowOnlyMySchedule
 }: ScheduleCalendarProps) => {
   const [mounted, setMounted] = useState(false);
   const [currentView, setCurrentView] = useState('dayGridMonth');
@@ -192,21 +196,41 @@ const ScheduleCalendar = ({
 
   return (
     <div className="h-full w-full flex flex-col calendar-wrapper relative bg-white rounded-xl overflow-hidden">
-      {isWeekOrDayView && clients.length > 0 && (
-        <div className="w-full flex items-center justify-center pt-3 pb-1 z-10 relative">
-          <div className="flex items-center gap-2 bg-sky-50 px-3 py-1.5 rounded-xl border border-sky-100 shadow-[0_2px_4px_-2px_rgba(0,0,0,0.05)] text-sm">
-            <span className="text-[11px] font-bold text-sky-600/80">週の予定表示:</span>
-            <select
-              className="bg-transparent font-bold text-sky-700 outline-none cursor-pointer"
-              value={weekViewClientId}
-              onChange={(e) => setWeekViewClientId(e.target.value)}
+      {isWeekOrDayView && (
+        <div className="w-full flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200 z-10 gap-2 flex-wrap">
+          {onToggleShowOnlyMySchedule && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onToggleShowOnlyMySchedule();
+              }}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-colors border shadow-sm ${
+                showOnlyMySchedule
+                  ? 'bg-sky-500 text-white border-sky-600 shadow-sky-200'
+                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+              }`}
             >
-              <option value="all">全員を表示する</option>
-              {clients.map(c => (
-                <option key={c.id} value={c.id}>{c.name} 様のみ</option>
-              ))}
-            </select>
-          </div>
+              <span>👤 自分の予定のみ</span>
+              <span className={`w-2 h-2 rounded-full ${showOnlyMySchedule ? 'bg-white' : 'bg-slate-300'}`} />
+            </button>
+          )}
+
+          {clients.length > 0 && !showOnlyMySchedule && (
+            <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200 text-xs shadow-2xs">
+              <span className="text-[11px] font-bold text-slate-500">利用者:</span>
+              <select
+                className="bg-transparent font-bold text-sky-700 outline-none cursor-pointer text-xs"
+                value={weekViewClientId}
+                onChange={(e) => setWeekViewClientId(e.target.value)}
+              >
+                <option value="all">全員を表示</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} 様のみ</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       )}
       <div className={`w-full min-h-0 relative ${isMobile ? (!isWeekOrDayView && isListExpanded ? 'h-[58%] flex-1' : 'flex-1') : 'flex-1'}`}>
@@ -493,15 +517,20 @@ const ScheduleCalendar = ({
       </div>
       
       {isMobile && !isWeekOrDayView && (
-        <div className={`border-t border-slate-200 bg-slate-50/95 flex flex-col transition-all duration-200 ease-in-out ${
-          isListExpanded ? 'h-[42%] min-h-[160px] max-h-[260px]' : 'h-11 flex-none'
+        <div className={`border-t border-slate-200 bg-slate-50/95 flex flex-col ${
+          isListExpanded ? 'h-[44%] min-h-[160px] max-h-[260px]' : 'h-11 flex-none'
         }`}>
           {/* Header & Accordion Toggle */}
-          <div 
-            onClick={() => setIsListExpanded(!isListExpanded)}
-            className="flex items-center justify-between px-3 py-2 bg-slate-100 hover:bg-slate-200/80 active:bg-slate-200 transition-colors border-b border-slate-200 flex-none cursor-pointer select-none"
-          >
-            <div className="flex items-center gap-1.5 min-w-0">
+          <div className="flex items-center justify-between px-3 py-2 bg-slate-100 border-b border-slate-200 flex-none select-none">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setIsListExpanded(!isListExpanded);
+              }}
+              className="flex items-center gap-1.5 min-w-0 text-left outline-none cursor-pointer active:opacity-70"
+            >
               <span className="text-xs font-bold text-slate-800 whitespace-nowrap">
                 {selectedDateState.getMonth() + 1}月{selectedDateState.getDate()}日({(() => {
                   const days = ['日', '月', '火', '水', '木', '金', '土'];
@@ -511,16 +540,18 @@ const ScheduleCalendar = ({
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 whitespace-nowrap">
                 {getSelectedDayEvents().length}件
               </span>
-              <span className="text-[10px] text-slate-500 font-bold flex items-center gap-0.5 ml-1">
+              <span className="text-[10px] text-sky-700 font-bold flex items-center gap-0.5 ml-1 bg-white px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
                 {isListExpanded ? (
-                  <>閉じる <ChevronDown size={13} className="text-slate-500" /></>
+                  <>閉じる <ChevronDown size={13} /></>
                 ) : (
-                  <>一覧を見る <ChevronUp size={13} className="text-slate-500" /></>
+                  <>一覧を見る <ChevronUp size={13} /></>
                 )}
               </span>
-            </div>
+            </button>
             <button
+              type="button"
               onClick={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 if (onDateClick) {
                   onDateClick(selectedDateState);
