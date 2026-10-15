@@ -10,11 +10,12 @@ import VisitModal from "@/components/VisitModal";
 import DeletionChoiceModal from "@/components/DeletionChoiceModal";
 import MonitoringView from "@/components/MonitoringView";
 import EventPreviewModal from "@/components/EventPreviewModal";
+import CaseloadDashboard from "@/components/CaseloadDashboard";
 import { supabase } from "@/lib/supabase";
 import { Client, ScheduleType, CareManager, Clinic, Routine } from "@/types";
-import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsIcon, CheckSquare } from "lucide-react";
+import { Loader2, Calendar as CalendarIcon, Users, Repeat, Settings as SettingsIcon, CheckSquare, TrendingUp } from "lucide-react";
 
-type TabType = 'settings' | 'schedule' | 'conference' | 'shift' | 'monitoring';
+type TabType = 'settings' | 'schedule' | 'conference' | 'shift' | 'monitoring' | 'caseload';
 
 const sortClients50On = (clientList: any[]) => {
   return [...clientList].sort((a, b) => {
@@ -829,6 +830,7 @@ export default function Home() {
               <button onClick={() => setActiveTab('monitoring')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'monitoring' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500'}`}><CheckSquare size={18} /><span>モニタリング</span></button>
               <button onClick={() => setActiveTab('conference')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'conference' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><Users size={18} /><span>会議</span></button>
               <button onClick={() => setActiveTab('shift')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'shift' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><Repeat size={18} /><span>シフト</span></button>
+              <button onClick={() => setActiveTab('caseload')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'caseload' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}><TrendingUp size={18} /><span>担当件数</span></button>
               <button onClick={() => setActiveTab('settings')} className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition-all ${activeTab === 'settings' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}><SettingsIcon size={18} /><span>設定</span></button>
             </nav>
 
@@ -947,6 +949,15 @@ export default function Home() {
             </div>
           )}
 
+          {activeTab === 'caseload' && (
+            <div className="h-[calc(100dvh-130px)] md:h-[calc(100dvh-200px)] min-h-[400px] w-full rounded-2xl md:rounded-3xl border border-slate-200 bg-white shadow-xl overflow-hidden">
+              <CaseloadDashboard 
+                careManagers={careManagers}
+                selectedCareManagerId={selectedCareManagerId}
+              />
+            </div>
+          )}
+
           {activeTab === 'settings' && (
             <Settings
               clients={clients}
@@ -971,12 +982,13 @@ export default function Home() {
       </main>
 
       {/* Mobile Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-white/95 backdrop-blur-md p-2 pb-safe shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.1)]">
-        <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'schedule' ? 'text-blue-600' : 'text-slate-400'}`}><CalendarIcon size={20} /><span className="text-[10px] font-bold">予定</span></button>
-        <button onClick={() => setActiveTab('monitoring')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'monitoring' ? 'text-emerald-600' : 'text-slate-400'}`}><CheckSquare size={20} /><span className="text-[10px] font-bold">モニタ</span></button>
-        <button onClick={() => setActiveTab('conference')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'conference' ? 'text-blue-600' : 'text-slate-400'}`}><Users size={20} /><span className="text-[10px] font-bold">会議</span></button>
-        <button onClick={() => setActiveTab('shift')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'shift' ? 'text-blue-600' : 'text-slate-400'}`}><Repeat size={20} /><span className="text-[10px] font-bold">シフト</span></button>
-        <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'settings' ? 'text-blue-600' : 'text-slate-400'}`}><SettingsIcon size={20} /><span className="text-[10px] font-bold">設定</span></button>
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-white/95 backdrop-blur-md p-1.5 pb-safe shadow-[0_-4px_20px_-8px_rgba(0,0,0,0.1)]">
+        <button onClick={() => setActiveTab('schedule')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'schedule' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}><CalendarIcon size={18} /><span className="text-[9px] font-bold">予定</span></button>
+        <button onClick={() => setActiveTab('monitoring')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'monitoring' ? 'text-emerald-600 font-bold' : 'text-slate-400'}`}><CheckSquare size={18} /><span className="text-[9px] font-bold">モニタ</span></button>
+        <button onClick={() => setActiveTab('conference')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'conference' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}><Users size={18} /><span className="text-[9px] font-bold">会議</span></button>
+        <button onClick={() => setActiveTab('shift')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'shift' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}><Repeat size={18} /><span className="text-[9px] font-bold">シフト</span></button>
+        <button onClick={() => setActiveTab('caseload')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'caseload' ? 'text-sky-600 font-bold' : 'text-slate-400'}`}><TrendingUp size={18} /><span className="text-[9px] font-bold">担当</span></button>
+        <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-0.5 ${activeTab === 'settings' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}><SettingsIcon size={18} /><span className="text-[9px] font-bold">設定</span></button>
       </nav>
 
       <VisitModal

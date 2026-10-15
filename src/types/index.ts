@@ -56,3 +56,37 @@ export interface Routine {
     color: string;     // Color code for the badge
     targetMonths?: number[]; // [1, 2, ..., 12], if undefined or empty, means every month
 }
+
+export interface CareManagerBaseline {
+    care1to5: number;   // 要介護件数
+    support1to2: number; // 要支援件数
+    tenouda: number;     // 天王田
+    suwa: number;        // 諏訪
+    home: number;        // 在宅
+}
+
+export interface CaseloadEvent {
+    id: string;
+    careManagerId: string; // 'cm1' | 'cm2' | 'cm3'
+    type: 'new' | 'end' | 'change_applied' | 'change_resolved';
+    date: string; // YYYY-MM-DD
+    clientName: string;
+    location: 'tenouda' | 'suwa' | 'home'; // 天王田, 諏訪, 在宅
+    careLevelType: 'care' | 'support'; // 要介護, 要支援
+    // 区分変更用
+    targetCareLevelType?: 'care' | 'support'; // 変更後の介護度
+    resolvedDate?: string; // 結果が出た日
+    status?: 'pending' | 'resolved'; // 区分変更中か確定済みか
+    notes?: string;
+    createdAt?: string;
+}
+
+export interface CaseloadData {
+    baseline202609: {
+        cm1: CareManagerBaseline;
+        cm2: CareManagerBaseline;
+        cm3: CareManagerBaseline;
+        [key: string]: CareManagerBaseline;
+    };
+    events: CaseloadEvent[];
+}
