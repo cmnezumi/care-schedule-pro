@@ -16,7 +16,7 @@ interface VisitModalProps {
     defaultClientId?: string | null;
     onDelete?: (event: any) => void;
     onDateChange?: (date: Date) => void;
-    editTargetChoice?: 'single' | 'all';
+    editTargetChoice?: 'single' | 'all' | 'following';
     isSaving?: boolean;
     onCopy?: (data: any) => void;
     clinics?: Clinic[];
@@ -34,7 +34,7 @@ const VisitModal = ({
     clients = [],
     scheduleTypes = [],
     defaultClientId,
-    editTargetChoice = 'single',
+    editTargetChoice = 'single' as 'single' | 'all' | 'following',
     isSaving = false,
     onCopy,
     clinics = [],

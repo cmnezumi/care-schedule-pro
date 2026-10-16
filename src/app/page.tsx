@@ -43,7 +43,7 @@ export default function Home() {
   const [isEditChoiceModalOpen, setIsEditChoiceModalOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<any>(null);
   const [showOnlyMySchedule, setShowOnlyMySchedule] = useState(false);
-  const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all'>('single');
+  const [editTargetChoice, setEditTargetChoice] = useState<'single' | 'all' | 'following'>('single');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [currentMonth, setCurrentMonth] = useState<Date>(new Date());
 
@@ -182,7 +182,7 @@ export default function Home() {
     }
   };
 
-  const handleEditChoice = (choice: 'single' | 'all') => {
+  const handleEditChoice = (choice: 'single' | 'all' | 'following') => {
     setEditTargetChoice(choice);
     setIsEditChoiceModalOpen(false);
     setIsModalOpen(true);
@@ -214,15 +214,29 @@ export default function Home() {
       
       if (isEdit) {
         const baseEventId = data.extendedProps?.baseEventId || editingEvent?.extendedProps?.baseEventId;
-        const updateAll = data.editTargetChoice === 'all' && baseEventId;
+        const choice = data.editTargetChoice;
         
-        if (updateAll) {
+        if (choice === 'all' && baseEventId) {
+          // すべて更新: 同シリーズを全部入れ替え
           const updatedEvents = Array.isArray(responseData) ? responseData.map(mapDbEventToFc) : [];
           setEvents(prev => [
             ...prev.filter(e => e.extendedProps?.baseEventId !== baseEventId),
             ...updatedEvents
           ]);
+        } else if (choice === 'following' && baseEventId) {
+          // 以降更新: 選択日以降のイベントを入れ替え
+          const fromDate = data.start ? data.start.split('T')[0] : '';
+          const updatedEvents = Array.isArray(responseData) ? responseData.map(mapDbEventToFc) : [];
+          setEvents(prev => [
+            ...prev.filter(e => {
+              if (e.extendedProps?.baseEventId !== baseEventId) return true;
+              const evDate = (e.start as string)?.split('T')[0] ?? '';
+              return fromDate ? evDate < fromDate : false;
+            }),
+            ...updatedEvents
+          ]);
         } else {
+          // この日のみ更新
           const updatedEvent = Array.isArray(responseData) ? responseData[0] : responseData;
           if (updatedEvent) {
             const mapped = mapDbEventToFc(updatedEvent);

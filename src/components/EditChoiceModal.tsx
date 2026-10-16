@@ -1,16 +1,20 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import DraggableModal from './DraggableModal';
 
 interface EditChoiceModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (choice: 'single' | 'all') => void;
+    onConfirm: (choice: 'single' | 'following' | 'all') => void;
     eventTitle?: string;
 }
 
 const EditChoiceModal = ({ isOpen, onClose, onConfirm, eventTitle }: EditChoiceModalProps) => {
+    const [choice, setChoice] = useState<'single' | 'following' | 'all'>('single');
+
+    if (!isOpen) return null;
+
     return (
         <DraggableModal
             isOpen={isOpen}
@@ -20,51 +24,72 @@ const EditChoiceModal = ({ isOpen, onClose, onConfirm, eventTitle }: EditChoiceM
         >
             <div className="flex flex-col gap-6">
                 <div className="bg-sky-50 p-4 rounded-xl border border-sky-100 italic text-sm text-sky-800">
-                    「{eventTitle}」は繰り返し予定です。
+                    「{eventTitle}」は繰り返し予定です。<br />
+                    どの範囲を変更しますか？
                 </div>
-
-                <p className="text-slate-600 text-sm leading-relaxed">
-                    この日の予定だけを変更しますか？それとも、元となる繰り返し予定すべてを変更しますか？
-                </p>
 
                 <div className="grid grid-cols-1 gap-3">
-                    <button
-                        onClick={() => onConfirm('single')}
-                        className="w-full py-4 px-4 bg-white border-2 border-slate-100 hover:border-sky-500 hover:bg-sky-50 rounded-2xl text-left transition-all group"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center shrink-0 group-hover:bg-sky-500 group-hover:text-white transition-colors">
-                                <svg className="w-6 h-6 flex-shrink-0" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                            </div>
-                            <div>
-                                <div className="font-bold text-slate-700">この予定のみ変更</div>
-                                <div className="text-[11px] text-slate-400 mt-0.5">選択した日付の予定だけが変更されます</div>
-                            </div>
+                    {/* この予定のみ */}
+                    <label className="flex items-center gap-4 p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-sky-200 hover:bg-sky-50/30 transition-all group">
+                        <input
+                            type="radio"
+                            name="editChoice"
+                            value="single"
+                            checked={choice === 'single'}
+                            onChange={() => setChoice('single')}
+                            className="w-5 h-5 text-sky-500 focus:ring-sky-500 border-slate-300"
+                        />
+                        <div className="flex-1">
+                            <div className="text-sm font-bold text-slate-800 group-hover:text-sky-700">📅 この予定のみ変更</div>
+                            <div className="text-xs text-slate-500 mt-0.5">選択した日の予定だけを変更し、他の週は変更しません。</div>
                         </div>
-                    </button>
+                    </label>
 
-                    <button
-                        onClick={() => onConfirm('all')}
-                        className="w-full py-4 px-4 bg-white border-2 border-slate-100 hover:border-violet-500 hover:bg-violet-50 rounded-2xl text-left transition-all group"
-                    >
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center shrink-0 group-hover:bg-violet-500 group-hover:text-white transition-colors">
-                                <svg className="w-6 h-6 flex-shrink-0" width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                            </div>
-                            <div>
-                                <div className="font-bold text-slate-700">すべての予定を変更</div>
-                                <div className="text-[11px] text-slate-400 mt-0.5">今後（もしくはずっと）の予定すべてが変更されます</div>
-                            </div>
+                    {/* この日以降をすべて */}
+                    <label className="flex items-center gap-4 p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-amber-200 hover:bg-amber-50/30 transition-all group">
+                        <input
+                            type="radio"
+                            name="editChoice"
+                            value="following"
+                            checked={choice === 'following'}
+                            onChange={() => setChoice('following')}
+                            className="w-5 h-5 text-amber-500 focus:ring-amber-500 border-slate-300"
+                        />
+                        <div className="flex-1">
+                            <div className="text-sm font-bold text-slate-800 group-hover:text-amber-700">⏩ この日以降のすべての予定を変更</div>
+                            <div className="text-xs text-slate-500 mt-0.5">過去の記録はそのままで、選択した日以降の予定だけを変更します。</div>
                         </div>
-                    </button>
+                    </label>
+
+                    {/* シリーズ全体 */}
+                    <label className="flex items-center gap-4 p-4 border-2 border-slate-100 rounded-xl cursor-pointer hover:border-violet-200 hover:bg-violet-50/30 transition-all group">
+                        <input
+                            type="radio"
+                            name="editChoice"
+                            value="all"
+                            checked={choice === 'all'}
+                            onChange={() => setChoice('all')}
+                            className="w-5 h-5 text-violet-500 focus:ring-violet-500 border-slate-300"
+                        />
+                        <div className="flex-1">
+                            <div className="text-sm font-bold text-slate-800 group-hover:text-violet-700">🔄 すべての予定を変更</div>
+                            <div className="text-xs text-slate-500 mt-0.5">この繰り返し予定のすべてを変更します（過去分も含む）。</div>
+                        </div>
+                    </label>
                 </div>
 
-                <div className="flex justify-end pt-2">
+                <div className="flex justify-end items-center gap-4 pt-2 border-t border-slate-100">
                     <button
                         onClick={onClose}
-                        className="px-6 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors"
+                        className="px-6 py-2.5 text-sm font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
                     >
                         キャンセル
+                    </button>
+                    <button
+                        onClick={() => onConfirm(choice)}
+                        className="px-8 py-2.5 bg-sky-500 text-white text-sm font-bold rounded-lg hover:bg-sky-600 shadow-lg shadow-sky-200 active:transform active:scale-95 transition-all"
+                    >
+                        変更する
                     </button>
                 </div>
             </div>

@@ -260,10 +260,10 @@ export async function PUT(request: Request) {
     }
 
     const baseEventId = event.extendedProps?.baseEventId;
-    const updateAll = event.editTargetChoice === 'all' && baseEventId;
+    const choice = event.editTargetChoice ?? 'single';
 
-    if (updateAll) {
-      // 1. Delete all existing instance of this series
+    if (choice === 'all' && baseEventId) {
+      // シリーズ全体を変更: 既存インスタンスをすべて削除して再展開
       const { error: deleteError } = await supabase
         .from('events')
         .delete()
@@ -271,11 +271,9 @@ export async function PUT(request: Request) {
 
       if (deleteError) throw deleteError;
 
-      // 2. Re-expand and upsert
-      // Use the same baseEventId to maintain the link
       const regenedEvents = expandEvent({
         ...event,
-        id: baseEventId // Ensure the base ID is consistent
+        id: baseEventId
       });
 
       const { data, error: updateError } = await supabase
@@ -285,6 +283,44 @@ export async function PUT(request: Request) {
 
       if (updateError) throw updateError;
       return NextResponse.json(data);
+    }
+
+    if (choice === 'following' && baseEventId) {
+      // この日以降を変更: 選択日以降のインスタンスのみ削除して再展開
+      const fromDate = event.start ? event.start.split('T')[0] : null;
+      if (!fromDate) {
+        return NextResponse.json({ message: 'Start date required for following update' }, { status: 400 });
+      }
+
+      // 選択日以降のイベントを削除
+      const { error: deleteError } = await supabase
+        .from('events')
+        .delete()
+        .filter('extended_props->>baseEventId', 'eq', baseEventId)
+        .gte('start_time', fromDate);
+
+      if (deleteError) throw deleteError;
+
+      // 選択日以降のみ再展開（recurrenceEndDate を変更前にセットせず展開フィルタリング）
+      const regenedAll = expandEvent({
+        ...event,
+        id: baseEventId
+      });
+      const regenedFollowing = regenedAll.filter((e: any) => {
+        const eDate = (e.start_time as string)?.split('T')[0] ?? '';
+        return eDate >= fromDate;
+      });
+
+      if (regenedFollowing.length > 0) {
+        const { data, error: updateError } = await supabase
+          .from('events')
+          .upsert(regenedFollowing)
+          .select();
+
+        if (updateError) throw updateError;
+        return NextResponse.json(data);
+      }
+      return NextResponse.json([]);
     }
 
     // Default: update a single instance

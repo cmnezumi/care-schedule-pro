@@ -27,3 +27,5 @@ ts-debug.log*
 
 # vercel
 .vercel
+scratch/
+test_*.ts
