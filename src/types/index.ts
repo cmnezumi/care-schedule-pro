@@ -90,3 +90,15 @@ export interface CaseloadData {
     };
     events: CaseloadEvent[];
 }
+
+export interface Memo {
+    id: string;
+    title: string;
+    content: string;
+    careManagerId?: string; // 'cm1' | 'cm2' | 'cm3' | 'all'
+    category?: string;
+    isPinned?: boolean;
+    updatedAt: string;
+    createdAt: string;
+}
+
