@@ -933,10 +933,7 @@ export default function Home() {
 
           {activeTab === 'memo' && (
             <div className="w-full">
-              <MemoBoard
-                careManagers={careManagers}
-                selectedCareManagerId={selectedCareManagerId}
-              />
+              <MemoBoard />
             </div>
           )}
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Memo, CareManager } from '@/types';
+import { Memo } from '@/types';
 import { 
     Search, 
     Plus, 
@@ -10,23 +10,15 @@ import {
     ChevronLeft, 
     FileText, 
     Clock, 
-    Sparkles, 
-    Save, 
-    Share2, 
-    Filter,
-    Users
+    Bold, 
+    Highlighter, 
+    RotateCcw
 } from 'lucide-react';
 
-interface MemoBoardProps {
-    careManagers: CareManager[];
-    selectedCareManagerId: string;
-}
-
-export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoBoardProps) {
+export default function MemoBoard() {
     const [memos, setMemos] = useState<Memo[]>([]);
     const [selectedMemoId, setSelectedMemoId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterCmId, setFilterCmId] = useState<string>('all');
     const [isLoading, setIsLoading] = useState(true);
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
     const [copied, setCopied] = useState(false);
@@ -36,6 +28,27 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
 
     // Debounce timer for auto-save
     const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const editorRef = useRef<HTMLDivElement>(null);
+
+    // Helper: strip HTML to get plain text for preview and word count
+    const stripHtml = (html: string) => {
+        if (!html) return '';
+        return html
+            .replace(/<style[^>]*>.*<\/style>/gm, '')
+            .replace(/<[^>]+>/gm, ' ')
+            .replace(/&nbsp;/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    };
+
+    // Helper: convert plain text with \n to HTML if needed
+    const formatToHtml = (content: string) => {
+        if (!content) return '';
+        if (content.includes('<') && content.includes('>')) {
+            return content;
+        }
+        return content.replace(/\n/g, '<br>');
+    };
 
     // Fetch memos on mount
     useEffect(() => {
@@ -62,6 +75,22 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
         fetchMemos();
         return () => { isMounted = false; };
     }, []);
+
+    // Currently selected memo
+    const selectedMemo = useMemo(() => {
+        return memos.find(m => m.id === selectedMemoId) || null;
+    }, [memos, selectedMemoId]);
+
+    // When selected memo changes, update editor innerHTML directly
+    useEffect(() => {
+        if (editorRef.current && selectedMemo) {
+            const htmlContent = formatToHtml(selectedMemo.content);
+            if (editorRef.current.innerHTML !== htmlContent) {
+                editorRef.current.innerHTML = htmlContent;
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMemoId]);
 
     // Save memos to server
     const persistMemos = async (memosToSave: Memo[]) => {
@@ -94,11 +123,6 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
         }, 800);
     };
 
-    // Currently selected memo
-    const selectedMemo = useMemo(() => {
-        return memos.find(m => m.id === selectedMemoId) || null;
-    }, [memos, selectedMemoId]);
-
     // Create a new memo
     const handleCreateMemo = () => {
         const newId = `memo-${Date.now()}`;
@@ -106,7 +130,6 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
             id: newId,
             title: '',
             content: '',
-            careManagerId: filterCmId !== 'all' ? filterCmId : (selectedCareManagerId !== 'all' ? selectedCareManagerId : 'all'),
             isPinned: false,
             updatedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
@@ -117,25 +140,77 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
         setSelectedMemoId(newId);
         setMobileView('detail');
         triggerAutoSave(updated);
+
+        // Clear editor DOM
+        if (editorRef.current) {
+            editorRef.current.innerHTML = '';
+        }
     };
 
-    // Update active memo content/title
-    const handleUpdateActiveMemo = (updates: Partial<Memo>) => {
+    // Update active memo title
+    const handleUpdateTitle = (title: string) => {
         if (!selectedMemoId) return;
-
         const updated = memos.map(m => {
             if (m.id === selectedMemoId) {
                 return {
                     ...m,
-                    ...updates,
+                    title,
                     updatedAt: new Date().toISOString(),
                 };
             }
             return m;
         });
-
         setMemos(updated);
         triggerAutoSave(updated);
+    };
+
+    // Handle editor HTML input
+    const handleEditorInput = () => {
+        if (!selectedMemoId || !editorRef.current) return;
+        const currentHtml = editorRef.current.innerHTML;
+
+        const updated = memos.map(m => {
+            if (m.id === selectedMemoId) {
+                return {
+                    ...m,
+                    content: currentHtml,
+                    updatedAt: new Date().toISOString(),
+                };
+            }
+            return m;
+        });
+        setMemos(updated);
+        triggerAutoSave(updated);
+    };
+
+    // Formatting Commands (Bold, Red text, Highlight, Clear)
+    const applyFormat = (command: string, value: string | undefined = undefined) => {
+        if (!editorRef.current) return;
+        editorRef.current.focus();
+        document.execCommand(command, false, value);
+        handleEditorInput();
+    };
+
+    const handleApplyBold = (e: React.MouseEvent) => {
+        e.preventDefault();
+        applyFormat('bold');
+    };
+
+    const handleApplyRed = (e: React.MouseEvent) => {
+        e.preventDefault();
+        // Check current text color or apply red
+        applyFormat('foreColor', '#ef4444');
+    };
+
+    const handleApplyHighlight = (e: React.MouseEvent) => {
+        e.preventDefault();
+        applyFormat('hiliteColor', '#fef08a');
+    };
+
+    const handleClearFormat = (e: React.MouseEvent) => {
+        e.preventDefault();
+        applyFormat('removeFormat');
+        applyFormat('foreColor', '#1e293b');
     };
 
     // Toggle Pin status
@@ -170,10 +245,11 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
         }
     };
 
-    // Copy memo text to clipboard
+    // Copy memo text to clipboard (as plain text)
     const handleCopyContent = () => {
         if (!selectedMemo) return;
-        const textToCopy = `${selectedMemo.title ? selectedMemo.title + '\n\n' : ''}${selectedMemo.content}`;
+        const plainBody = stripHtml(selectedMemo.content);
+        const textToCopy = `${selectedMemo.title ? selectedMemo.title + '\n\n' : ''}${plainBody}`;
         navigator.clipboard.writeText(textToCopy);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -183,18 +259,12 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
     const filteredMemos = useMemo(() => {
         return memos
             .filter(m => {
-                // Care manager filter
-                if (filterCmId !== 'all' && m.careManagerId && m.careManagerId !== 'all' && m.careManagerId !== filterCmId) {
-                    return false;
-                }
-                // Search query
-                if (searchQuery.trim()) {
-                    const q = searchQuery.toLowerCase();
-                    const matchTitle = m.title.toLowerCase().includes(q);
-                    const matchContent = m.content.toLowerCase().includes(q);
-                    return matchTitle || matchContent;
-                }
-                return true;
+                if (!searchQuery.trim()) return true;
+                const q = searchQuery.toLowerCase();
+                const matchTitle = m.title.toLowerCase().includes(q);
+                const plainBody = stripHtml(m.content).toLowerCase();
+                const matchContent = plainBody.includes(q);
+                return matchTitle || matchContent;
             })
             .sort((a, b) => {
                 // Pinned first
@@ -203,7 +273,7 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                 // Then by updatedAt desc
                 return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
             });
-    }, [memos, searchQuery, filterCmId]);
+    }, [memos, searchQuery]);
 
     // Format date display
     const formatDate = (isoString: string) => {
@@ -220,17 +290,11 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
         }
     };
 
-    const getCareManagerName = (cmId?: string) => {
-        if (!cmId || cmId === 'all') return '全体共有';
-        const cm = careManagers.find(c => c.id === cmId);
-        return cm ? cm.name : cmId;
-    };
-
     return (
         <div className="flex h-[calc(100dvh-130px)] md:h-[calc(100dvh-180px)] min-h-[450px] w-full rounded-2xl md:rounded-3xl border border-slate-200/80 bg-white shadow-xl overflow-hidden">
             {/* LEFT PANE: MEMO LIST (hidden on mobile if in detail view) */}
             <div className={`flex flex-col border-r border-slate-200 bg-slate-50/70 transition-all ${
-                mobileView === 'detail' ? 'hidden md:flex md:w-[320px] lg:w-[380px]' : 'w-full md:w-[320px] lg:w-[380px]'
+                mobileView === 'detail' ? 'hidden md:flex md:w-[320px] lg:w-[360px]' : 'w-full md:w-[320px] lg:w-[360px]'
             }`}>
                 {/* Header with Title and New Note Button */}
                 <div className="p-3.5 md:p-4 border-b border-slate-200 bg-white flex items-center justify-between gap-2">
@@ -240,7 +304,7 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                         </div>
                         <div>
                             <h2 className="font-bold text-slate-800 text-sm md:text-base leading-tight">メモ帳</h2>
-                            <p className="text-[10px] text-slate-400 font-medium">{filteredMemos.length} 件のメモ</p>
+                            <p className="text-[10px] text-slate-400 font-medium">{filteredMemos.length} 件</p>
                         </div>
                     </div>
 
@@ -253,8 +317,8 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                     </button>
                 </div>
 
-                {/* Search Bar & Filter */}
-                <div className="p-2.5 md:p-3 border-b border-slate-200/60 bg-white/50 space-y-2">
+                {/* Search Bar */}
+                <div className="p-2.5 md:p-3 border-b border-slate-200/60 bg-white/50">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                         <input
@@ -264,33 +328,6 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className="w-full pl-8 pr-3 py-1.5 bg-slate-100 border border-slate-200/80 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400/50 focus:bg-white transition-all"
                         />
-                    </div>
-
-                    {/* Care Manager Filter Pills */}
-                    <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide py-0.5">
-                        <button
-                            onClick={() => setFilterCmId('all')}
-                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
-                                filterCmId === 'all'
-                                    ? 'bg-slate-800 text-white shadow-sm'
-                                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                            }`}
-                        >
-                            すべて
-                        </button>
-                        {careManagers.map(cm => (
-                            <button
-                                key={cm.id}
-                                onClick={() => setFilterCmId(cm.id)}
-                                className={`px-2.5 py-1 rounded-lg text-[11px] font-bold whitespace-nowrap transition-all ${
-                                    filterCmId === cm.id
-                                        ? 'bg-amber-500 text-white shadow-sm'
-                                        : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
-                                }`}
-                            >
-                                {cm.name}
-                            </button>
-                        ))}
                     </div>
                 </div>
 
@@ -310,8 +347,9 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                     ) : (
                         filteredMemos.map(memo => {
                             const isSelected = memo.id === selectedMemoId;
-                            const firstLine = memo.title || memo.content.split('\n')[0] || '無題のメモ';
-                            const preview = memo.content.replace(memo.title, '').trim() || '本文なし';
+                            const plainBody = stripHtml(memo.content);
+                            const firstLine = memo.title || plainBody.split('\n')[0] || '無題のメモ';
+                            const preview = plainBody.replace(memo.title, '').trim() || '本文なし';
 
                             return (
                                 <div
@@ -332,11 +370,9 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                                         }`}>
                                             {firstLine}
                                         </h3>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                            {memo.isPinned && (
-                                                <Pin size={13} className="text-amber-500 fill-amber-500" />
-                                            )}
-                                        </div>
+                                        {memo.isPinned && (
+                                            <Pin size={13} className="text-amber-500 fill-amber-500 shrink-0 mt-0.5" />
+                                        )}
                                     </div>
 
                                     <p className="text-[11px] text-slate-500 line-clamp-2 mb-2 leading-relaxed">
@@ -345,9 +381,7 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
 
                                     <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-50">
                                         <span>{formatDate(memo.updatedAt)}</span>
-                                        <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium">
-                                            {getCareManagerName(memo.careManagerId)}
-                                        </span>
+                                        <span>{plainBody.length} 文字</span>
                                     </div>
                                 </div>
                             );
@@ -362,13 +396,14 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
             }`}>
                 {selectedMemo ? (
                     <>
-                        {/* Editor Action Bar */}
-                        <div className="h-14 px-3 md:px-6 border-b border-slate-200 flex items-center justify-between gap-2 bg-slate-50/50">
-                            <div className="flex items-center gap-2">
+                        {/* Editor Action Bar & Formatting Toolbar */}
+                        <div className="px-3 md:px-6 py-2 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 bg-slate-50/70">
+                            {/* Left: Mobile Back, Pin, and Rich Text Formatting Tools */}
+                            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
                                 {/* Mobile Back Button */}
                                 <button
                                     onClick={() => setMobileView('list')}
-                                    className="md:hidden flex items-center gap-1 text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-lg text-xs font-bold bg-white border border-slate-200 shadow-sm"
+                                    className="md:hidden flex items-center gap-1 text-slate-600 hover:text-slate-900 px-2.5 py-1 rounded-lg text-xs font-bold bg-white border border-slate-200 shadow-sm active:scale-95 transition-all"
                                 >
                                     <ChevronLeft size={16} />
                                     <span>一覧</span>
@@ -377,32 +412,67 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                                 {/* Pin Button */}
                                 <button
                                     onClick={(e) => handleTogglePin(selectedMemo.id, e)}
-                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all border ${
+                                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
                                         selectedMemo.isPinned
                                             ? 'bg-amber-50 text-amber-600 border-amber-300'
                                             : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
                                     }`}
                                     title="ピン留め"
                                 >
-                                    <Pin size={14} className={selectedMemo.isPinned ? 'fill-amber-500' : ''} />
-                                    <span className="hidden sm:inline">{selectedMemo.isPinned ? 'ピン留め中' : 'ピン留め'}</span>
+                                    <Pin size={13} className={selectedMemo.isPinned ? 'fill-amber-500' : ''} />
+                                    <span className="hidden sm:inline">{selectedMemo.isPinned ? '固定中' : '固定'}</span>
                                 </button>
 
-                                {/* Care Manager Tag Selector */}
-                                <div className="flex items-center gap-1 text-xs">
-                                    <select
-                                        value={selectedMemo.careManagerId || 'all'}
-                                        onChange={(e) => handleUpdateActiveMemo({ careManagerId: e.target.value })}
-                                        className="bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-amber-400"
+                                <div className="h-4 w-px bg-slate-200 mx-0.5 hidden sm:block" />
+
+                                {/* FORMATTING BUTTONS */}
+                                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 shadow-sm">
+                                    {/* Bold Button */}
+                                    <button
+                                        onMouseDown={handleApplyBold}
+                                        type="button"
+                                        className="flex items-center justify-center h-7 px-2 rounded hover:bg-slate-100 text-slate-700 active:bg-slate-200 font-extrabold text-xs transition-colors"
+                                        title="太字（選択した文字を太字にする）"
                                     >
-                                        <option value="all">🌐 全体共有</option>
-                                        {careManagers.map(cm => (
-                                            <option key={cm.id} value={cm.id}>👤 {cm.name}</option>
-                                        ))}
-                                    </select>
+                                        <Bold size={14} className="stroke-[2.5]" />
+                                        <span className="ml-1 text-[11px] hidden sm:inline">太字</span>
+                                    </button>
+
+                                    {/* Red Text Button */}
+                                    <button
+                                        onMouseDown={handleApplyRed}
+                                        type="button"
+                                        className="flex items-center justify-center h-7 px-2 rounded hover:bg-red-50 text-red-600 active:bg-red-100 font-bold text-xs transition-colors"
+                                        title="赤字（選択した文字を赤色にする）"
+                                    >
+                                        <span className="font-extrabold text-xs border-b-2 border-red-500 leading-none pb-0.5">A</span>
+                                        <span className="ml-1 text-[11px] text-red-600 hidden sm:inline">赤字</span>
+                                    </button>
+
+                                    {/* Highlight Button */}
+                                    <button
+                                        onMouseDown={handleApplyHighlight}
+                                        type="button"
+                                        className="flex items-center justify-center h-7 px-2 rounded hover:bg-amber-50 text-amber-700 active:bg-amber-100 font-bold text-xs transition-colors"
+                                        title="黄色マーカー（選択した文字を強調）"
+                                    >
+                                        <Highlighter size={13} className="text-amber-500" />
+                                        <span className="ml-1 text-[11px] hidden sm:inline">蛍光</span>
+                                    </button>
+
+                                    {/* Clear Formatting Button */}
+                                    <button
+                                        onMouseDown={handleClearFormat}
+                                        type="button"
+                                        className="flex items-center justify-center h-7 px-1.5 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+                                        title="書式を解除して標準色に戻す"
+                                    >
+                                        <RotateCcw size={12} />
+                                    </button>
                                 </div>
                             </div>
 
+                            {/* Right: Save Status, Copy, Delete */}
                             <div className="flex items-center gap-1.5 md:gap-2">
                                 {/* Save Status Indicator */}
                                 <div className="flex items-center gap-1 text-[11px] text-slate-400 mr-1">
@@ -423,20 +493,20 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                                 {/* Copy Button */}
                                 <button
                                     onClick={handleCopyContent}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm"
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-bold transition-all shadow-sm"
                                     title="本文をコピー"
                                 >
-                                    {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
+                                    {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
                                     <span className="hidden sm:inline">{copied ? 'コピー完了' : 'コピー'}</span>
                                 </button>
 
                                 {/* Delete Button */}
                                 <button
                                     onClick={(e) => handleDeleteMemo(selectedMemo.id, e)}
-                                    className="flex items-center gap-1 px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-xl text-xs font-bold transition-all"
+                                    className="flex items-center gap-1 px-2.5 py-1 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-600 rounded-lg text-xs font-bold transition-all"
                                     title="削除"
                                 >
-                                    <Trash2 size={14} />
+                                    <Trash2 size={13} />
                                     <span className="hidden sm:inline">削除</span>
                                 </button>
                             </div>
@@ -449,23 +519,25 @@ export default function MemoBoard({ careManagers, selectedCareManagerId }: MemoB
                                 type="text"
                                 placeholder="タイトルを入力..."
                                 value={selectedMemo.title}
-                                onChange={(e) => handleUpdateActiveMemo({ title: e.target.value })}
-                                className="w-full text-lg md:text-2xl font-bold text-slate-800 placeholder-slate-300 border-none focus:outline-none focus:ring-0 mb-3 bg-transparent"
+                                onChange={(e) => handleUpdateTitle(e.target.value)}
+                                className="w-full text-lg md:text-2xl font-bold text-slate-800 placeholder-slate-300 border-none focus:outline-none focus:ring-0 mb-2 bg-transparent"
                             />
 
-                            {/* Date & Meta Info */}
-                            <div className="flex items-center gap-3 text-xs text-slate-400 mb-4 pb-3 border-b border-slate-100">
+                            {/* Date & Word Count */}
+                            <div className="flex items-center gap-3 text-xs text-slate-400 mb-4 pb-2 border-b border-slate-100">
                                 <span>最終更新: {new Date(selectedMemo.updatedAt).toLocaleString('ja-JP')}</span>
                                 <span>•</span>
-                                <span>{selectedMemo.content.length} 文字</span>
+                                <span>{stripHtml(selectedMemo.content).length} 文字</span>
                             </div>
 
-                            {/* Content Textarea */}
-                            <textarea
-                                placeholder="メモの内容を入力してください...&#10;&#10;・電話の用件・伝言&#10;・訪問時の留意事項&#10;・ケアマネ間の申し送りなど"
-                                value={selectedMemo.content}
-                                onChange={(e) => handleUpdateActiveMemo({ content: e.target.value })}
-                                className="w-full flex-1 resize-none text-sm md:text-base text-slate-700 placeholder-slate-300 border-none focus:outline-none focus:ring-0 leading-relaxed bg-transparent min-h-[250px]"
+                            {/* Rich Text Editable Content Area */}
+                            <div
+                                ref={editorRef}
+                                contentEditable
+                                suppressContentEditableWarning
+                                onInput={handleEditorInput}
+                                data-placeholder="メモの内容を入力してください...&#10;&#10;文字を選択して上のツールバーから「太字」「赤字」「蛍光」で強調できます。"
+                                className="w-full flex-1 outline-none text-sm md:text-base text-slate-800 leading-relaxed min-h-[300px] empty:before:content-[attr(data-placeholder)] empty:before:text-slate-300 empty:before:whitespace-pre-wrap select-text focus:ring-0"
                             />
                         </div>
                     </>
