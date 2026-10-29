@@ -288,6 +288,8 @@ export function generatePrepEvents(
         return jst.toISOString().split('T')[0];
     };
 
+    const hasShiftData = Object.keys(shifts).length > 0;
+
     const isWorkingDay = (day: number) => {
         if (day < 1) return false;
         const dIdx = day - 1;
@@ -306,11 +308,22 @@ export function generatePrepEvents(
         
         if (isTele) return false; // Telework is not for office-based prep work
 
-        if (!shiftStatus) {
+        const hasHolidayEvent = events.some(e => {
+            const st = e.start?.toISOString ? e.start.toISOString() : String(e.start);
+            const isHol = e.extendedProps?.type === 'holiday' || e.title?.includes('公休') || e.title?.includes('法定') || e.title?.includes('有休') || e.title?.includes('希望休');
+            return isHol && toJSTDateStr(st) === targetDateStr;
+        });
+        if (hasHolidayEvent) return false;
+
+        if (hasShiftData) {
+            if (shiftStatus && ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus)) {
+                return false;
+            }
+            return true;
+        } else {
             const dayOfWeek = new Date(year, month - 1, day).getDay();
             return dayOfWeek !== 0 && dayOfWeek !== 6;
         }
-        return !['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus);
     };
 
     const getPreviousWorkingDay = (day: number) => {
@@ -324,9 +337,10 @@ export function generatePrepEvents(
     const prepEvents: any[] = [];
     let eventIdCounter = 1;
 
+    // 事前準備が必要な往診クリニック（この4つのみが対象）
     const targetClinics = ['福永A', '福永B', '小竹', 'ふくしま'];
 
-    // クリニック名を特定・正規化するヘルパー
+    // クリニック名を特定・正規化するヘルパー（対象4クリニックのみ抽出）
     const getClinicName = (evt: any): string | null => {
         const title = evt.title || '';
         const type = evt.extendedProps?.type || '';
@@ -335,10 +349,6 @@ export function generatePrepEvents(
             if (title.includes(clinic) || type.includes(clinic)) {
                 return clinic;
             }
-        }
-        
-        if (type === 'master_clinic' && title) {
-            return title.replace(/\s*\(往診\)/, '').trim();
         }
 
         return null;
