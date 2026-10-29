@@ -72,7 +72,8 @@ const ShiftAutomation = ({
                     setShiftState(loadedShifts);
                     setOnCallState(data.onCall || {});
                     setTeleworkState(data.telework || {});
-                    setManualKeys(updatedManualKeys);
+                    // manualKeysはDB保存値をそのまま使用（自動作成セルは手動固定扱いにしない）
+                    setManualKeys(loadedManualKeys);
                     setManualOnCallKeys(data.manualOnCallKeys || {});
                 } else {
                     setShiftState({});
@@ -308,11 +309,12 @@ const ShiftAutomation = ({
                 assigned++;
             }
 
-            // ---- Pass B: 4連勤以上が発生していたら強制的に休みを挿入 ----
+            // ---- Pass B: 3連勤以上（4連勤目）が発生していたら強制的に休みを挿入 ----
             for (let d = 0; d < days.length; d++) {
                 const streak = getWorkStreak(sIdx, d, newShiftState);
-                if (streak >= 5) {
-                    for (let step = 1; step <= 4; step++) {
+                if (streak >= 4) {
+                    // 4連勤以上：強制的に過去3日以内に休みを挿入
+                    for (let step = 1; step <= 3; step++) {
                         const targetD = d - step;
                         if (targetD < 0) break;
                         if (isHoliday(sIdx, targetD, newShiftState)) break;
@@ -324,8 +326,9 @@ const ShiftAutomation = ({
                             break;
                         }
                     }
-                } else if (streak === 4 && assigned < toAssign) {
-                    for (let step = 1; step <= 3; step++) {
+                } else if (streak === 3 && assigned < toAssign) {
+                    // 3連勤：割り当て枚数に余裕があれば休みを挿入
+                    for (let step = 1; step <= 2; step++) {
                         const targetD = d - step;
                         if (targetD < 0) break;
                         if (isHoliday(sIdx, targetD, newShiftState)) break;
