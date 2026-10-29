@@ -489,12 +489,27 @@ const ShiftAutomation = ({
 
             <div className="p-3 border-b flex flex-wrap gap-2 items-center justify-between text-sm">
                 <div className="flex flex-wrap gap-4 items-center">
-                    <input type="month" value={yearMonth}
-                        onChange={e => {
-                            const [y, m] = e.target.value.split('-');
-                            setYear(parseInt(y)); setMonth(parseInt(m));
-                        }}
-                        className="border p-1 bg-slate-50 rounded text-xs" />
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => {
+                                const d = new Date(year, month - 2, 1); // 前月
+                                setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+                            title="前の月"
+                        >◀</button>
+                        <span className="text-sm font-bold text-slate-700 w-24 text-center select-none">
+                            {year}年{month}月
+                        </span>
+                        <button
+                            onClick={() => {
+                                const d = new Date(year, month, 1); // 翌月
+                                setYear(d.getFullYear()); setMonth(d.getMonth() + 1);
+                            }}
+                            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-slate-200 text-slate-600 font-bold transition-colors"
+                            title="次の月"
+                        >▶</button>
+                    </div>
                     <div className="flex gap-3 text-xs">
                         <div className="flex items-center gap-1"><span>法内:</span><input type="number" min={0} value={legalInCount} onChange={e => setLegalInCount(parseInt(e.target.value) || 0)} className="w-8 border-b text-center" /></div>
                         <div className="flex items-center gap-1"><span>法外:</span><input type="number" min={0} value={legalOutCount} onChange={e => setLegalOutCount(parseInt(e.target.value) || 0)} className="w-8 border-b text-center" /></div>
