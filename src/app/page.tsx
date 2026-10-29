@@ -621,40 +621,61 @@ export default function Home() {
 
         // 2. シフトデータ（休み情報）を取得
         let monthShifts: Record<string, string> = {};
+        let hasShiftData = false;
         try {
             const shiftsRes = await fetch('/api/shifts');
             if (shiftsRes.ok) {
                 const allShifts = await shiftsRes.json();
                 const monthData = allShifts[targetMonthStr];
-                if (monthData) {
-                    monthShifts = monthData.shifts || {};
+                if (monthData && monthData.shifts && Object.keys(monthData.shifts).length > 0) {
+                    monthShifts = monthData.shifts;
+                    hasShiftData = true;
                 }
             }
         } catch (shiftErr) {
             console.error("Failed to fetch shifts for routine prep:", shiftErr);
         }
 
-        // 休み判定ヘルパー（テレワークはOK！休み（公休・有休・希望休など）だけを避ける）
-        const isNotHoliday = (day: number) => {
-            if (day < 1) return false;
-            const dIdx = day - 1;
-            const shiftStatus = monthShifts[`0-${dIdx}`];
+        // 担当ケアマネのスタッフインデックス（cm1=0, cm2=1, cm3=2）
+        const staffIndex = selectedCareManagerId === 'cm2' ? 1 : (selectedCareManagerId === 'cm3' ? 2 : 0);
 
-            if (!shiftStatus) {
-                // シフト未設定時は土日を休みとみなす
-                const dayOfWeek = new Date(year, month, day).getDay();
-                return dayOfWeek !== 0 && dayOfWeek !== 6;
-            }
-            // 公休・有休・希望休・法定休日などの休みを除外（テレワークは出勤扱いなのでOK）
-            return !['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus);
-        };
-
-        // 3. 当月のカレンダーから「事業所会議」の予定を探す
+        // JST日付判定ヘルパー
         const toJST = (dateInput: any): string => {
             if (!dateInput) return '';
             const d = new Date(dateInput);
             const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
             return jst.toISOString().split('T')[0];
+        };
+
+        // 休み判定ヘルパー（テレワークはOK！休み（公休・有休・希望休など）だけを避ける）
+        const isNotHoliday = (day: number) => {
+            if (day < 1) return false;
+            const dIdx = day - 1;
+            const targetDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+            // カレンダー上の「休み」イベント（シフト反映等で配置されたイベント）を二重チェック
+            const hasHolidayEvent = events.some(e => {
+                const eJst = toJST(e.start);
+                if (eJst !== targetDateStr) return false;
+                const title = e.title || '';
+                const type = e.extendedProps?.type || '';
+                return type === 'holiday' || title.includes('公休') || title.includes('法定') || title.includes('有休') || title.includes('有給') || title.includes('希望休');
+            });
+            if (hasHolidayEvent) return false;
+
+            if (hasShiftData) {
+                // シフトデータが存在する場合：シフト表で明示的に休みになっている日のみ休み！
+                // （空欄セルは土日でも「出勤日」）
+                const shiftStatus = monthShifts[`${staffIndex}-${dIdx}`] || monthShifts[`0-${dIdx}`];
+                if (shiftStatus && ['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus)) {
+                    return false; // 休み
+                }
+                return true; // シフト表に休みが入っていなければ出勤日（土日出勤も含む）
+            } else {
+                // シフト未作成の月のみ：土日を休みとみなす
+                const dayOfWeek = new Date(year, month, day).getDay();
+                return dayOfWeek !== 0 && dayOfWeek !== 6;
+            }
         };
 
         const meetingEvents = events.filter(e => {
