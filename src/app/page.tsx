@@ -561,27 +561,27 @@ export default function Home() {
     const year = currentMonth.getFullYear();
     const month = currentMonth.getMonth();
     
-    const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みのルーティン業務（${routines.length}件）を一括展開しますか？\n（既に展開済みの当月のルーティン予定は一度削除されて再配置されます）`);
+    const confirmDeploy = confirm(`${year}年${month + 1}月のカレンダーに、登録済みのルーティン業務（${routines.length}件）を一括展開しますか？\n（※カレンダーに「事業所会議」がある場合、休みを避けた直前の稼働日に【事前準備（事業所会議）】も自動配置されます）`);
     if (!confirmDeploy) return;
 
     setIsSaving(true);
     try {
         const targetMonthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+        const currentMonthNum = month + 1;
         
-        // 既存の当月のルーティン予定を一括削除
+        // 既存の当月のルーティン予定（事前準備含む）を一括削除
         const deleteRes = await fetch(`/api/events?type=routine&month=${targetMonthStr}`, { method: 'DELETE' });
         if (!deleteRes.ok) {
             throw new Error(`ルーティン削除に失敗しました (status: ${deleteRes.status})`);
         }
 
-        let createdCount = 0;
-        const currentMonthNum = month + 1;
+        // 1. ルーティンマスタのイベント生成
+        const newRoutineEvents: any[] = [];
         
         for (const routine of routines) {
-            // Check if routine is applicable for this month
             if (routine.targetMonths && routine.targetMonths.length > 0) {
                 if (!routine.targetMonths.includes(currentMonthNum)) {
-                    continue; // Skip if not in target months
+                    continue;
                 }
             }
 
@@ -596,11 +596,9 @@ export default function Home() {
             }
 
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(date).padStart(2, '0')}`;
-            
-            // 固定IDを使うことでupsert時に同一IDが重複挿入されない
             const routineEventId = `routine-${routine.id}-${targetMonthStr}`;
             
-            const eventPayload = {
+            newRoutineEvents.push({
                 id: routineEventId,
                 title: routine.name,
                 type: 'routine',
@@ -618,19 +616,128 @@ export default function Home() {
                     status: 'scheduled',
                     baseEventId: routineEventId
                 }
-            };
+            });
+        }
 
+        // 2. シフトデータ（休み情報）を取得
+        let monthShifts: Record<string, string> = {};
+        try {
+            const shiftsRes = await fetch('/api/shifts');
+            if (shiftsRes.ok) {
+                const allShifts = await shiftsRes.json();
+                const monthData = allShifts[targetMonthStr];
+                if (monthData) {
+                    monthShifts = monthData.shifts || {};
+                }
+            }
+        } catch (shiftErr) {
+            console.error("Failed to fetch shifts for routine prep:", shiftErr);
+        }
+
+        // 休み判定ヘルパー（テレワークはOK！休み（公休・有休・希望休など）だけを避ける）
+        const isNotHoliday = (day: number) => {
+            if (day < 1) return false;
+            const dIdx = day - 1;
+            const shiftStatus = monthShifts[`0-${dIdx}`];
+
+            if (!shiftStatus) {
+                // シフト未設定時は土日を休みとみなす
+                const dayOfWeek = new Date(year, month, day).getDay();
+                return dayOfWeek !== 0 && dayOfWeek !== 6;
+            }
+            // 公休・有休・希望休・法定休日などの休みを除外（テレワークは出勤扱いなのでOK）
+            return !['hope_holiday', 'paid_leave', 'legal_holiday', 'legal_out_holiday', 'auto_holiday'].includes(shiftStatus);
+        };
+
+        // 3. 当月のカレンダーから「事業所会議」の予定を探す
+        const toJST = (dateInput: any): string => {
+            if (!dateInput) return '';
+            const d = new Date(dateInput);
+            const jst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+            return jst.toISOString().split('T')[0];
+        };
+
+        const meetingEvents = events.filter(e => {
+            const jstDate = toJST(e.start);
+            if (!jstDate.startsWith(targetMonthStr)) return false;
+
+            const title = e.title || '';
+            const type = e.extendedProps?.type || '';
+            const isMeeting = title.includes('事業所会議') || type === 'office_mtg' || type === 'meeting';
+            const isPrep = title.includes('事前準備');
+            return isMeeting && !isPrep;
+        });
+
+        // 4. 事業所会議の事前準備タスクを生成
+        const newMeetingPreps: any[] = [];
+
+        meetingEvents.forEach((mEvt) => {
+            const jstDate = toJST(mEvt.start);
+            const [, , d] = jstDate.split('-').map(Number);
+
+            // 前日から遡って「休みではない日（テレワークまたは出勤）」を探す
+            let prevDay = d - 1;
+            while (prevDay >= 1 && !isNotHoliday(prevDay)) {
+                prevDay--;
+            }
+
+            if (prevDay >= 1) {
+                const prepDateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(prevDay).padStart(2, '0')}`;
+                const prepEventId = `routine-meeting-prep-${targetMonthStr}-${prevDay}`;
+
+                // 16:30〜17:30 が他の予定（往診事前準備等）と被っているか確認
+                const is1630Busy = events.some(e => {
+                    const eJst = toJST(e.start);
+                    if (eJst !== prepDateStr) return false;
+                    const st = typeof e.start === 'string' ? e.start : (e.start?.toISOString ? e.start.toISOString() : '');
+                    return st.includes('16:30');
+                });
+
+                const startTime = is1630Busy ? '15:30:00' : '16:30:00';
+                const endTime = is1630Busy ? '16:30:00' : '17:30:00';
+
+                newMeetingPreps.push({
+                    id: prepEventId,
+                    title: '事前準備（事業所会議）',
+                    type: 'routine',
+                    start: `${prepDateStr}T${startTime}+09:00`,
+                    end: `${prepDateStr}T${endTime}+09:00`,
+                    allDay: false,
+                    clientId: 'personal',
+                    clientName: '個人の予定',
+                    backgroundColor: '#f97316',
+                    notes: '事業所会議の事前準備（ルーティン展開により自動配置）',
+                    extendedProps: {
+                        isPersonal: true,
+                        type: 'routine',
+                        isMeetingPrep: true,
+                        careManagerId: selectedCareManagerId,
+                        status: 'scheduled',
+                        baseEventId: prepEventId
+                    }
+                });
+            }
+        });
+
+        // 5. ルーティンと事前準備を一括保存
+        const allToInsert = [...newRoutineEvents, ...newMeetingPreps];
+
+        if (allToInsert.length > 0) {
             await fetch('/api/events', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(eventPayload)
+                body: JSON.stringify(allToInsert)
             });
-            createdCount++;
         }
 
         const res = await fetch('/api/events');
         setEvents(await res.json());
-        alert(`${createdCount}件のルーティン予定を展開しました。`);
+
+        const meetingMsg = newMeetingPreps.length > 0 
+            ? `、事業所会議の事前準備（${newMeetingPreps.length}件）` 
+            : (meetingEvents.length > 0 ? '（※事業所会議の直前稼働日が見つかりませんでした）' : '');
+            
+        alert(`${newRoutineEvents.length}件のルーティン予定${meetingMsg}を展開しました。`);
     } catch (e) {
         console.error(e);
         alert('ルーティン展開中にエラーが発生しました。');
